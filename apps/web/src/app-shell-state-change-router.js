@@ -49,8 +49,8 @@ export async function routeAppShellStateChange(reason, payload = {}, deps = {}) 
   }
 
   if (reason === "open-import") {
-    deps.openImportModule?.(payload);
-    return true;
+    if (typeof deps.openImportModule !== "function") return false;
+    return (await deps.openImportModule(payload)) !== false;
   }
 
   if (reason === "seed-smart-notes-demo") {

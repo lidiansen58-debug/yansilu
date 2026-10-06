@@ -2,6 +2,7 @@
 @import "./relation-pair-preview.css";
 @import "./graph-theme-confirmation.css";
 @import "./permanent-note-association-followup.css";
+@import "./first-use-home.css";
 
     :root {
       --bg: #eef2f1;
@@ -32,8 +33,6 @@
 .today-primary-step,
 .today-action-card,
 .today-beginner-guide,
-.today-empty-home,
-.today-empty-next,
 .today-quick-summary,
 .today-overview-compact {
   border: 1px solid rgba(141, 170, 163, 0.28);
@@ -41,43 +40,66 @@
   background: rgba(255, 255, 255, 0.9);
 }
 
+.today-organizing-shell.is-empty,
+.today-organizing-shell.is-startup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.module-stage > #todayOrganizingPanel:has(.today-organizing-shell.is-empty),
+.module-stage > #todayOrganizingPanel:has(.today-organizing-shell.is-startup) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .today-empty-home {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  align-items: center;
-  gap: 24px;
-  padding: 30px;
-  border: 1px solid rgba(15, 118, 110, 0.42);
-  border-radius: 8px;
-  background: linear-gradient(90deg, rgba(232, 248, 244, 0.98), rgba(255, 255, 255, 0.94));
-  box-shadow: 0 18px 42px rgba(15, 118, 110, 0.08);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 560px;
+  color: var(--ink);
+  letter-spacing: 0;
 }
 
 .today-empty-home h3 {
-  margin: 6px 0 8px;
-  color: #132033;
-  font-size: 32px;
-  line-height: 1.25;
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1.4;
 }
 
 .today-empty-home p {
   margin: 0;
-  max-width: 760px;
-  color: #52647a;
+  color: var(--muted);
+  font-size: 14px;
   line-height: 1.65;
 }
 
 .today-empty-home-actions {
   display: grid;
+  justify-items: start;
   gap: 10px;
 }
 
 .today-empty-home-actions .mini-btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  width: 100%;
-  min-height: 60px;
-  font-size: 17px;
-  border-radius: 8px;
+  width: 160px;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 8px 24px;
+  font-size: 14px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.today-empty-home-actions .mini-btn.primary {
+  box-shadow: none;
 }
 
 .today-empty-home-actions .mini-btn[aria-busy="true"] {
@@ -88,6 +110,7 @@
 
 .today-empty-home-actions .mini-btn[aria-busy="true"]::before {
   content: "";
+  flex: 0 0 18px;
   width: 18px;
   height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.42);
@@ -96,9 +119,56 @@
   animation: today-demo-button-spin 0.8s linear infinite;
 }
 
-.today-empty-home-actions small {
-  color: #52647a;
+.today-empty-home small {
+  color: var(--muted);
+  font-size: 13px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.today-empty-home-secondary {
+  display: grid;
+  gap: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.today-empty-home-option {
+  display: grid;
+  grid-template-columns: minmax(0, 230px) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.today-empty-home-option .mini-btn {
+  min-height: 40px;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.today-empty-home .mini-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .today-organizing-shell.is-empty {
+    min-height: 0;
+    padding: 24px 16px;
+  }
+
+  .today-empty-home-option {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .today-empty-home-option small {
+    padding: 0 10px 12px;
+  }
 }
 
 .today-demo-progress {
@@ -226,32 +296,6 @@
   padding: 0 20px;
   font-size: 14px;
   border-radius: 8px;
-}
-
-.today-empty-next {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.66);
-}
-
-.today-empty-next article {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 8px;
-  background: rgba(248, 251, 250, 0.72);
-}
-
-.today-empty-next strong {
-  color: #132033;
-  font-size: 15px;
-}
-
-.today-empty-next span {
-  color: #52647a;
-  line-height: 1.5;
 }
 
 .today-overview-compact {
@@ -577,11 +621,9 @@
 }
 
 @media (max-width: 980px) {
-  .today-empty-home,
   .today-primary-step,
   .today-beginner-guide,
   .today-action-grid,
-  .today-empty-next,
   .today-quick-summary,
   .today-overview-compact,
   .today-secondary-tabs {

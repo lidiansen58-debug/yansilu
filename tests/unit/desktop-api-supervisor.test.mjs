@@ -27,7 +27,7 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /fn get_desktop_service_log/);
   assert.match(source, /fn supervise_desktop_api/);
   assert.match(source, /thread::spawn/);
-  assert.match(source, /spawn_desktop_api\(&config\)/);
+  assert.match(source, /spawn_desktop_api\(&config, &api_child, &shutdown\)/);
   assert.match(source, /desktop_api_log_tail/);
   assert.match(source, /SeekFrom::Start/);
   assert.doesNotMatch(source, /fs::read_to_string\(log_path\)/);
@@ -39,7 +39,7 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(apiSource, /requestMayAccessLan\(req, url\.pathname\)/);
   assert.match(apiSource, /LOCAL_API_LAN_FORBIDDEN/);
   assert.match(source, /\.env_remove\("NODE_OPTIONS"\)/);
-  assert.match(source, /TcpListener::bind\(\("127\.0\.0\.1", port\)\)\.is_ok\(\)[\s\S]*&&[\s\S]*TcpListener::bind\(\("::1", port\)\)\.is_ok\(\)/);
+  assert.match(source, /TcpListener::bind\(\("0\.0\.0\.0", port\)\)\.is_ok\(\)/);
   assert.match(source, /writeln!\(log_file, "\[\{\}\] \{message\}", now_string\(\)\)/);
   assert.match(source, /port 3000 is occupied by an unverified service; trying another port/);
   assert.doesNotMatch(source, /port 3000 is occupied; reusing/);
@@ -79,6 +79,32 @@ test("desktop API supervisor blocks only on consecutive failures", () => {
   assert.match(supervisorSource, /"consecutiveFailures"/);
   assert.doesNotMatch(supervisorSource, /Ok\(launch\) => \{\s*consecutive_failures = 0;/);
   assert.doesNotMatch(supervisorSource, /if restart_count >= API_MAX_RESTARTS/);
+});
+
+test("desktop startup selects vacant ports before slow HTTP probes and exposes a bounded readiness handshake", () => {
+  const source = desktopLibSource();
+  const portSelection = source.slice(source.indexOf("fn resolve_desktop_api_port"), source.indexOf("fn desktop_api_runtime_dir"));
+  assert.ok(portSelection.indexOf("api_port_is_available") < portSelection.indexOf("api_health_matches_vault"));
+  assert.match(source, /if api_port_is_open\(api_port\) && api_health_matches_vault/);
+  assert.match(source, /http:\/\/127\.0\.0\.1:\{api_port\}/);
+  assert.match(source, /async fn wait_for_desktop_api_ready/);
+  assert.match(source, /spawn_blocking[\s\S]*wait_for_desktop_service_status\(status, Duration::from_secs\(30\)\)/);
+  assert.match(source, /"startupWaitTimedOut"/);
+  assert.match(source, /API startup process-created/);
+  assert.match(source, /API startup ready elapsedMs/);
+});
+
+test("desktop health uses decoded HTTP and exit cancels startup and retries", () => {
+  const source = desktopLibSource();
+  assert.match(source, /reqwest::blocking::Client::builder\(\)/);
+  assert.match(source, /\.no_proxy\(\)/);
+  assert.match(source, /reqwest::redirect::Policy::none\(\)/);
+  assert.match(source, /response\.take\(64 \* 1024 \+ 1\)/);
+  assert.doesNotMatch(source, /response\.split\("\\r\\n\\r\\n"\)/);
+  assert.match(source, /shutdown\.swap\(true, Ordering::SeqCst\)/);
+  assert.match(source, /Managed API shutdown completed elapsedMs/);
+  assert.match(source, /wait_unless_shutdown\(&shutdown, Duration::from_millis\(retry_ms\)\)/);
+  assert.match(source, /health_failures >= API_MAX_HEALTH_FAILURES/);
 });
 
 test("desktop service status keeps Ollama external by default", () => {

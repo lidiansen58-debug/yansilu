@@ -6572,6 +6572,7 @@ function appStartupDeps() {
     getApiBase,
     isApiConnectionError,
     apiConnectionErrorMessage,
+    resetDesktopServiceStatusCache,
     activateModule,
     renderAll,
     confirm: window.confirm.bind(window),

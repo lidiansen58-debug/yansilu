@@ -135,7 +135,7 @@ test("prototype API resolves desktop base from supervisor service status", async
       core: {
         invoke: async (command) => {
           calls.push(command);
-          assert.equal(command, "get_desktop_service_status");
+          assert.equal(command, "wait_for_desktop_api_ready");
           return {
             overall: "healthy",
             services: {
@@ -160,7 +160,7 @@ test("prototype API resolves desktop base from supervisor service status", async
 
   try {
     await api.fetchDirectories();
-    assert.deepEqual(calls, ["get_desktop_service_status"]);
+    assert.deepEqual(calls, ["wait_for_desktop_api_ready"]);
     assert.equal(api.getApiBase(), "http://localhost:3010");
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
@@ -170,11 +170,51 @@ test("prototype API resolves desktop base from supervisor service status", async
   }
 });
 
+test("desktop API does not request the vault until the native readiness handshake completes", async t => {
+  let ready, announce;
+  const invoked = new Promise(resolve => { announce = resolve; });
+  const pending = new Promise(resolve => { ready = resolve; });
+  const desktopWindow = { __TAURI__: { core: { invoke: async command => {
+    assert.equal(command, "wait_for_desktop_api_ready");
+    announce();
+    return pending;
+  } } } };
+  const api = await importPrototypeApi("native-readiness", desktopWindow);
+  const previousWindow = globalThis.window;
+  globalThis.window = desktopWindow;
+  let requests = 0;
+  t.mock.method(globalThis, "fetch", async url => {
+    requests++;
+    assert.equal(String(url), "http://127.0.0.1:3001/api/v1/vault");
+    return Response.json({ item: { initialized: true } });
+  });
+  try {
+    const loading = api.fetchVaultInfo();
+    await invoked;
+    assert.equal(requests, 0);
+    assert.equal(api.getApiBase(), "");
+    ready({ overall: "healthy", services: { api: { status: "healthy", baseUrl: "http://127.0.0.1:3001" } } });
+    assert.deepEqual(await loading, { initialized: true });
+    assert.equal(requests, 1);
+  } finally { globalThis.window = previousWindow; }
+});
+
+test("desktop IPC failures retain the original reason instead of pretending the API is down", async () => {
+  const desktopWindow = { __TAURI__: { core: { invoke: async () => { throw new Error("IPC rejected"); } } } };
+  const api = await importPrototypeApi("native-ipc-error", desktopWindow);
+  const previousWindow = globalThis.window;
+  globalThis.window = desktopWindow;
+  try {
+    await assert.rejects(api.fetchVaultInfo(), error => error.code === "desktop_bridge_unavailable" && /IPC rejected/.test(error.message));
+  } finally { globalThis.window = previousWindow; }
+});
+
 test("prototype API clears static fallback when desktop API base is unavailable", async () => {
   const desktopWindow = {
     __TAURI__: {
       core: {
         invoke: async (command) => {
+          if (command === "wait_for_desktop_api_ready") throw new Error("Command not found");
           assert.equal(command, "get_desktop_api_base");
           return "";
         }
@@ -204,7 +244,7 @@ test("prototype API refreshes desktop service status after an early recovering s
       core: {
         invoke: async (command) => {
           calls.push(command);
-          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          assert.ok(["wait_for_desktop_api_ready", "get_desktop_api_base"].includes(command));
           if (command === "get_desktop_api_base") return "";
           if (calls.length === 1) {
             return {
@@ -236,7 +276,7 @@ test("prototype API refreshes desktop service status after an early recovering s
   try {
     await assert.rejects(() => api.fetchDirectories(), { code: "desktop_api_unavailable" });
     await api.fetchDirectories();
-    assert.deepEqual(calls, ["get_desktop_service_status", "get_desktop_api_base", "get_desktop_service_status"]);
+    assert.deepEqual(calls, ["wait_for_desktop_api_ready", "get_desktop_api_base", "wait_for_desktop_api_ready"]);
     assert.ok(fetchCalls.includes("http://localhost:3011/api/v1/directories"));
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
@@ -253,7 +293,7 @@ test("prototype API probes local desktop API when supervisor status lags behind"
       core: {
         invoke: async (command) => {
           calls.push(command);
-          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          assert.ok(["wait_for_desktop_api_ready", "get_desktop_api_base"].includes(command));
           if (command === "get_desktop_api_base") return "";
           return {
             overall: "recovering",
@@ -298,7 +338,7 @@ test("prototype API probes local desktop API when supervisor status lags behind"
 
   try {
     await api.fetchDirectories();
-    assert.deepEqual(calls, ["get_desktop_service_status", "get_desktop_api_base"]);
+    assert.deepEqual(calls, ["wait_for_desktop_api_ready", "get_desktop_api_base"]);
     assert.equal(api.getApiBase(), "http://127.0.0.1:3002");
     assert.ok(fetchCalls.includes("http://127.0.0.1:3002/health"));
     assert.ok(fetchCalls.includes("http://127.0.0.1:3002/api/v1/directories"));
@@ -315,7 +355,7 @@ test("prototype API ignores probed desktop APIs for a different vault", async ()
     __TAURI__: {
       core: {
         invoke: async (command) => {
-          assert.ok(["get_desktop_service_status", "get_desktop_api_base"].includes(command));
+          assert.ok(["wait_for_desktop_api_ready", "get_desktop_api_base"].includes(command));
           if (command === "get_desktop_api_base") return "";
           return {
             overall: "recovering",
