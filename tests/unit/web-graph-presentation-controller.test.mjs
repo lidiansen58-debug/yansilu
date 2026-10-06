@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   createGraphPresentationController,
   prepareGraphEntryPresentationStateForRuntime,
-  resetGraphDemoPresentationStateForRuntime,
   syncGraphDisclosureStateForRuntime
 } from "../../apps/web/src/graph-presentation-controller.js";
 
@@ -90,61 +89,6 @@ test("graph presentation controller clears density hint timer", () => {
   assert.equal(controller.clearGraphDensityHintTimer(), true);
   assert.deepEqual(calls, [99]);
   assert.equal(graphState.densityHintTimer, 0);
-});
-
-test("graph presentation controller resets demo presentation through relation filter host", () => {
-  const calls = [];
-  const graphState = {
-    selection: { kind: "node" },
-    utilityDrawerOpen: true,
-    sectionOpen: { "ai-analysis": true }
-  };
-  const controller = createGraphPresentationController({
-    graphState,
-    setRelationTypeFilter: (...args) => calls.push(args)
-  });
-
-  const reset = controller.resetGraphDemoPresentationState();
-
-  assert.equal(reset, graphState);
-  assert.deepEqual(calls, [["all", { persist: false }]]);
-  assert.equal(graphState.selection, null);
-  assert.equal(graphState.utilityDrawerOpen, false);
-  assert.equal(graphState.utilityDrawerVisible, true);
-  assert.equal(graphState.zoom, "detail");
-  assert.deepEqual(graphState.sectionOpen, {
-    "bridge-gaps": false,
-    "weak-relations": false,
-    "review-queue": false,
-    "ai-analysis": false
-  });
-});
-
-test("graph presentation reset stays self-contained after demo module cleanup", () => {
-  const calls = [];
-  const graphState = {
-    selection: { kind: "node", nodeId: "old" },
-    utilityDrawerOpen: true,
-    sectionOpen: { "ai-analysis": true }
-  };
-
-  const result = resetGraphDemoPresentationStateForRuntime(graphState, {
-    setRelationTypeFilter: (value, options) => calls.push([value, options])
-  });
-
-  assert.equal(result, graphState);
-  assert.deepEqual(calls, [["all", { persist: false }]]);
-  assert.equal(graphState.selection, null);
-  assert.equal(graphState.readingLens, "insight");
-  assert.equal(graphState.zoom, "detail");
-  assert.equal(graphState.utilityDrawerOpen, false);
-  assert.equal(graphState.thinkingPanelVisible, true);
-  assert.deepEqual(graphState.sectionOpen, {
-    "bridge-gaps": false,
-    "weak-relations": false,
-    "review-queue": false,
-    "ai-analysis": false
-  });
 });
 
 test("graph entry starts with map only and no floating panels", () => {

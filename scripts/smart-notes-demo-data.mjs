@@ -1,3 +1,4 @@
+import { smartNotesDemoOperationNotes } from "./smart-notes-demo-operation-notes.mjs";
 import { SMART_NOTES_MANUAL_ID, smartNotesDemoManual } from "./smart-notes-demo-manual.mjs";
 
 const SOURCE_ID = "SRC-SMART-NOTES";
@@ -496,18 +497,6 @@ function scaffold(project, id) {
   };
 }
 
-function guideNotes() {
-  return [
-    ["GUIDE-SMART-NOTES-START", "00 从这里开始：3 分钟看懂观点怎样形成", `你不用先学术语，只看一条链：记录材料 -> 用自己的话转述 -> 保存当前观点 -> 看它为什么变化 -> 建立关系 -> 组织主题 -> 查看提纲。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[用自己的话重说，才能检查理解]]，再打开 [[永久笔记是一条用户愿意承担的判断]]，切到“怎么形成的”看最初问题、改变原因和依据。\n3. 打开 [[关系理由练习：给已有笔记补一条说明]]，搜索一条笔记，选择它带来的影响并写一句理由。\n4. 打开 [[为什么要关联笔记？]]，再进入示例写作项目查看提纲。\n\n先跟着做一遍；不必一次理解全部功能。`],
-    ["GUIDE-TODAY-NEXT-STEP", "01 今天先做哪一步？", "想动手就打开“00 动手练习：从材料写成短文”，跟着上方的下一步，不必读完全部示例。用自己的话写下并保存当前观点；改变已有判断时，写清“这次为什么改变”，再到“怎么形成的”看问题、依据和变化。"],
-    ["GUIDE-WHAT-PERMANENT", "02 什么是永久笔记？", "永久笔记是一条你愿意承担的当前观点。需要时可以写最初的问题、补充说明和边界；观点改变时，保留原因和影响它的笔记。\n\n继续看：[[永久笔记是一条用户愿意承担的判断]]。"],
-    ["GUIDE-WHY-RELATE", "03 为什么要建立关系？", "正文中自动生成的链接和手动保存的关联都会进入知识网络。需要时补一句理由，让未来的你看懂它是支持、反例、条件还是例子。\n\n继续看：[[关系理由比连线本身更重要]]。"],
-    ["GUIDE-WRITABLE-THEME", "04 什么是可写主题？", "当几条永久笔记能一起回答一个问题时，就可以整理成主题索引。\n\n继续看：[[主题索引不是文件夹，而是问题入口]]。"],
-    ["GUIDE-INDEX-TO-WRITING", "05 怎么从主题进入写作中心？", "打开主题，确认中心问题、关键笔记和各自用途。点“开始写”选择这组素材，再点“生成提纲”。提纲可修改，不会自动写成文章；想接着写已有文章，按当前按钮选“继续提纲”“继续草稿”或“继续写”。写一段自己的解释并保存，再从“更多”选择“导出文章 .md”，核对导出的正文。组织书稿时分别保存章节，再按目录顺序导出已保存整稿。"],
-    ["GUIDE-RELATION-TYPES", "06 关系怎么选？", "先选“只是有关”“支持这个观点”“提出不同看法”“补充适用条件”或“提供一个例子”，再写一句为什么。暂时说不清时，先保留正文链接也可以。"]
-  ].map(([id, title, content]) => ({ id, note_type: "guide", title, status: "active", tags: ["导览", "Smart Notes Demo"], body: `# ${title}\n\n${content}` }));
-}
-
 export function buildSmartNotesDemoFixture() {
   const permanent_notes = permanentDefinitions
     .filter(([id]) => CORE_PERMANENT_IDS.has(id))
@@ -516,27 +505,18 @@ export function buildSmartNotesDemoFixture() {
   const final_essays = [
     { id: "ESSAY-SMART-NOTES-DEMO", note_type: "final_essay", title: "示例文章：把已有笔记变成写作结构", writing_project_id: writingProjectMain.id, body: "# 示例文章：把已有笔记变成写作结构\n\n研思录先把已有材料加工成用户愿意承担的判断，再用 [[关系理由比连线本身更重要]] 说明这些判断如何互相支撑，最后通过 [[写作中心应该从已确认判断生成提纲]] 组织成可追溯提纲。" }
   ];
-  const guide_notes = guideNotes();
+  const guide_notes = smartNotesDemoOperationNotes();
   final_essays.push(smartNotesDemoManual());
-  const guideLinkTargets = {
-    "GUIDE-TODAY-NEXT-STEP": "PERM-FLEETING-NOTE-IS-CAPTURE",
-    "GUIDE-INDEX-TO-WRITING": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
-    "GUIDE-RELATION-TYPES": "PERM-RELATION-REASON-MATTERS"
-  };
-  guide_notes.forEach((note) => {
-    const targetId = guideLinkTargets[note.id];
-    if (targetId) note.body += `\n\n继续：[[${targetId}|继续阅读]]`;
-  });
   const finalEssayLinkTargets = { "ESSAY-SMART-NOTES-DEMO": "PERM-COMPOUND-INTEREST-FROM-REUSE" };
   final_essays.forEach((note) => {
     const targetId = finalEssayLinkTargets[note.id];
     if (targetId) note.body += `\n\n延伸：[[${targetId}|继续阅读]]`;
   });
   const fixture = {
-    id: "demo-smart-notes-product-thinking-v3",
+    id: "demo-smart-notes-product-thinking-v4",
     title: "Smart Notes Demo：卡片笔记写作法 x 研思录",
-    purpose: "帮助第一次使用者用一条真实知识链，理解记录、永久笔记、关联、主题和写作怎样连续发生。",
-    version: 3,
+    purpose: "提供卡片笔记写作法的示例笔记、关联、主题和写作正文，操作要点保存为普通笔记供用户查阅。",
+    version: 4,
     sources: [{
       id: SOURCE_ID,
       note_type: "source",
@@ -544,7 +524,7 @@ export function buildSmartNotesDemoFixture() {
       author: "Sönke Ahrens",
       source_kind: "book-method-reference",
       use_boundary: "Demo 只保留方法观念和原创转述，不复刻原文，也不替代阅读原书。",
-      reading_purpose: "把卡片笔记写作法变成研思录里能直接体验的流程。",
+      reading_purpose: "通过普通笔记和写作内容展示卡片笔记写作法的使用方式。",
       tags: ["卡片笔记", "Smart Notes Demo"],
       body: "# 《卡片笔记写作法》方法边界\n\n作者：Sönke Ahrens。英文书名：How to Take Smart Notes。\n\n[作者网站书籍介绍](https://www.soenkeahrens.de/en/takesmartnotes)。Demo 有一条来自这个公开介绍的短文摘，明确标注网站来源，不冒充书中页码。其余材料是原创方法转述和研思录的实践解释。\n\n本 Demo 用自己的话整理方法，只用于演示研思录当前功能。软件中的字段、关系选项和操作顺序属于产品设计，并非原书固定规则。"
     }],

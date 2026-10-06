@@ -148,7 +148,7 @@ assertDesktopApiServerHasHostBinding(path.join(runtimeRoot, "apps", "api", "src"
 copyDir(path.join(repoRoot, "packages"), path.join(runtimeRoot, "packages"));
 
 ensureDir(path.join(runtimeRoot, "scripts"));
-for (const file of ["seed-smart-notes-product-thinking.mjs", "smart-notes-short-practice.mjs", "smart-notes-demo-draft-initialization.mjs"]) {
+for (const file of ["seed-smart-notes-product-thinking.mjs", "smart-notes-demo-draft-initialization.mjs", "smart-notes-demo-instruction-upgrade.mjs"]) {
   copyFile(path.join(repoRoot, "scripts", file), path.join(runtimeRoot, "scripts", file));
 }
 copyDir(

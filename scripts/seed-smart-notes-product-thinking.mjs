@@ -2,8 +2,8 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { withShortSmartNotesPractice } from "./smart-notes-short-practice.mjs";
 import { beginDemoDraftInitialization, finishDemoDraftInitialization } from "./smart-notes-demo-draft-initialization.mjs";
+import { upgradeSmartNotesDemoInstructions } from "./smart-notes-demo-instruction-upgrade.mjs";
 
 import {
   createDirectory,
@@ -26,8 +26,6 @@ const DEFAULT_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "demo-sma
 
 const ORIGINAL_DIRECTORY_ID = "dir_demo_smart_notes_product_thinking_original";
 const ORIGINAL_FOLDER_NAME = "demo-smart-notes-product-thinking";
-const GUIDE_DIRECTORY_ID = "dir_demo_smart_notes_product_thinking_guide";
-const GUIDE_FOLDER_NAME = "smart-notes-demo-guide";
 
 function cleanText(input) {
   return String(input || "").trim();
@@ -75,7 +73,7 @@ function fixtureNoteType(note) {
   if (kind === "source") return "source";
   if (kind === "fleeting") return "fleeting";
   if (kind === "literature") return "literature";
-  if (kind === "guide" || kind === "final_essay") return "guide";
+
   return "permanent";
 }
 
@@ -83,7 +81,7 @@ function directoryIdForFixtureType(fixtureType) {
   if (fixtureType === "source") return "dir_source_default";
   if (fixtureType === "fleeting") return "dir_fleeting_default";
   if (fixtureType === "literature") return "dir_literature_default";
-  if (fixtureType === "guide") return GUIDE_DIRECTORY_ID;
+
   return ORIGINAL_DIRECTORY_ID;
 }
 
@@ -278,20 +276,6 @@ async function ensureOriginalDirectory(vaultPath) {
   });
 }
 
-async function ensureGuideDirectory(vaultPath) {
-  const root = path.resolve(vaultPath);
-  const directories = await listDirectories(root, { includeHidden: true });
-  const existing = directories.find((item) => item.id === GUIDE_DIRECTORY_ID);
-  if (existing) return existing;
-  return createDirectory(root, {
-    id: GUIDE_DIRECTORY_ID,
-    title: "Demo 导览",
-    directoryType: "custom",
-    fsPath: path.join(root, "notes", GUIDE_FOLDER_NAME),
-    maxNotes: 32
-  });
-}
-
 async function upsertSource(vaultPath, note, counters) {
   const payload = {
     id: cleanText(note?.id) || `src_${randomUUID().slice(0, 8)}`,
@@ -316,7 +300,7 @@ async function upsertSource(vaultPath, note, counters) {
 async function upsertNote(vaultPath, note, counters) {
   const fixtureType = fixtureNoteType(note);
   if (fixtureType === "source") return upsertSource(vaultPath, note, counters);
-  const directoryId = directoryIdForFixtureType(fixtureType);
+  const directoryId = cleanText(note?.directoryId) || directoryIdForFixtureType(fixtureType);
   const payload = {
     id: cleanText(note?.id) || `note_${randomUUID().slice(0, 8)}`,
     directoryId,
@@ -445,10 +429,6 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
     const scaffoldFixture = Array.isArray(fixture?.draft_scaffolds)
       ? fixture.draft_scaffolds.find((item) => cleanText(item?.writing_project_id) === cleanText(writingProject?.id))
       : null;
-    if (project.deferScaffold === true && !writingProject.scaffold_id) {
-      results.push({ writingProjectId: writingProject.id, scaffoldId: null });
-      continue;
-    }
     const scaffoldId = cleanText(writingProject.scaffold_id) || cleanText(scaffoldFixture?.id) || `ds_${cleanText(writingProject.id)}`;
     const versionNote = cleanText(scaffoldFixture?.version_note);
 
@@ -483,10 +463,19 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   await initVault(vaultPath);
   await ensureOriginalDirectory(vaultPath);
-  await ensureGuideDirectory(vaultPath);
+
 
   const { fixturePath, fixture: loadedFixture } = await loadFixture(options.fixturePath);
-  const fixture = withShortSmartNotesPractice(loadedFixture);
+  const fixture = loadedFixture;
+  if (fixture.guide_notes?.some(note => note.directoryId === "dir_yansilu_usage_notes")) {
+    const directories = await listDirectories(vaultPath, { includeHidden: true });
+    if (!directories.some(directory => directory.id === "dir_yansilu_usage_notes")) {
+      await createDirectory(vaultPath, {
+        id: "dir_yansilu_usage_notes", title: "研思录使用方法", parentDirectoryId: "dir_original_default",
+        directoryType: "custom", fsPath: path.join(path.resolve(vaultPath), "notes", "original", "yansilu-usage"), maxNotes: 32
+      });
+    }
+  }
   const counts = fixture?.counts && typeof fixture.counts === "object" ? fixture.counts : {};
   const counters = {
     createdSources: 0,
@@ -544,9 +533,11 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     for (const card of fixture.index_cards) await upsertIndexCard(vaultPath, card, counters);
   }
 
+  counters.updatedNotes += await upgradeSmartNotesDemoInstructions(vaultPath, fixture);
+
   const writingEntries = await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
-  const primaryWritingEntry = writingEntries.find((entry) => entry.writingProjectId === fixture.practiceProjectId) || writingEntries[0] || null;
-  const preferredFirstNoteId = cleanText(fixture.practiceGuideId || fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
+  const primaryWritingEntry = writingEntries[0] || null;
+  const preferredFirstNoteId = cleanText(fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
 
   return {
     kind: "smart_notes_product_thinking_seed",
@@ -555,6 +546,8 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     fixtureId: cleanText(fixture?.id) || "demo-smart-notes-product-thinking",
     fixturePath,
     directoryId: ORIGINAL_DIRECTORY_ID,
+    directoryIds: [...new Set(batches.filter(note => fixtureNoteType(note) !== "source")
+      .map(note => cleanText(note.directoryId) || directoryIdForFixtureType(fixtureNoteType(note))))],
     firstNoteId: preferredFirstNoteId,
     writingProjectId: primaryWritingEntry?.writingProjectId || null,
     draftScaffoldId: primaryWritingEntry?.scaffoldId || null,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { initVault, createNoteInDirectory, getNoteById, updateNoteContent } from "../../packages/domain/src/index.mjs";
+import { initVault, createNoteInDirectory, getNoteById, updateNoteContent, listNoteRelations, createNoteRelation, updateNoteRelation, deleteNoteRelation } from "../../packages/domain/src/index.mjs";
 
 async function fixture(t) {
   const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-save-conflict-"));
@@ -102,4 +102,95 @@ test("external edits after the initial read survive validation and prevent a ren
   });
   await assert.rejects(updateNoteContent(vault, note.id, { expectedBody: note.body, title: "Renamed", body: "EDITOR" }), { code: "NOTE_SAVE_CONFLICT" });
   assert.equal(await readFile(file, "utf8"), changed);
+});
+
+test("matching outgoing relation baselines permit a save without changing manual relations", async t => {
+  const { vault, note } = await fixture(t);
+  const peer = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "Peer", body: "# Peer\n\nA different note." });
+  await createNoteRelation(vault, note.id, { toNoteId: peer.id, relationType: "supports", rationale: "This other note provides evidence for the claim." });
+  const baseline = (await listNoteRelations(vault, note.id)).outgoingLinks;
+  const saved = await updateNoteContent(vault, note.id, { body: "# Save base\n\nNEXT", expectedOutgoingRelations: baseline });
+  assert.match(saved.body, /NEXT/);
+  assert.deepEqual((await listNoteRelations(vault, note.id)).outgoingLinks, baseline);
+});
+
+for (const mutation of ["delete", "edit", "add"]) test(`a ${mutation} of outgoing relations rejects a stale guarded note save`, async t => {
+  const { vault, note, file } = await fixture(t);
+  const peer = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "Peer", body: "# Peer\n\nA different note." });
+  const relation = await createNoteRelation(vault, note.id, { toNoteId: peer.id, relationType: "supports", rationale: "This other note provides evidence for the claim." });
+  const baseline = mutation === "add" ? [] : (await listNoteRelations(vault, note.id)).outgoingLinks;
+  if (mutation === "delete") await deleteNoteRelation(vault, relation.id);
+  if (mutation === "edit") await updateNoteRelation(vault, relation.id, { rationale: "Updated evidence and conditions for this claim.", status: "archived" });
+  const disk = await fs.readFile(file, "utf8");
+  const current = (await listNoteRelations(vault, note.id)).outgoingLinks;
+  await assert.rejects(updateNoteContent(vault, note.id, { body: "# Save base\n\nSTALE", expectedOutgoingRelations: baseline }), { code: "NOTE_SAVE_CONFLICT" });
+  assert.equal(await fs.readFile(file, "utf8"), disk);
+  assert.deepEqual((await listNoteRelations(vault, note.id)).outgoingLinks, current);
+});
+
+test("malformed outgoing relation baselines cannot disable save protection", async t => {
+  const { vault, note, file } = await fixture(t);
+  const disk = await fs.readFile(file, "utf8");
+  for (const expectedOutgoingRelations of [null, {}, [{}], [{ id: "" }]]) {
+    await assert.rejects(updateNoteContent(vault, note.id, { body: "EDITOR", expectedOutgoingRelations }), { code: "NOTE_SAVE_BASE_INVALID" });
+  }
+  assert.equal(await fs.readFile(file, "utf8"), disk);
+});
+
+for (const rename of [false, true]) test(`relation conflict rollback preserves an external edit after writing${rename ? " and renaming" : ""}`, async t => {
+  const { vault, note, file } = await fixture(t);
+  const peer = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "Peer", body: "# Peer\n\nA different note." });
+  const relation = await createNoteRelation(vault, note.id, { toNoteId: peer.id, relationType: "supports", rationale: "This other note provides evidence for the claim." });
+  const baseline = (await listNoteRelations(vault, note.id)).outgoingLinks;
+  const realWrite = fs.writeFile.bind(fs);
+  let externalPath;
+  let externalMarkdown;
+  t.mock.method(fs, "writeFile", async (target, content, ...args) => {
+    const result = await realWrite(target, content, ...args);
+    if (!externalPath && String(content).includes("EDITOR-SAVE")) {
+      externalPath = String(target);
+      await deleteNoteRelation(vault, relation.id);
+      externalMarkdown = `${content}\nEXTERNAL-AFTER-WRITE\n`;
+      await realWrite(target, externalMarkdown, "utf8");
+    }
+    return result;
+  });
+  await assert.rejects(updateNoteContent(vault, note.id, {
+    ...(rename ? { title: "Renamed save" } : {}),
+    body: `# ${rename ? "Renamed save" : "Save base"}\n\nEDITOR-SAVE`,
+    expectedOutgoingRelations: baseline
+  }), { code: "NOTE_SAVE_CONFLICT" });
+  assert.ok(externalPath);
+  assert.equal(await fs.readFile(file, "utf8"), externalMarkdown);
+  if (rename) await assert.rejects(fs.access(externalPath), { code: "ENOENT" });
+  assert.match((await getNoteById(vault, note.id)).body, /EXTERNAL-AFTER-WRITE/);
+  assert.equal((await listNoteRelations(vault, note.id)).outgoingLinks.length, 0);
+});
+
+test("relation conflict rollback restores an unchanged renamed file", async t => {
+  const { vault, note, file } = await fixture(t);
+  const beforeNote = await getNoteById(vault, note.id);
+  const before = await fs.readFile(file, "utf8");
+  const peer = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "Peer", body: "# Peer\n\nA different note." });
+  const relation = await createNoteRelation(vault, note.id, { toNoteId: peer.id, relationType: "supports", rationale: "This other note provides evidence for the claim." });
+  const baseline = (await listNoteRelations(vault, note.id)).outgoingLinks;
+  const realWrite = fs.writeFile.bind(fs);
+  let renamedPath;
+  t.mock.method(fs, "writeFile", async (target, content, ...args) => {
+    const result = await realWrite(target, content, ...args);
+    if (!renamedPath && String(content).includes("EDITOR-SAVE")) {
+      renamedPath = String(target);
+      await deleteNoteRelation(vault, relation.id);
+    }
+    return result;
+  });
+  await assert.rejects(updateNoteContent(vault, note.id, {
+    title: "Renamed save", body: "# Renamed save\n\nEDITOR-SAVE", expectedOutgoingRelations: baseline
+  }), { code: "NOTE_SAVE_CONFLICT" });
+  assert.ok(renamedPath);
+  assert.notEqual(path.resolve(renamedPath), path.resolve(file));
+  await assert.rejects(fs.access(renamedPath), { code: "ENOENT" });
+  assert.equal(await fs.readFile(file, "utf8"), before);
+  assert.deepEqual(await getNoteById(vault, note.id), beforeNote);
+  assert.equal((await listNoteRelations(vault, note.id)).outgoingLinks.length, 0);
 });

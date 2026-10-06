@@ -8907,7 +8907,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
     assert.match(String(statusText || ""), /Smart Notes Demo/);
-    assert.match(String(statusText || ""), /已打开导览笔记/);
+    assert.match(String(statusText || ""), /已打开示例内容目录/);
 
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
@@ -8915,8 +8915,8 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       selectedFolderId: window.__prototypeState?.selectedFolderId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SHORT-PRACTICE");
-    assert.equal(startupState.selectedFolderId, "dir_demo_smart_notes_product_thinking_guide");
+    assert.equal(startupState.selectedFileId, "NOTE-YANSILU-CONTENTS");
+    assert.equal(startupState.selectedFolderId, "dir_yansilu_usage_notes");
   }, 15000);
 
   const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
@@ -8942,7 +8942,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
         .map((item) => item.text)
         .join(" ")
     );
-    assert.match(firstVisibleGuideBlocks, /00 动手练习|怎样让读书笔记帮助写作/);
+    assert.match(firstVisibleGuideBlocks, /示例笔记与写作|卡片笔记写作法/);
     assert.doesNotMatch(firstVisibleGuideBlocks, /产品功能示例笔记/);
   }, 15000);
   await page.setViewportSize({ width: 1366, height: 900 });
@@ -8950,13 +8950,13 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已打开导览笔记/);
+    assert.match(String(statusText || ""), /已打开示例内容目录/);
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
       selectedFileId: window.__prototypeState?.selectedFileId || ""
     }));
     assert.equal(startupState.module, "explorer");
-    assert.equal(startupState.selectedFileId, "GUIDE-SHORT-PRACTICE");
+    assert.equal(startupState.selectedFileId, "NOTE-YANSILU-CONTENTS");
   }, 15000);
 
   await page.click('.rail-btn[data-module="writing"]');

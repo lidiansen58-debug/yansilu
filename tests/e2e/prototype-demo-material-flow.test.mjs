@@ -31,7 +31,7 @@ test("pending demo fleeting and literature notes convert with source links and d
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_demo_smart_notes_product_thinking_original"]').click();
   await page.locator('.rail-btn[data-module="graph"]').click();
   const id = 'PERM-PERMANENT-NOTE-IS-JUDGMENT';
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${id}"]`).click();
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${id}"] .graph-map-node-hit`).click();
   await page.locator(`.graph-selection-panel [data-open-note="${id}"]`).getByText('打开笔记', { exact: true }).click();
   await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, id);
   await waitFor(async () => assert.match(await page.evaluate(() => window.__prototypeEditor.getEditorValue()), /永久笔记/));

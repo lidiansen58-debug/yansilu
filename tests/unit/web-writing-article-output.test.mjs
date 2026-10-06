@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { buildWritingArticleOutput, installWritingArticleOutputEvents } from "../../apps/web/src/writing-article-output.js";
-import { beginSmartNotesDemoPractice } from "../../apps/web/src/smart-notes-demo-practice-progress.js";
 
 test("article output preserves paragraphs, citations and H1 while removing exact generated footer", () => {
   const output = buildWritingArticleOutput({ markdown: "# 我的文章\r\n\r\n独特正文 [[观点]]\r\n\r\n---\r\n可写主题：p1\r\n文章提纲：s1\r\n", title: "旧题目", projectId: "p1", scaffoldId: "s1" });
@@ -166,17 +165,4 @@ test("export API failure or unconfirmed result preserves body without success", 
     assert.equal(calls.some((call) => call[2] === "ok"), false);
     assert.equal(elements.get("writingDraftEditor").value, "# 当前文章\n\n未保存正文");
   }
-});
-
-test("practice export advances on real export, never copy or cancelled selection", async () => {
-  const { controller, deps } = setup();
-  beginSmartNotesDemoPractice(deps.state, { key: "practice-export", projectId: "p1" });
-  await controller.copy();
-  assert.deepEqual(deps.state.smartNotesDemoCompletedSteps, []);
-  deps.pickExportDirectory = async () => ({ path: "" });
-  await controller.export();
-  assert.deepEqual(deps.state.smartNotesDemoCompletedSteps, []);
-  deps.pickExportDirectory = async () => ({ path: "/target" });
-  await controller.export();
-  assert.deepEqual(deps.state.smartNotesDemoCompletedSteps, ["practice-export"]);
 });

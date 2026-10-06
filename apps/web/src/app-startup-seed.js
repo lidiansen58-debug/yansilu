@@ -2,13 +2,6 @@ import {
   runConfirmedSmartNotesDemoImport
 } from "./smart-notes-demo-import-flow.js";
 import { openExplicitStartupNoteRoute } from "./startup-explicit-note-route.js";
-import {
-  SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID,
-  smartNotesDemoExistingFolder,
-  smartNotesDemoOpenedExistingGuideStatus,
-  smartNotesDemoStartupNoteId
-} from "./smart-notes-demo-startup-note.js";
-
 export async function openInitialStartupRouteForRuntime(deps = {}) {
   const {
     windowRef = typeof window !== "undefined" ? window : undefined,
@@ -20,8 +13,6 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     importSmartNotesProductThinkingDemo = async () => false,
     preferredLocalFallbackNote = () => null,
     rootBoxIdFromFolder = () => "",
-    syncNotesForDirectory = async () => {},
-    syncNotesForDirectoryTree = syncNotesForDirectory,
     openNoteById = () => false,
     openStartupUntitledNote = async () => null,
     activateModule = () => {},
@@ -46,31 +37,6 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
   }
   const explicitRoute = await openExplicitStartupNoteRoute(explicitNoteId, deps);
   if (explicitRoute) return explicitRoute;
-  if (!usingLocalFallbackData) {
-    const demoFolder = smartNotesDemoExistingFolder(state.folders);
-    if (demoFolder?.id) {
-      try {
-        await syncNotesForDirectoryTree(demoFolder.id);
-        await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
-        if (shouldSkipAutoOpen()) {
-          renderAll();
-          return { route: "skipped" };
-        }
-        state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
-        state.selectedFolderId = demoFolder.id;
-        const guideNoteId = smartNotesDemoStartupNoteId({ notes: state.notes });
-        if (guideNoteId) {
-          state.selectedFileId = guideNoteId;
-          activateModule("explorer");
-          openNoteById(guideNoteId, { preferTitleSelection: false });
-          setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
-          return { route: "existing_demo", noteId: guideNoteId };
-        }
-      } catch (error) {
-        setStatus(`Demo 导览暂时无法自动打开：${String(error?.message || error)}`, "warn");
-      }
-    }
-  }
   if (usingLocalFallbackData) {
     const fallbackNote = preferredLocalFallbackNote();
     if (fallbackNote) {

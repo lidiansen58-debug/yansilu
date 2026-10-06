@@ -1,4 +1,3 @@
-import { completeSmartNotesDemoSavedDraft, smartNotesDemoPendingDraft } from "./smart-notes-demo-practice-progress.js";
 import { assertWritingBookChapterCanLeave, recordWritingBookChapterInput, saveWritingBookChapter, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
 import { writingBookDirectoryPending } from "./writing-book-directory-controller.js";
 import { acknowledgeWritingNoteBinding, createWritingNoteWithRecovery } from "./writing-note-creation-recovery.js";
@@ -96,7 +95,6 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
   let body = currentBody();
   const directoryId = writingDraftDirectoryId();
   const currentDraftId = String(writingState.project?.draft_note_id || "").trim();
-  const demoPending = smartNotesDemoPendingDraft(state, projectId);
   const pendingBinding = writingState.pendingDraftBinding;
   const reusableNote = pendingBinding?.projectId === projectId && pendingBinding?.scaffoldId === scaffoldId
     && pendingBinding?.vaultScope === state.noteMoveVaultScope ? pendingBinding.note : null;
@@ -165,10 +163,8 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
     writingState.draftSaveState = changedDuringSave ? "dirty" : "saved";
     if (changedDuringSave) checkpointArticleInput(deps);
     else clearWritingInput(deps, JSON.stringify(["article", projectId, scaffoldId]));
-    const demoAdvanced = completeSmartNotesDemoSavedDraft(state, projectId, savedBody, demoPending);
     showWritingResult({ stage: "writing_draft_note", writingProjectId: projectId, draftScaffoldId: scaffoldId, noteId: note.id, directoryId, title: note.title });
     renderWritingPanel();
-    if (demoAdvanced) deps.renderAll?.();
     const renderedButton = $("btnWritingSaveDraft");
     if (renderedButton) { renderedButton.disabled = false; renderedButton.textContent = changedDuringSave ? "保存草稿" : "已保存"; }
     setStatus(changedDuringSave ? "已保存此前内容；刚写的修改尚未保存，请再保存一次。" : currentDraftId ? "草稿已保存" : "草稿已创建", changedDuringSave ? "warn" : "ok", { notify: true, force: true });

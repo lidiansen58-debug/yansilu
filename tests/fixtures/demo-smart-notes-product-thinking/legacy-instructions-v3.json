@@ -1,0 +1,407 @@
+[
+  {
+    "id": "GUIDE-SMART-NOTES-START",
+    "targetId": "NOTE-YANSILU-CONTENTS",
+    "title": "00 从这里开始：3 分钟看懂观点怎样形成",
+    "body": "# 00 从这里开始：3 分钟看懂观点怎样形成\n\n你不用先学术语，只看一条链：记录材料 -> 用自己的话转述 -> 保存当前观点 -> 看它为什么变化 -> 建立关系 -> 组织主题 -> 查看提纲。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[用自己的话重说，才能检查理解]]，再打开 [[永久笔记是一条用户愿意承担的判断]]，切到“怎么形成的”看最初问题、改变原因和依据。\n3. 打开 [[关系理由练习：给已有笔记补一条说明]]，搜索一条笔记，选择它带来的影响并写一句理由。\n4. 打开 [[为什么要关联笔记？]]，再进入示例写作项目查看提纲。\n\n先跟着做一遍；不必一次理解全部功能。\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "FN-PHONE-CAPTURE-UNPROCESSED",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "LN-PARAPHRASE-IS-FIRST-CHECK",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-UNLINKED-PRACTICE",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-TODAY-NEXT-STEP",
+    "targetId": "NOTE-YANSILU-CAPTURE",
+    "title": "01 今天先做哪一步？",
+    "body": "# 01 今天先做哪一步？\n\n想动手就打开“00 动手练习：从材料写成短文”，跟着上方的下一步，不必读完全部示例。用自己的话写下并保存当前观点；改变已有判断时，写清“这次为什么改变”，再到“怎么形成的”看问题、依据和变化。\n\n继续：[[PERM-FLEETING-NOTE-IS-CAPTURE|继续阅读]]\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-FLEETING-NOTE-IS-CAPTURE",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-WHAT-PERMANENT",
+    "targetId": "NOTE-YANSILU-EDIT",
+    "title": "02 什么是永久笔记？",
+    "body": "# 02 什么是永久笔记？\n\n永久笔记是一条你愿意承担的当前观点。需要时可以写最初的问题、补充说明和边界；观点改变时，保留原因和影响它的笔记。\n\n继续看：[[永久笔记是一条用户愿意承担的判断]]。\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-WHY-RELATE",
+    "targetId": "NOTE-YANSILU-RELATE",
+    "title": "03 为什么要建立关系？",
+    "body": "# 03 为什么要建立关系？\n\n正文中自动生成的链接和手动保存的关联都会进入知识网络。需要时补一句理由，让未来的你看懂它是支持、反例、条件还是例子。\n\n继续看：[[关系理由比连线本身更重要]]。\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-RELATION-REASON-MATTERS",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-WRITABLE-THEME",
+    "targetId": "NOTE-YANSILU-THEME",
+    "title": "04 什么是可写主题？",
+    "body": "# 04 什么是可写主题？\n\n当几条永久笔记能一起回答一个问题时，就可以整理成主题索引。\n\n继续看：[[主题索引不是文件夹，而是问题入口]]。\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-THEME-INDEX-IS-ENTRY",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-INDEX-TO-WRITING",
+    "targetId": "NOTE-YANSILU-WRITE",
+    "title": "05 怎么从主题进入写作中心？",
+    "body": "# 05 怎么从主题进入写作中心？\n\n打开主题，确认中心问题、关键笔记和各自用途。点“开始写”选择这组素材，再点“生成提纲”。提纲可修改，不会自动写成文章；想接着写已有文章，按当前按钮选“继续提纲”“继续草稿”或“继续写”。写一段自己的解释并保存，再从“更多”选择“导出文章 .md”，核对导出的正文。组织书稿时分别保存章节，再按目录顺序导出已保存整稿。\n\n继续：[[PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES|继续阅读]]\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-RELATION-TYPES",
+    "targetId": "NOTE-YANSILU-RELATE",
+    "title": "06 关系怎么选？",
+    "body": "# 06 关系怎么选？\n\n先选“只是有关”“支持这个观点”“提出不同看法”“补充适用条件”或“提供一个例子”，再写一句为什么。暂时说不清时，先保留正文链接也可以。\n\n继续：[[PERM-RELATION-REASON-MATTERS|继续阅读]]\n\n\n#导览 #Smart Notes Demo\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-RELATION-REASON-MATTERS",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "GUIDE-SHORT-PRACTICE",
+    "targetId": "NOTE-YANSILU-CONTENTS",
+    "title": "00 动手练习：从材料写成短文",
+    "body": "# 00 动手练习：从材料写成短文\n\n围绕“怎样让读书笔记帮助写作”，留下三个自己的判断，再写成一篇短文。不需要 AI，也不必读完全部示例。\n\n先读[[练习材料：让读书笔记帮助写作]]。每一步都从上方练习按钮进入，再操作和保存，进度才会推进；正文链接只用于阅读参考。\n\n1. 点上方“写下我的判断”，在“怎样检查理解”的“打磨笔记”中写自己的判断，点“保存当前观点”。\n2. 下一步再点上方“写下我的判断”，写下“怎样留下可复用的笔记”的判断并保存。\n3. 下一步再点上方“写下我的判断”，写下“怎样让阅读帮助写作”的判断并保存。补充说明和适用条件可按需填写。\n4. 点上方“打开并关联”，为前两条观点保存一句关系理由，例如解释“独立读懂”怎样帮助检查理解。正文链接和手动关联同样进入网络；类型拿不准时选“只是有关”。\n5. 点上方“查看短文提纲”，核对由三个判断组成的提纲和每节来源，开始写草稿，写一段自己的解释，再点“保存草稿”。\n6. 点上方“打开短文草稿”，在“更多”中选择“导出文章 .md”，选笔记库以外的目录，打开导出的文件核对正文。\n\n只有实际保存和导出才算完成。回到同一个笔记库可继续已完成的进度；继续这篇短文时打开已有提纲或草稿，不必重新创建。完整示例保留在“写作 Demo”中，示例观点不代表你的判断。\n\n\n#动手练习\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "missing",
+      "originalityStatus": "warning",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": false,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "LN-SHORT-PRACTICE",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  },
+  {
+    "id": "ESSAY-SMART-NOTES-USER-MANUAL",
+    "targetId": "ESSAY-SMART-NOTES-USER-MANUAL",
+    "title": "研思录使用说明：从一条记录到一篇文章",
+    "body": "# 研思录使用说明：从一条记录到一篇文章\n\n## 先理解这一条路\n\n记录材料 → 用自己的话解释 → 留下自己的判断 → 说明与旧笔记的关系 → 围绕问题组织主题 → 写成文章。\n\n研思录受《卡片笔记写作法》启发。阅读、思考和写作可以在日常记录中连续发生；把想法写成能独立读懂的笔记，再与旧想法连接，能帮助以后继续思考。这份说明是产品自己的实践解释，不是原书摘要。软件里的“当前观点”“怎么形成的”和关系类型是研思录的具体设计，不应当作原书的固定规则。\n\n方法来源：[Sönke Ahrens 的书籍介绍](https://www.soenkeahrens.de/en/takesmartnotes)。先看 [[写作不是最后一步，而是整理笔记的方向]]：不是每条记录都要变成文章，但记录时可以想一想它将来能回答什么问题。\n\n## 1. 先导入示例，亲手做一次\n\n首次体验建议进入设置中的帮助，确认导入示例。导入会增加示例数据，不会替你完成练习。打开“00 动手练习：从材料写成短文”，从上方每一步的练习按钮进入；正文里的链接用于阅读参考。\n\n六步分别要求：保存三个自己的判断，保存一句关联理由，保存一段正文，导出短文。完成后回到同一个笔记库，可以继续之前的练习。重复导入会保留已有内容和练习修改，只补缺失示例。想重新练习，可使用另外一个测试笔记库。\n\n这篇说明是示例写作项目保存的正文。它的提纲和引用来自已有笔记；你可以在写作中心继续修改，或把自己的笔记组织成另一篇文章。\n\n## 2. 随笔：先记下来，之后再整理\n\n在首页点“记一条”（空库可能显示“写下第一条记录”），写下现场想法并保存。随笔可以是一句话、一个问题或一个观察，不必当场写成完整观点。\n\n例如“我总是收藏很多但不会用”。之后回到首页打开待整理记录，问：我真正想解释什么？哪些细节值得保留？参考 [[随笔是捕捉点，不是知识点]]。\n\n保存后重开这条记录，确认输入仍在。处理随笔时保留原材料；不需要把每条随笔都转换成永久笔记。\n\n## 3. 文摘与文献笔记：区分原话和自己的理解\n\n文摘是材料里的原话；文献笔记还要保留书名、作者或来源位置，并写下自己的转述。不要把作者的主张直接当成自己的判断。\n\n打开示例文献笔记“阅读一开始就要面向未来写作”，查看标明作者网站来源的短文摘，再读“我的转述”。文摘是作者的原话，转述是我们自己的理解，不是原句翻译。再打开“用自己的话重说，才能检查理解”练习原创转述：它回答了什么问题？我哪里还不理解？参考 [[文献笔记要先转述，再沉淀判断]]。\n\n需要沉淀时，在材料旁点“生成永久笔记”，生成后点“打开永久笔记”。检查正文和依据，再在“打磨笔记”中修改并点“保存当前观点”。生成并不等于你已经确认这个观点；AI 可选，自己的表达仍由自己核对。\n\n## 4. 永久笔记：留下能继续使用的一条判断\n\n打开 [[永久笔记是一条用户愿意承担的判断]]。一条笔记先说清一个观点，用自己的话补上理由；需要时补充最初问题和适用条件。标题尽量让以后搜索的你看得懂这条笔记在说什么。\n\n比如把“读书”改成“用自己的话解释材料，可以暴露理解中的缺口”。它可以很小，也可以暂时带着疑问。参考 [[边界和反例让永久笔记更可靠]]。\n\n永久不意味着永远正确。后来有新依据时，修改当前观点，写清“这次为什么改变”，再保存。在“怎么形成的”核对最初问题、依据和变化；重开笔记检查新的观点。保留改变原因，有助于以后知道自己为何这样想。\n\n## 5. 关联：说清两条笔记怎样帮助思考\n\n正文中插入笔记链接，选择已有笔记并保存，之后可从链接打开它。正文链接用于把阅读接起来；需要表达论证关系时，再手动补上关系类型和理由。\n\n打开“关系理由练习：给已有笔记补一条说明”，搜索另一条永久笔记并选择它，再选“支持这个观点”“提出不同看法”“补充适用条件”“提供一个例子”或“只是有关”，写一句具体理由并保存。\n\n例如：“自己的转述能发现理解缺口，因此支持把材料加工成自己的判断。”理由应解释两条笔记之间的作用，不要只重复标题。参考 [[关系理由比连线本身更重要]]。推荐关联只是候选，核对目标和理由后再采用。\n\n保存后从笔记关联区查看两条笔记，在图谱中找到并打开节点。连线有助于发现相邻想法，不能代替阅读正文与理由。支持不等于证明，反方和条件也值得保留；参考 [[反驳关系会逼出更清楚的观点]]。\n\n## 6. 主题：围绕问题组织笔记\n\n打开“为什么要关联笔记？”这个主题。主题索引先提出一个中心问题，再选几条能一起回答它的关键笔记，安排阅读顺序。它不是把所有同类资料装进一个文件夹。\n\n参考 [[主题索引不是文件夹，而是问题入口]]。试着把主题问题改成自己的问题，保留真正用得上的观点；资料不足时留下一个待回答问题，不必等收集齐全才开始。\n\n## 7. 写作：从提纲到自己的正文\n\n在主题中点“开始写”，选择这组素材，再点“生成提纲”。已有文章可按当前按钮选择“继续提纲”“继续草稿”或“继续写”。不配置 AI 也可以完成这条流程。\n\n检查每一节引用了哪些观点：有没有依据、反方和适用条件？调整提纲，再开始写正文。提纲不会自动变成一篇完成的文章。参考 [[写作中心应该从已确认判断生成提纲]] 和 [[好提纲需要证据、反方和边界]]。\n\n先写一段自己的解释，保存草稿，重开后继续修改并再保存。在写作的“更多”中选择“导出文章 .md”，选择笔记库外的目录，打开实际导出的 Markdown，核对最终正文和本地图片。也可选择“复制正文”；复制和导出当前编辑内容不会替你保存草稿，提纲导出也不是正文导出。\n\n要组织书稿，在章节目录中新增章节、分别编辑并保存，调整顺序后“导出整稿 .md”。整稿读取已保存章节；未保存改动要先保存。引用链接会保留，跨库阅读依据仍需要原笔记库。\n\n## 8. 明天从哪里继续\n\n回到同一个笔记库，通过首页的下一步或标题、正文搜索找回旧笔记。可以补一条新材料、修订一个判断、补一句关系理由，或者继续文章的一段；一次做一个动作即可。\n\nAI 可以帮助提炼材料、推荐关联和检查提纲，但建议是候选，需要你核对与确认。未配置 AI 不影响手动记录、判断、关联和写作。设置中的离线使用指南可随时查阅。\n\n遇到保存冲突时先保留输入，核对磁盘文件；“结果未确认”不等于没有保存，先检查实际内容再重试。不要靠反复新建解决保存问题。\n\n完成一次体验的证据是：重开后看见自己保存的判断、能回到依据、找到带理由的关联、继续编辑保存过的正文，并打开导出的文章。示例是练习起点；下一次换成自己的短材料，才会逐渐形成自己的笔记网络。\n",
+    "metadata": {
+      "status": "draft",
+      "thesis": "",
+      "threeLineSummary": [],
+      "startingQuestion": "",
+      "viewpointHistory": [],
+      "pendingViewpointRevision": null,
+      "distillationStatus": "draft",
+      "originalityStatus": "pass",
+      "originalitySimilarity": null,
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "boundaryOrCounterpoint": null
+    },
+    "outgoingRelations": [
+      {
+        "toNoteId": "PERM-BOUNDARY-MAKES-NOTE-RELIABLE",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-FLEETING-NOTE-IS-CAPTURE",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-PARAPHRASE-BEFORE-JUDGMENT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-RELATION-REASON-MATTERS",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-THEME-INDEX-IS-ENTRY",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      },
+      {
+        "toNoteId": "PERM-WRITING-STARTS-BEFORE-DRAFT",
+        "relationType": "associated_with",
+        "rationale": "markdown_wikilink",
+        "insightQuestion": null,
+        "createdBy": "user",
+        "confidence": 1,
+        "status": "confirmed"
+      }
+    ]
+  }
+]

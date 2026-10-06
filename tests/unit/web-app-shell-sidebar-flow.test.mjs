@@ -4,7 +4,6 @@ import {
   buildExplorerSidebarFlowState,
   distillationSummaryForSidebarFlow,
   handleSidebarFlowAction,
-  installSidebarFlowEventHandler,
   renderExplorerSidebarFlowForRuntime,
   renderExplorerSidebarFlowMarkup,
   sidebarFlowNoteHasNetworkSignal
@@ -66,30 +65,6 @@ test("sidebar flow state builds original-route progress and primary action", () 
   assert.equal(state.primaryAction, "continue-distillation");
   assert.equal(state.metrics.length, 3);
   assert.ok(state.topGaps.length > 0);
-});
-
-test("sidebar flow renders Smart Notes demo walkthrough when demo notes are present", () => {
-  const state = buildExplorerSidebarFlowState({
-    rootId: "dir_demo",
-    selectedNoteId: "PERM-UNLINKED-PRACTICE",
-    currentNotes: [
-      { id: "GUIDE-SMART-NOTES-START" },
-      { id: "PERM-WRITING-STARTS-BEFORE-DRAFT" },
-      { id: "PERM-UNLINKED-PRACTICE" },
-      { id: "THEME-WHY-LINK-NOTES" },
-      { id: "WRITE-SMART-NOTES-DEMO" }
-    ],
-    originalNotes: []
-  });
-  const markup = renderExplorerSidebarFlowMarkup(state);
-
-  assert.equal(state.kind, "smart-notes-demo");
-  assert.match(markup, /动手练习/);
-  assert.match(markup, /从观点到文章/);
-  assert.match(markup, /data-sidebar-flow-action="open-demo-note"/);
-  assert.match(markup, /改写示例观点/);
-  assert.doesNotMatch(markup, /data-sidebar-flow-action="open-demo-writing"/);
-  assert.doesNotMatch(markup, /\b(?:PN-SN|WP-SN|IC-SN)-/);
 });
 
 test("sidebar flow markup escapes text and renders original primary action", () => {
@@ -159,114 +134,4 @@ test("sidebar flow actions route to distillation writing and permanent creation"
   ]);
   assert.equal(state.browserRootId, "dir_original_default");
   assert.equal(state.selectedFolderId, "dir_original_default");
-});
-
-test("sidebar flow demo actions open notes, relations, writing, and review", async () => {
-  const calls = [];
-  const deps = {
-    activateModule: (moduleName) => calls.push(["activate", moduleName]),
-    openNoteById: (noteId, options) => calls.push(["open", noteId, options]),
-    continueWritingProjectEntry: async (projectId, options) => {
-      calls.push(["writing-project", projectId, options]);
-      return { id: projectId, scaffold_id: "DRAFT-SMART-NOTES-DEMO" };
-    },
-    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
-    setStatus: (message, tone) => calls.push(["status", message, tone])
-  };
-
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note", "PERM-WRITING-STARTS-BEFORE-DRAFT") }, deps), true);
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "PERM-UNLINKED-PRACTICE") }, deps), true);
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "WRITE-SMART-NOTES-DEMO") }, deps), true);
-  assert.equal(await handleSidebarFlowAction({ target: actionTarget("open-demo-review") }, deps), true);
-
-  assert.deepEqual(calls, [
-    ["activate", "explorer"],
-    ["open", "PERM-WRITING-STARTS-BEFORE-DRAFT", { preferTitleSelection: false }],
-    ["status", "已打开导览笔记。", "ok"],
-    ["activate", "explorer"],
-    ["open", "PERM-UNLINKED-PRACTICE", { preferTitleSelection: false }],
-    ["state", "open-note-relations", { noteId: "PERM-UNLINKED-PRACTICE", source: "smart-notes-demo-walkthrough" }],
-    ["status", "已打开导览笔记，可以开始补关系理由。", "ok"],
-    ["writing-project", "WRITE-SMART-NOTES-DEMO", {
-      openDraft: false,
-      statusMessage: "已打开示例草稿，写一段自己的解释后保存。"
-    }],
-    ["activate", "today"]
-  ]);
-});
-
-test("opening a demo task arms comparison data without completing the task", async () => {
-  const state = { notes: [{ id: "practice", thesis: "原来的观点" }], noteMoveVaultScope: "vault-a" };
-  const target = actionTargetWithNote("open-demo-note", "practice");
-  const originalClosest = target.closest;
-  target.closest = (selector) => { const node = originalClosest(selector); node.dataset.sidebarFlowStepKey = "first-judgment"; return node; };
-  const calls = [];
-  await handleSidebarFlowAction({ target }, { state, openNoteById: (_id, options) => { calls.push(options); return true; } });
-  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
-  assert.equal(state.smartNotesDemoPendingSteps["first-judgment"].baseline, "原来的观点");
-  assert.equal(calls[0].focusDistillation, true);
-  await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "demo-project") }, {
-    state, continueWritingProjectEntry: async () => ({ id: "demo-project", draft_note: { body: "# 示例\n\n原正文" } })
-  });
-  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
-  assert.equal(state.smartNotesDemoPendingSteps["write-from-notes"].baseline, "# 示例\n\n原正文");
-});
-
-test("a demo with only an outline starts an unsaved draft and compares against that template", async () => {
-  const state = {}, writingState = { project: { id: "demo" }, scaffoldMarkdown: "提纲" }, tabs = [];
-  await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-writing", "demo") }, {
-    state, writingState, writingDraftBody: () => "# 示例\n\n来自真实笔记的模板正文",
-    continueWritingProjectEntry: async () => writingState.project, applyWritingTab: (tab) => tabs.push(tab)
-  });
-  assert.equal(writingState.draftSaveState, "dirty");
-  assert.deepEqual(tabs, ["draft"]);
-  assert.equal(state.smartNotesDemoPendingSteps["write-from-notes"].baseline, writingState.draftMarkdown);
-  assert.deepEqual(state.smartNotesDemoCompletedSteps, []);
-});
-
-test("sidebar flow demo note action reports failure when the target note cannot open", async () => {
-  const calls = [];
-  const deps = {
-    activateModule: (moduleName) => calls.push(["activate", moduleName]),
-    openNoteById: (noteId, options) => {
-      calls.push(["open", noteId, options]);
-      return false;
-    },
-    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload]),
-    setStatus: (message, tone) => calls.push(["status", message, tone])
-  };
-
-  assert.equal(await handleSidebarFlowAction({ target: actionTargetWithNote("open-demo-note-relations", "MISSING") }, deps), false);
-  assert.deepEqual(calls, [
-    ["activate", "explorer"],
-    ["open", "MISSING", { preferTitleSelection: false }],
-    ["status", "没有找到这一步的导览笔记，请重新导入 Smart Notes Demo。", "warn"]
-  ]);
-});
-
-test("sidebar flow installer reads latest deps when clicked", async () => {
-  const handlers = new Map();
-  let version = "first";
-  const calls = [];
-  const registrations = installSidebarFlowEventHandler({
-    $: (id) => ["sidebarFlow", "demoGuidePanel"].includes(id) ? {
-      addEventListener: (eventName, handler) => handlers.set(`${id}:${eventName}`, handler)
-    } : null,
-    depsProvider: () => ({
-      activateModule: (moduleName) => calls.push(["activate", version, moduleName]),
-      openWritingModule: async () => calls.push(["writing", version])
-    })
-  });
-
-  assert.deepEqual(registrations.map((item) => [item.id, item.installed]), [["demoGuidePanel", true]]);
-  await handlers.get("demoGuidePanel:click")({ target: actionTarget("open-writing") });
-  version = "second";
-  await handlers.get("demoGuidePanel:click")({ target: actionTarget("open-writing") });
-
-  assert.deepEqual(calls, [
-    ["activate", "first", "writing"],
-    ["writing", "first"],
-    ["activate", "second", "writing"],
-    ["writing", "second"]
-  ]);
 });

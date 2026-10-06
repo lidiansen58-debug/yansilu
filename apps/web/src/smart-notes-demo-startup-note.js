@@ -1,13 +1,13 @@
 export const SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID = "dir_demo_smart_notes_product_thinking_guide";
 
 export function smartNotesDemoStartupNoteId({ result = {}, notes = [] } = {}) {
-  const practice = (Array.isArray(notes) ? notes : []).find((note) => note.id === "GUIDE-SHORT-PRACTICE");
-  if (practice) return practice.id;
   const firstNoteId = String(result?.firstNoteId || "").trim();
   const guideById = firstNoteId
     ? (Array.isArray(notes) ? notes : []).find((note) => String(note?.id || "").trim() === firstNoteId)
     : null;
   if (guideById) return firstNoteId;
+  const contents = (Array.isArray(notes) ? notes : []).find(note => note.id === "NOTE-YANSILU-CONTENTS");
+  if (contents) return contents.id;
   const guideByTitle = (Array.isArray(notes) ? notes : []).find((note) =>
     /^00\s+从这里开始/.test(String(note?.title || "").trim())
   );
@@ -34,14 +34,14 @@ export function smartNotesDemoImportedStatus(result = {}, { openedGuide = false,
     `${projectCount} 个写作项目`
   ].join("，");
   const suffix = refreshedHome && openedGuide
-    ? "首页已刷新，已打开导览笔记。"
+    ? "首页已刷新，已打开示例内容目录。"
     : refreshedHome
       ? "首页已刷新。"
       : openedGuide
-        ? "已打开导览笔记。"
-        : "可以继续体验。";
+        ? "已打开示例内容目录。"
+        : "可在笔记和写作中心查看。";
   if (Object.entries(result?.summary || {}).some(([key, value]) => key.startsWith("preserved") && Number(value) > 0)) {
-    return `示例已准备好，保留已有内容和你的修改。${suffix}`;
+    return `示例已准备好，保留你的修改。${suffix}`;
   }
   return `已导入 Smart Notes Demo：${detail}。${suffix}`;
 }
@@ -60,5 +60,5 @@ export function smartNotesDemoExistingFolder(folders = []) {
 }
 
 export function smartNotesDemoOpenedExistingGuideStatus() {
-  return "示例已存在，保留你的修改，可以继续练习。";
+  return "示例已存在，保留你的修改，可继续查看笔记和写作。";
 }

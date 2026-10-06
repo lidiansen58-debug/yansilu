@@ -1,5 +1,5 @@
 export const SMART_NOTES_DEMO_IMPORT_CONFIRMATION =
-  "导入示例，跟着完成观点、关联和写作练习。已有示例和你的修改会保留，只补齐缺失内容。\n\n确认导入吗？";
+  "添加卡片笔记写作法的示例笔记、关联、主题和文章，可通过普通功能查看与编辑。保留你的修改，补齐缺失示例，并更新未改动的旧版操作说明。\n\n确认导入吗？";
 
 export function confirmSmartNotesDemoImport({ confirm = null, setStatus = () => {} } = {}) {
   if (typeof confirm !== "function") {

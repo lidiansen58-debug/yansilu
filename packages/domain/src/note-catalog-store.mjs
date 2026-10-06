@@ -3183,6 +3183,21 @@ export async function listNoteRelations(vaultPath, noteId) {
   }
 }
 
+function assertOutgoingRelationsSaveBase(db, noteId, expected) {
+  if (expected === undefined) return;
+  if (!Array.isArray(expected) || expected.some(link => typeof link?.id !== "string" || !link.id)) {
+    throw noteValidationError("NOTE_SAVE_BASE_INVALID", "关联保存基线无效，请重新核对笔记。");
+  }
+  const baseline = links => JSON.stringify(links.map(link => [link.id, link.toNoteId, link.relationType,
+    link.rationale, link.insightQuestion ?? null, link.createdBy, link.confidence ?? null, link.status,
+    link.updatedAt]).sort((a, b) => a[0].localeCompare(b[0])));
+  const current = db.prepare(`SELECT l.* FROM links l JOIN notes n ON n.id = l.to_note_id
+    WHERE l.from_note_id = ? AND n.deleted_at IS NULL`).all(noteId).map(mapRelationLinkRow);
+  if (baseline(current) !== baseline(expected)) {
+    throw noteValidationError("NOTE_SAVE_CONFLICT", "笔记关联已变化，本次未覆盖。请重新核对。", { noteId });
+  }
+}
+
 export async function updateNoteContent(vaultPath, noteId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
@@ -3227,6 +3242,7 @@ async function updateNoteContentLocked(vaultPath, id, input) {
         throw noteValidationError("NOTE_SAVE_CONFLICT", "笔记已被其他窗口或外部程序修改。当前修改未覆盖磁盘，请保留编辑内容并重新核对。", { noteId: id });
       }
     }
+    assertOutgoingRelationsSaveBase(db, id, input.expectedOutgoingRelations);
     const preservedFrontmatter = currentParsed.frontmatter && typeof currentParsed.frontmatter === "object" ? { ...currentParsed.frontmatter } : {};
     const requestedStatus = String(input.status || effectiveRow.status || "draft");
     const normalized = normalizeMarkdown(
@@ -3341,6 +3357,7 @@ async function updateNoteContentLocked(vaultPath, id, input) {
     const nextRelPath = path.relative(path.resolve(vaultPath), activeMarkdownPath).replaceAll("\\", "/");
     db.exec("BEGIN IMMEDIATE;");
     try {
+      assertOutgoingRelationsSaveBase(db, effectiveRow.id, input.expectedOutgoingRelations);
       db.prepare("UPDATE notes SET title = ?, status = ?, markdown_path = ?, updated_at = ? WHERE id = ?").run(
         normalized.title,
         status,
@@ -3362,9 +3379,11 @@ async function updateNoteContentLocked(vaultPath, id, input) {
     } catch (error) {
       db.exec("ROLLBACK;");
       try {
-        await fs.writeFile(activeMarkdownPath, currentMarkdown, "utf8");
-        if (hasRenamedFile && (await fileExists(activeMarkdownPath))) {
-          await fs.rename(activeMarkdownPath, currentMarkdownPath);
+        // Restore only our own write; keep external edits when undoing a rename.
+        if (!hasRenamedFile || !(await fileExists(currentMarkdownPath))) {
+          const rollbackMarkdown = await fs.readFile(activeMarkdownPath, "utf8");
+          if (rollbackMarkdown === markdown) await fs.writeFile(activeMarkdownPath, currentMarkdown, "utf8");
+          if (hasRenamedFile) await fs.rename(activeMarkdownPath, currentMarkdownPath);
         }
       } catch {}
       throw error;

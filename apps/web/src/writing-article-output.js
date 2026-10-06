@@ -1,4 +1,3 @@
-import { completeSmartNotesDemoExport } from "./smart-notes-demo-practice-progress.js";
 
 export function buildWritingArticleOutput({ markdown = "", title = "", projectId = "", scaffoldId = "" } = {}) {
   const lines = String(markdown).replace(/\r\n?/g, "\n").split("\n");
@@ -30,7 +29,6 @@ export function installWritingArticleOutputEvents({ $ = () => null, depsProvider
     const { writingState = {}, state = {}, copyTextToClipboard, exportWritingArticle, pickExportDirectory, getVaultPath = () => "", setStatus = () => {} } = deps;
     const projectId = writingState.project?.id || "";
     const chapterId = writingState.bookChapter?.id || "";
-    const demoPending = state.smartNotesDemoPendingSteps?.["practice-export"];
     const vaultScopeKey = state.vaultScopeKey;
     const module = state.module;
     const vaultPath = getVaultPath();
@@ -65,7 +63,6 @@ export function installWritingArticleOutputEvents({ $ = () => null, depsProvider
         if (exported?.status !== "completed" || !exported?.articlePath) throw new Error("未确认导出结果，请检查目标目录后重试。");
       }
       if (stillCurrent()) {
-        if (mode === "export" && completeSmartNotesDemoExport(state, projectId, exported, demoPending)) deps.renderAll?.();
         const menu = $("writingMoreMenu");
         if (menu) menu.open = false;
         setStatus(mode === "copy" ? "已复制当前正文（未自动保存草稿）。" : `已导出文章及 ${exported.assetCount || 0} 个附件：${exported.targetPath}`, "ok", { notify: true, force: true });

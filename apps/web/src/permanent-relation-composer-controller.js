@@ -1,6 +1,5 @@
 import { searchNotes, fetchNoteRelations, createNoteRelation, updateNoteRelation } from "./prototype-api.js";
 import { relationFollowupSuggestionForDraft, relationTypeLabel } from "./editor-relation-helpers.js";
-import { completeSmartNotesDemoSavedRelation } from "./smart-notes-demo-practice-progress.js";
 import { wikilinkTokenForNote } from "./editor-link-picker.js";
 import { saveRelationTransaction } from "./relation-save-transaction.js";
 import { refreshGraphAfterRelationMutation } from "./relation-graph-refresh.js";
@@ -31,10 +30,6 @@ function stateSessionId(host) {
 function noteTitle(host, noteId = "") {
   const cleanNoteId = cleanText(noteId);
   return host.state?.notes?.find?.((note) => note?.id === cleanNoteId)?.title || cleanNoteId;
-}
-
-export function completePendingSmartNotesDemoRelation(appState = {}, sourceNoteId = "", relation = null, requestedRationale = "") {
-  return completeSmartNotesDemoSavedRelation(appState, cleanText(sourceNoteId), relation, requestedRationale) === true;
 }
 
 export class PermanentRelationComposerController {
@@ -371,7 +366,6 @@ export class PermanentRelationComposerController {
       }
       const linkInserted = await this.insertLinkIfRequested(state);
       if (!draftStillCurrent()) return;
-      completePendingSmartNotesDemoRelation(host.state, sourceNote.id, relation, state.rationale);
       host.renderAll?.();
       const successMessage = existingRelationId ? "关联已更新。" : relation?.created === false ? "关联已存在，已直接复用。" : "关联已保存。";
       host.permanentSidebarController().commitSavedRelationWorkspaceResult({

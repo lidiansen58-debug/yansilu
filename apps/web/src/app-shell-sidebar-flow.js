@@ -1,12 +1,3 @@
-import {
-  buildSmartNotesDemoWalkthrough,
-  renderSmartNotesDemoWalkthrough,
-  smartNotesDemoJudgmentStep
-} from "./beginner-onboarding-flow.js";
-import { beginSmartNotesDemoPractice } from "./smart-notes-demo-practice-progress.js";
-import { handleWritingStartDraftClick } from "./writing-panel-events.js";
-import { openShortPracticeWriting } from "./smart-notes-practice-writing-entry.js";
-
 export function sidebarFlowNoteHasNetworkSignal(note = null, deps = {}) {
   const {
     parseLinks = () => [],
@@ -45,21 +36,11 @@ export function distillationSummaryForSidebarFlow(notes = [], deps = {}) {
   );
 }
 
-export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], originalNotes = [], allNotes = [], selectedNoteId = "", demoCompletedSteps = [] } = {}, deps = {}) {
+export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], originalNotes = [], allNotes = [], selectedNoteId = "" } = {}, deps = {}) {
   const {
     noteHasGeneratedOriginal = () => false,
     isPermanentLikeNote = () => false
   } = deps;
-  const demoWalkthrough = buildSmartNotesDemoWalkthrough({
-    notes: [
-      ...(Array.isArray(allNotes) ? allNotes : []),
-      ...(Array.isArray(currentNotes) ? currentNotes : []),
-      ...(Array.isArray(originalNotes) ? originalNotes : [])
-    ],
-    selectedNoteId,
-    completedSteps: demoCompletedSteps
-  });
-  if (demoWalkthrough) return demoWalkthrough;
   const isOriginal = rootId === "dir_original_default";
   const isFleeting = rootId === "dir_fleeting_default";
   const isLiterature = rootId === "dir_literature_default";
@@ -129,9 +110,6 @@ export function buildExplorerSidebarFlowState({ rootId = "", currentNotes = [], 
 
 export function renderExplorerSidebarFlowMarkup(flowState = {}, deps = {}) {
   const { escapeHtml = (value) => String(value ?? "") } = deps;
-  if (flowState?.kind === "smart-notes-demo") {
-    return renderSmartNotesDemoWalkthrough(flowState, { escapeHtml });
-  }
   const {
     isOriginal = false,
     title = "",
@@ -187,12 +165,8 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     activateModule = () => {},
     openDistillationModule = async () => {},
     openWritingModule = async () => {},
-    continueWritingProjectEntry = async () => null,
     state = {},
     handleStateChange = async () => {},
-    openNoteById = () => false,
-    renderAll = () => {},
-    setStatus = () => {},
     dismissSafeOverlaysForNavigation = () => ({ ok: true })
   } = deps;
   const button = event?.target?.closest?.("[data-sidebar-flow-action]");
@@ -216,78 +190,5 @@ export async function handleSidebarFlowAction(event, deps = {}) {
     await handleStateChange("create-note-in-selected-folder");
     return true;
   }
-  if (action === "open-demo-note" || action === "open-demo-note-relations") {
-    const noteId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
-    if (!noteId) return false;
-    activateModule("explorer");
-    const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
-    const opened = openNoteById(noteId, { preferTitleSelection: false, ...(smartNotesDemoJudgmentStep(stepKey) ? { focusDistillation: true } : {}) });
-    if (!opened) {
-      setStatus("没有找到这一步的导览笔记，请重新导入 Smart Notes Demo。", "warn");
-      return false;
-    }
-    if (action === "open-demo-note-relations") {
-      beginSmartNotesDemoPractice(state, { key: stepKey || "first-relation", noteId });
-      await handleStateChange("open-note-relations", { noteId, source: "smart-notes-demo-walkthrough" });
-      setStatus("已打开导览笔记，可以开始补关系理由。", "ok");
-    } else {
-      if (smartNotesDemoJudgmentStep(stepKey)) beginSmartNotesDemoPractice(state, {
-        key: stepKey, noteId, baseline: state.notes?.find((note) => note.id === noteId)?.thesis || ""
-      });
-      renderAll();
-      setStatus("已打开导览笔记。", "ok");
-    }
-    return true;
-  }
-  if (action === "open-demo-writing" || action === "open-demo-export") {
-    const projectId = String(button.dataset?.sidebarFlowNoteId || button.getAttribute?.("data-sidebar-flow-note-id") || "").trim();
-    if (!projectId) {
-      setStatus("没有找到示例写作项目，请重新导入 Smart Notes Demo。", "warn");
-      return false;
-    }
-    try {
-      const stepKey = String(button.dataset?.sidebarFlowStepKey || "").trim();
-      if (["practice-draft", "practice-export"].includes(stepKey)) {
-        const project = await openShortPracticeWriting(projectId, deps, { exportStep: action === "open-demo-export" });
-        if (!project) return false;
-        beginSmartNotesDemoPractice(state, { key: stepKey, projectId,
-          baseline: project.draft_note?.body ?? deps.writingDraftBody?.() ?? "" });
-        renderAll();
-        return true;
-      }
-      const project = await continueWritingProjectEntry(projectId, {
-        openDraft: false,
-        statusMessage: "已打开示例草稿，写一段自己的解释后保存。"
-      });
-      if (!project) throw new Error("示例写作项目不可用");
-      handleWritingStartDraftClick(deps);
-      deps.applyWritingTab?.("draft");
-      beginSmartNotesDemoPractice(state, {
-        key: "write-from-notes", projectId: project.id,
-        baseline: project.draft_note?.body ?? deps.writingState?.draftMarkdown ?? ""
-      });
-      renderAll();
-      return true;
-    } catch (error) {
-      setStatus(`打开示例文章提纲失败：${String(error?.message || error)}`, "warn");
-      return false;
-    }
-  }
-  if (action === "open-demo-review") {
-    activateModule("today");
-    return true;
-  }
   return false;
-}
-
-export function installSidebarFlowEventHandler(options = {}) {
-  const { $ = () => null, depsProvider = () => ({}) } = options;
-  const handler = async (event) => {
-    await handleSidebarFlowAction(event, depsProvider());
-  };
-  return ["demoGuidePanel"].map((id) => {
-    const element = $(id);
-    element?.addEventListener?.("click", handler);
-    return { id, eventName: "click", handler, installed: !!element };
-  });
 }

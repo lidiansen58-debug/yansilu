@@ -169,8 +169,8 @@ function renderEmptyLibraryHome(state = {}) {
           <small>从 Markdown 文件夹导入</small>
         </div>
         <div class="today-empty-home-option">
-          <button class="mini-btn" type="button" data-today-action="seed-demo"${unavailable ? " disabled" : ""}>试用示例</button>
-          <small data-today-demo-status aria-live="polite">3 分钟走一遍整理与写作</small>
+          <button class="mini-btn" type="button" data-today-action="seed-demo"${unavailable ? " disabled" : ""}>导入示例笔记与写作</button>
+          <small data-today-demo-status aria-live="polite">示例包含笔记与文章，操作要点保存在笔记里。</small>
         </div>
         <div class="today-demo-progress" data-today-demo-progress role="progressbar" aria-label="Demo 导入进度" hidden>
           <span></span>
