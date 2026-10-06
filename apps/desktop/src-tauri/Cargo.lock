@@ -1067,6 +1067,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 dependencies = [
  "futures-core",
+ "futures-sink",
 ]
 
 [[package]]
@@ -3053,6 +3054,7 @@ checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",
@@ -5650,6 +5652,8 @@ dependencies = [
 name = "yansilu-desktop"
 version = "0.1.1-beta.2"
 dependencies = [
+ "reqwest",
+ "rustls",
  "serde_json",
  "tauri",
  "tauri-build",

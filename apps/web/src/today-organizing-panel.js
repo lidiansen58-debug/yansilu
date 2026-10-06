@@ -148,23 +148,30 @@ function renderBeginnerGuide() {
 
 function renderEmptyLibraryHome(state = {}) {
   const startupPending = state.startupPending === true;
+  const startupError = String(state.startupError || "");
+  const unavailable = startupPending || Boolean(startupError);
   return `
     <section class="today-empty-home" aria-label="第一次使用引导">
       <div class="today-empty-home-copy">
-        <span class="today-action-kicker">第一次打开</span>
-        <h3>先写下一条你想留下的记录</h3>
-        <p>不必先学方法。写下一个想法、读到的内容，或一个正在困扰你的问题；下一步再用自己的话把它说清楚。</p>
+        <span class="today-empty-brand">研思录 <small>让笔记生长为思想</small></span>
+        <h3>从一条笔记开始</h3>
+        <p>记下想法，整理成观点，再用它们写出文章。</p>
       </div>
       <div class="today-empty-home-actions">
-        <button class="mini-btn primary" type="button" data-today-action="start-first-note"${startupPending ? ` disabled aria-busy="true"` : ""}>
-          ${startupPending ? "正在准备..." : "写下第一条记录"}
+        <button class="mini-btn primary" type="button" data-today-action="${startupError ? "retry-startup" : "start-first-note"}"${startupPending ? ` disabled aria-busy="true"` : ""}>
+          ${startupPending ? "正在准备..." : startupError ? "重新连接" : "新建笔记"}
         </button>
-        <small>${startupPending ? "正在启动本地服务，准备好后就能开始。" : "先完成一条自己的判断，再考虑关系、主题和写作。"}</small>
+        <small data-today-entry-status role="status"${unavailable ? "" : " hidden"}>${startupPending ? "正在准备本地笔记库..." : escape(startupError)}</small>
       </div>
       <div class="today-empty-home-secondary" aria-label="其他开始方式">
-        <button class="mini-btn" type="button" data-today-action="open-import"${startupPending ? " disabled" : ""}>导入已有 Markdown 笔记</button>
-        <button class="mini-btn" type="button" data-today-action="seed-demo"${startupPending ? " disabled" : ""}>体验 3 分钟示例</button>
-        <small data-today-demo-status aria-live="polite">示例只用于练习，不会替代你的笔记。</small>
+        <div class="today-empty-home-option">
+          <button class="mini-btn" type="button" data-today-action="open-import"${unavailable ? " disabled" : ""}>导入笔记</button>
+          <small>从 Markdown 文件夹导入</small>
+        </div>
+        <div class="today-empty-home-option">
+          <button class="mini-btn" type="button" data-today-action="seed-demo"${unavailable ? " disabled" : ""}>试用示例</button>
+          <small data-today-demo-status aria-live="polite">3 分钟走一遍整理与写作</small>
+        </div>
         <div class="today-demo-progress" data-today-demo-progress role="progressbar" aria-label="Demo 导入进度" hidden>
           <span></span>
         </div>
@@ -207,11 +214,6 @@ export function renderTodayOrganizingPanel(state = {}) {
     return `
       <div class="today-organizing-shell is-empty">
         ${renderEmptyLibraryHome(state)}
-        <section class="today-empty-next" aria-label="你会学到什么">
-          <article><strong>说清楚</strong><span>留下自己的判断。</span></article>
-          <article><strong>连起来</strong><span>说明为什么有关。</span></article>
-          <article><strong>写出来</strong><span>把观点组织成文章。</span></article>
-        </section>
       </div>
     `;
   }

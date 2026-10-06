@@ -5,6 +5,44 @@ import { bootstrapAppForRuntime } from "../../apps/web/src/app-startup-controlle
 import { initializeAppRouteForRuntime } from "../../apps/web/src/app-route-initializer.js";
 import { openInitialStartupRouteForRuntime } from "../../apps/web/src/app-startup-seed.js";
 
+test("failed startup connection does not proceed into note or demo startup routes", async () => {
+  const state = {};
+  await bootstrapAppForRuntime({
+    state,
+    initializeAppRoute: async () => ({ connected: false, usingLocalFallbackData: false }),
+    openInitialStartupRoute: () => assert.fail("must not start routes without a connection")
+  });
+  assert.equal(state.appStartupPending, false);
+  assert.ok(state.appStartupError);
+});
+
+test("reconnecting reuses existing bindings and coalesces repeated clicks", async () => {
+  const state = {};
+  let attempts = 0, bindings = 0, routes = 0, finish;
+  await bootstrapAppForRuntime({
+    state, bindImportWorkspaceEvents: () => { bindings++; },
+    initializeAppRoute: async () => {
+      attempts++;
+      if (attempts === 1) return { connected: false };
+      await new Promise(resolve => { finish = resolve; });
+      return { connected: true };
+    },
+    openInitialStartupRoute: () => { routes++; }
+  });
+  const reconnecting = state.retryStartupConnection();
+  const repeated = state.retryStartupConnection();
+  assert.equal(reconnecting, repeated);
+  assert.equal(state.appStartupPending, true);
+  assert.equal(state.appStartupError, "");
+  await new Promise(resolve => setImmediate(resolve));
+  finish();
+  assert.equal(await reconnecting, true);
+  assert.equal(attempts, 2);
+  assert.equal(bindings, 1);
+  assert.equal(routes, 1);
+  assert.equal(state.appStartupPending, false);
+});
+
 test("startup controller wires import toolbar events then initializes route and startup note", async () => {
   const calls = [];
   let fallback = false;

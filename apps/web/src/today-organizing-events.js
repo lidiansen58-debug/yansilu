@@ -83,24 +83,65 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     event.preventDefault();
     const deps = depsProvider() || {};
 
-    if (action === "start-first-note") {
+    if (action === "retry-startup") {
       button.disabled = true;
-      button.setAttribute("aria-busy", "true");
       try {
-        if (typeof deps.openStartupUntitledNote !== "function") throw new Error("新建入口尚未就绪，请重新打开研思录");
-        const result = await deps.openStartupUntitledNote();
-        if (result?.note) deps.activateModule?.("explorer");
-        else if (!result?.error) throw new Error("本地服务没有返回笔记，请刷新目录后确认");
-      } catch (error) {
-        deps.setStatus?.(`无法新建第一条记录：${String(error?.message || error)}`, "bad");
+        await deps.retryStartupConnection?.();
       } finally {
         button.disabled = false;
-        button.removeAttribute("aria-busy");
       }
       return;
     }
-    if (action === "open-import") {
-      await deps.handleStateChange?.("open-import", { source: "today-empty-start" });
+
+    if (action === "start-first-note" || action === "open-import") {
+      const originalText = button.textContent;
+      const hint = panel.querySelector?.("[data-today-entry-status]");
+      const busyText = action === "start-first-note" ? "正在创建..." : "正在打开...";
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = busyText;
+      if (hint) {
+        hint.hidden = false;
+        hint.textContent = action === "start-first-note" ? "正在创建笔记。" : "正在打开导入页面。";
+      }
+      try {
+        if (action === "start-first-note") {
+          if (typeof deps.openStartupUntitledNote !== "function") throw new Error("新建入口尚未就绪，请重新打开研思录");
+          const result = await deps.openStartupUntitledNote();
+          if (result?.error) throw result.error;
+          if (!result?.note) throw new Error("本地服务没有返回笔记，请刷新目录后确认");
+          deps.activateModule?.("explorer");
+        } else {
+          if (typeof deps.handleStateChange !== "function") throw new Error("导入入口尚未就绪，请重新打开研思录");
+          const opened = await deps.handleStateChange("open-import", { source: "today-empty-start" });
+          if (opened !== true) throw new Error("导入页面未能打开，请重试");
+        }
+        if (hint) {
+          hint.hidden = true;
+          hint.textContent = "";
+        }
+      } catch (error) {
+        if (error?.code === "vault_changed") {
+          if (hint) {
+            hint.hidden = true;
+            hint.textContent = "";
+          }
+          return;
+        }
+        const pending = action === "start-first-note" && error?.code === "creation_pending";
+        const message = pending
+          ? String(error.message)
+          : `${action === "start-first-note" ? "无法新建笔记" : "无法打开导入"}：${String(error?.message || error)}`;
+        deps.setStatus?.(message, pending ? "warn" : "bad");
+        if (hint) {
+          hint.hidden = false;
+          hint.textContent = message;
+        }
+      } finally {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        button.textContent = originalText;
+      }
       return;
     }
 

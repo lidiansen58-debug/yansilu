@@ -303,16 +303,17 @@ test("today organizing secondary tabs switch one full-width panel", async () => 
 test("today organizing empty home makes writing a first record the primary action", () => {
   const html = renderTodayOrganizingPanel({ isEmptyLibrary: true });
 
-  assert.match(html, /第一次打开/);
-  assert.match(html, /先写下一条你想留下的记录/);
-  assert.match(html, /写下第一条记录/);
-  assert.match(html, /导入已有 Markdown 笔记/);
-  assert.match(html, /体验 3 分钟示例/);
-  assert.match(html, /先完成一条自己的判断/);
+  assert.match(html, /从一条笔记开始/);
+  assert.match(html, /新建笔记/);
+  assert.match(html, /导入笔记/);
+  assert.match(html, /试用示例/);
+  assert.doesNotMatch(html, /先完成一条自己的判断|你会学到什么|today-empty-next/);
+  assert.equal((html.match(/class="mini-btn primary"/g) || []).length, 1);
+  assert.equal((html.match(/class="today-empty-home-option"/g) || []).length, 2);
   assert.match(html, /data-today-demo-status/);
   assert.match(html, /data-today-demo-progress/);
   assert.match(html, /role="progressbar"/);
-  assert.ok(html.indexOf("写下第一条记录") < html.indexOf("体验 3 分钟示例"));
+  assert.ok(html.indexOf("新建笔记") < html.indexOf("试用示例"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
   assert.doesNotMatch(html, /导入后自动打开导览笔记/);
@@ -322,7 +323,7 @@ test("today organizing empty home shows startup preparation before demo import i
   const html = renderTodayOrganizingPanel({ isEmptyLibrary: true, startupPending: true });
 
   assert.match(html, /正在准备\.\.\./);
-  assert.match(html, /正在启动本地服务，准备好后就能开始。/);
+  assert.match(html, /正在准备本地笔记库/);
   assert.match(html, /data-today-action="start-first-note" disabled aria-busy="true"/);
   assert.match(html, /data-today-demo-progress/);
   assert.match(html, /data-today-demo-progress[^>]+hidden/);
@@ -735,7 +736,7 @@ test("today organizing first-run actions create a record or open import", async 
   installTodayOrganizingEvents({ addEventListener: (eventName, handler) => handlers.set(eventName, handler) }, () => ({
     openStartupUntitledNote: async () => { calls.push(["start-note"]); return { note: { id: "fn_1" } }; },
     activateModule: (moduleName) => calls.push(["module", moduleName]),
-    handleStateChange: async (reason, payload) => calls.push(["state", reason, payload])
+    handleStateChange: async (reason, payload) => { calls.push(["state", reason, payload]); return true; }
   }));
   const click = async (action) => {
     const button = {

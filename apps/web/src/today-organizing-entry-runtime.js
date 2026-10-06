@@ -30,6 +30,7 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       loadThemeIndexes: loadWritingThemeIndexes,
       themeLoadKey: `${currentVaultPath()}|${importState.importRecordId}|${importState.lastResultPayload?.stage || ""}`,
       startupPending: state.appStartupPending === true,
+      startupError: state.appStartupError || "",
       typeFromFolder: (folderId) => typeFromFolder(state, folderId),
       relationNetworkStatusForNote
     };
@@ -48,6 +49,7 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       markTodayReturnTarget,
       applyWritingTab,
       openStartupUntitledNote,
+      state = {},
       setStatus
     } = depsProvider() || {};
     return installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
@@ -62,6 +64,7 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       markTodayReturnTarget,
       applyWritingTab,
       openStartupUntitledNote,
+      retryStartupConnection: () => state.retryStartupConnection?.(),
       setStatus
     }));
   }

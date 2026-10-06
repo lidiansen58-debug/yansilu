@@ -5,7 +5,8 @@ import {
   apiBaseFromDesktopServiceStatus,
   desktopServiceStatusMessage,
   readDesktopServiceLog,
-  readDesktopServiceStatus
+  readDesktopServiceStatus,
+  waitForDesktopServiceReady
 } from "./desktop-service-status.js";
 
 const STATIC_API_BASE =
@@ -95,7 +96,9 @@ async function resolveApiBase() {
   if (!core || typeof core.invoke !== "function") return currentApiBase;
   if (!desktopApiBasePromise) {
     desktopApiBasePromise = (async () => {
-      const serviceStatus = await fetchDesktopServiceStatus();
+      const serviceStatus = await waitForDesktopServiceReady();
+      desktopServiceStatusPromise = Promise.resolve(serviceStatus);
+      if (serviceStatus?.startupWaitTimedOut) return clearDesktopApiBase();
       const serviceBase = apiBaseFromDesktopServiceStatus(serviceStatus);
       if (serviceBase) {
         currentApiBase = serviceBase;
@@ -113,7 +116,14 @@ async function resolveApiBase() {
           return clearDesktopApiBase();
         });
       });
-    })().catch(() => clearDesktopApiBase());
+    })().catch((cause) => {
+      clearDesktopApiBase();
+      const error = new Error(`桌面服务连接失败：${String(cause?.message || cause)}`);
+      error.code = "desktop_bridge_unavailable";
+      error.cause = cause;
+      desktopApiBasePromise = null;
+      throw error;
+    });
   }
   return desktopApiBasePromise;
 }

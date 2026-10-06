@@ -1,6 +1,7 @@
 import { bindImportWorkspaceEventsForRuntime } from "./app-event-bindings.js";
 import { initializeAppRouteForRuntime } from "./app-route-initializer.js";
 import { openInitialStartupRouteForRuntime } from "./app-startup-seed.js";
+import { initializeStartupConnection } from "./app-startup-connection.js";
 
 export async function bootstrapAppForRuntime(deps = {}) {
   const {
@@ -95,26 +96,43 @@ export async function bootstrapAppForRuntime(deps = {}) {
 
   renderImportToolbar();
   bindImportWorkspaceEvents({ ...deps, importToolbarActions });
-  renderAll();
-  try {
-    await initializeAppRoute(deps);
-    state.appStartupPending = false;
+  let connecting = null;
+  const connect = async () => {
+    state.appStartupPending = true;
+    state.appStartupError = "";
+    deps.resetDesktopServiceStatusCache?.();
     renderAll();
-    await openInitialStartupRoute({
-      ...deps,
-      usingLocalFallbackData: getUsingLocalFallbackData()
-    });
-  } catch (error) {
-    state.appStartupPending = false;
-    setUsingLocalFallbackData(false);
-    activateModule("today");
-    renderAll();
-    setStatus(
-      `\u7814\u601d\u5f55\u542f\u52a8\u6ca1\u6709\u5b8c\u6210\uff0c\u90e8\u5206\u6309\u94ae\u53ef\u80fd\u6682\u65f6\u4e0d\u53ef\u7528\u3002\u8bf7\u5148\u5173\u95ed\u6b63\u5728\u8fd0\u884c\u7684\u5176\u4ed6\u7814\u601d\u5f55\u7a97\u53e3\uff0c\u518d\u91cd\u65b0\u6253\u5f00\u3002${String(error?.message || error) ? ` \u8bca\u65ad\uff1a${String(error?.message || error)}` : ""}`,
-      "bad",
-      { force: true, holdMs: 10000, priority: 5 }
-    );
-  }
+    try {
+      const connection = await initializeStartupConnection(deps, initializeAppRoute);
+      state.appStartupPending = false;
+      if (connection?.connected === false && !connection?.usingLocalFallbackData) {
+        state.appStartupError = connection.error?.serviceStatus?.startupWaitTimedOut
+          ? "本地服务准备超时，请重新连接。"
+          : String(connection.error?.message || "本地服务尚未就绪，请重新连接。");
+        renderAll();
+        return false;
+      }
+      renderAll();
+      await openInitialStartupRoute({
+        ...deps,
+        usingLocalFallbackData: getUsingLocalFallbackData()
+      });
+      return true;
+    } catch (error) {
+      state.appStartupPending = false;
+      state.appStartupError = String(error?.message || error);
+      setUsingLocalFallbackData(false);
+      activateModule("today");
+      renderAll();
+      setStatus(`启动未完成：${state.appStartupError}。请点击重新连接。`, "bad", { force: true, holdMs: 10000, priority: 5 });
+      return false;
+    }
+  };
+  state.retryStartupConnection = () => {
+    if (!connecting) connecting = connect().finally(() => { connecting = null; });
+    return connecting;
+  };
+  if (!await state.retryStartupConnection()) return;
   if (updateController) {
     setTimeout(async () => {
       await updateController.refreshAppVersionInfo();
