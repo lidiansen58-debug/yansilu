@@ -6437,7 +6437,7 @@ export class EditorPane {
       Promise.resolve(this.onStateChange(reason, payload))
         .then((result) => {
           if (action === "seed-demo-confirm") {
-            setEmptyDemoStatus(result === false ? "导入没有完成，请按状态提示重试。" : "导入成功，正在打开导览笔记...", result === false ? "bad" : "ok");
+            setEmptyDemoStatus(result === false ? "导入没有完成，请按状态提示重试。" : "导入成功，可查看示例笔记与写作。", result === false ? "bad" : "ok");
           }
         })
         .catch((error) => {

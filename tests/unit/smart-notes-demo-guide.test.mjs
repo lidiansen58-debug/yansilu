@@ -1,108 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { withShortSmartNotesPractice } from "../../scripts/smart-notes-short-practice.mjs";
-import { SMART_NOTES_SHORT_PRACTICE_STEPS, smartNotesDemoActionLabel } from "../../apps/web/src/beginner-onboarding-flow.js";
-import { beginSmartNotesDemoPractice, completeSmartNotesDemoSavedJudgment } from "../../apps/web/src/smart-notes-demo-practice-progress.js";
+import { buildExplorerSidebarFlowState } from "../../apps/web/src/app-shell-sidebar-flow.js";
 
-function loadDemo() {
-  return JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
-}
-
-test("current short practice names six saved outcomes and only links existing notes", () => {
-  const demo = withShortSmartNotesPractice(loadDemo());
-  const guide = demo.guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
-  const titles = new Set(Object.values(demo).filter(Array.isArray).flat().map(note => note?.title).filter(Boolean));
-  assert.equal([...guide.body.matchAll(/^\d\. /gm)].length, 6);
-  for (const action of ["保存当前观点", "保存草稿", "导出文章 .md", "已有提纲或草稿"]) assert.ok(guide.body.includes(action));
-  assert.match(guide.body, /不需要 AI/);
-  assert.match(guide.body, /正文链接和手动关联同样进入网络/);
-  assert.match(guide.body, /示例观点不代表你的判断/);
-  for (const match of guide.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) assert.ok(titles.has(match[1]), `missing ${match[1]}`);
-  const writingGuide = demo.guide_notes.find(note => note.id === "GUIDE-INDEX-TO-WRITING");
-  for (const label of ["继续提纲", "继续草稿", "继续写"]) assert.ok(writingGuide.body.includes(`“${label}”`));
-  assert.doesNotMatch(writingGuide.body, /继续提纲\/草稿/);
-  assert.match(writingGuide.body, /已保存整稿/);
-  assert.match(writingGuide.body, /点“开始写”选择这组素材，再点“生成提纲”/);
-});
-
-test("short practice instructs registered entry buttons rather than direct note links", () => {
-  const guide = withShortSmartNotesPractice(loadDemo()).guide_notes.find(note => note.id === "GUIDE-SHORT-PRACTICE");
-  assert.match(guide.body, /每一步都从上方练习按钮进入/);
-  assert.match(guide.body, /正文链接只用于阅读参考/);
-  for (const step of SMART_NOTES_SHORT_PRACTICE_STEPS) assert.ok(guide.body.includes(`“${smartNotesDemoActionLabel(step)}”`));
-  assert.doesNotMatch(guide.body, /打开\[\[我的观点/);
-  const state = {};
-  const step = SMART_NOTES_SHORT_PRACTICE_STEPS[0];
-  const saved = { id: step.targetNoteId, thesis: "用自己的话解释才会暴露理解缺口", distillationStatus: "confirmed" };
-  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, undefined), false);
-  const pending = beginSmartNotesDemoPractice(state, { key: step.key, noteId: step.targetNoteId, baseline: "" });
-  assert.equal(completeSmartNotesDemoSavedJudgment(state, saved, pending), true);
-});
-
-test("Smart Notes demo guide gives a beginner title-based path", () => {
-  const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
-
-  assert.ok(guide, "expected Smart Notes guide note");
-  assert.match(guide.title, /观点怎样形成/);
-  assert.match(guide.body, /你不用先学术语/);
-  assert.match(guide.body, /\[\[手机上先记一句：我总是收藏很多但不会用\]\]/);
-  assert.match(guide.body, /\[\[用自己的话重说，才能检查理解\]\]/);
-  assert.match(guide.body, /\[\[永久笔记是一条用户愿意承担的判断\]\]/);
-  assert.match(guide.body, /\[\[关系理由练习：给已有笔记补一条说明\]\]/);
-  assert.match(guide.body, /\[\[为什么要关联笔记？\]\]/);
-  assert.doesNotMatch(guide.body, /\b(?:PN-SN|WP-SN|IC-SN)-/);
-});
-
-test("Smart Notes demo guide has a short onboarding note set", () => {
-  const demo = loadDemo();
-  assert.ok(demo.guide_notes.length >= 6);
-  assert.deepEqual(
-    demo.guide_notes.slice(0, 6).map((note) => note.title),
-    [
-      "00 从这里开始：3 分钟看懂观点怎样形成",
-      "01 今天先做哪一步？",
-      "02 什么是永久笔记？",
-      "03 为什么要建立关系？",
-      "04 什么是可写主题？",
-      "05 怎么从主题进入写作中心？"
-    ]
-  );
-  assert.ok(demo.guide_notes.some((note) => note.title === "06 关系怎么选？"));
-});
-
-test("Smart Notes demo guide explains viewpoint changes and equivalent relation paths", () => {
-  const demo = loadDemo();
-  const start = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
-  const relationGuide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-WHY-RELATE");
-
-  assert.match(start?.body || "", /看它为什么变化/);
-  assert.match(relationGuide?.body || "", /正文中自动生成的链接和手动保存的关联都会进入知识网络/);
-});
-
-test("Smart Notes demo guide avoids advanced workflow jargon on the main path", () => {
-  const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
-
-  assert.ok(guide, "expected Smart Notes guide note");
-  assert.doesNotMatch(guide.body, /候选队列|复核队列|线索卡/);
-});
-
-test("Smart Notes demo guide references titles that exist in the fixture", () => {
-  const demo = loadDemo();
-  const guide = (demo.guide_notes || []).find((note) => note.id === "GUIDE-SMART-NOTES-START");
-  const titles = new Set([
-    ...(demo.sources || []).map((note) => note.title),
-    ...(demo.guide_notes || []).map((note) => note.title),
-    ...(demo.fleeting_notes || []).map((note) => note.title),
-    ...(demo.literature_notes || []).map((note) => note.title),
-    ...(demo.permanent_notes || []).map((note) => note.title),
-    ...(demo.index_cards || []).map((note) => note.title)
-  ]);
-
-  assert.ok(guide, "expected Smart Notes guide note");
-  for (const match of guide.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
-    assert.ok(titles.has(match[1]), `${match[1]} should exist as a readable note title`);
+const demo = JSON.parse(fs.readFileSync("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
+test("operation notes are ordinary editable content and cover the normal software functions", () => {
+  const notes = demo.guide_notes;
+  assert.equal(notes.length, 8);
+  assert.ok(notes.every(note => note.note_type === "permanent" && note.thesis && note.body));
+  for (const title of ["记录与整理", "阅读材料", "编辑观点", "关联笔记", "组织主题", "继续写作", "导出文章"]) {
+    assert.ok(notes.some(note => note.title.startsWith(title)), title);
   }
+  assert.doesNotMatch(JSON.stringify(demo), /每一步都从上方练习按钮|进度才会推进|六步分别要求|GUIDE-SHORT-PRACTICE|WRITE-SHORT-PRACTICE|deferScaffold/);
+});
+
+test("operation and writing notes link only to actual imported content", () => {
+  const all = [demo.sources, demo.fleeting_notes, demo.literature_notes, demo.permanent_notes, demo.guide_notes, demo.final_essays, demo.index_cards].flat();
+  const targets = new Set(all.flatMap(note => [note.id, note.title]));
+  for (const note of [...demo.guide_notes, ...demo.final_essays]) {
+    for (const match of note.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
+      assert.ok(targets.has(match[1]), `${note.title}: missing ${match[1]}`);
+    }
+  }
+});
+
+test("imported and legacy demo identifiers do not override the ordinary sidebar flow", () => {
+  const normal = buildExplorerSidebarFlowState({ rootId: "dir_original_default", originalNotes: [] });
+  const demoState = buildExplorerSidebarFlowState({ rootId: "dir_original_default", originalNotes: [], allNotes: [...demo.guide_notes, { id: "GUIDE-SHORT-PRACTICE" }, { id: "GUIDE-SMART-NOTES-START" }] });
+  assert.deepEqual(demoState, normal);
 });

@@ -354,77 +354,6 @@ test("startup route opener reads late auto-open suppression before creating an u
   assert.equal(created, 0);
 });
 
-test("startup route opener opens existing Smart Notes Demo guide instead of showing empty start", async () => {
-  const calls = [];
-  const state = {
-    folders: [{ id: "demo-dir", title: "写作 Demo（卡片笔记写作法 x 产品思考）" }],
-    notes: []
-  };
-  const route = await openInitialStartupRouteForRuntime({
-    windowRef: { location: { search: "" } },
-    state,
-    rootBoxIdFromFolder: (_state, directoryId) => `root:${directoryId}`,
-    syncNotesForDirectory: async (directoryId) => {
-      calls.push(["sync", directoryId]);
-      state.notes.push({
-        id: "GUIDE-SMART-NOTES-START",
-        folderId: directoryId,
-        title: "00 从这里开始：10 分钟走完研思录"
-      });
-    },
-    activateModule: (moduleName) => calls.push(["module", moduleName]),
-    openNoteById: (id, options) => calls.push(["open", id, options]),
-    setStatus: (message, tone) => calls.push(["status", tone, message])
-  });
-
-  assert.equal(route.route, "existing_demo");
-  assert.equal(route.noteId, "GUIDE-SMART-NOTES-START");
-  assert.equal(state.browserRootId, "root:demo-dir");
-  assert.equal(state.selectedFolderId, "demo-dir");
-  assert.deepEqual(calls[0], ["sync", "demo-dir"]);
-  assert.deepEqual(calls[1], ["sync", "dir_demo_smart_notes_product_thinking_guide"]);
-  assert.deepEqual(calls[2], ["module", "explorer"]);
-  assert.equal(calls[3][0], "open");
-  assert.equal(calls[4][1], "ok");
-});
-
-test("startup loads demo practice targets without overriding a restored active note", async () => {
-  const calls = [];
-  const state = { activeTabId: "restored-tab", selectedFileId: "user-note", folders: [{ id: "demo-dir", title: "写作 Demo" }], notes: [] };
-  const result = await openInitialStartupRouteForRuntime({
-    state, windowRef: { location: { search: "" } },
-    syncNotesForDirectoryTree: async (id) => calls.push(["tree", id]),
-    syncNotesForDirectory: async (id) => { state.notes.push({ id: "GUIDE-SMART-NOTES-START" }); calls.push(["notes", id]); },
-    openNoteById: () => assert.fail("must not change restored selection"),
-    renderAll: () => calls.push(["render"])
-  });
-  assert.equal(result.route, "skipped");
-  assert.equal(state.selectedFileId, "user-note");
-  assert.deepEqual(calls, [["tree", "demo-dir"], ["notes", "dir_demo_smart_notes_product_thinking_guide"], ["render"]]);
-});
-
-test("startup route opener falls back to home when existing Smart Notes Demo guide cannot load", async () => {
-  const calls = [];
-  const state = {
-    folders: [{ id: "demo-dir", title: "写作 Demo（卡片笔记写作法 x 产品思考）" }],
-    notes: []
-  };
-  const route = await openInitialStartupRouteForRuntime({
-    windowRef: { location: { search: "" } },
-    state,
-    rootBoxIdFromFolder: (_state, directoryId) => `root:${directoryId}`,
-    syncNotesForDirectory: async () => {
-      throw new Error("locked");
-    },
-    activateModule: (moduleName) => calls.push(["module", moduleName]),
-    setStatus: (message, tone) => calls.push(["status", tone, message])
-  });
-
-  assert.equal(route.route, "today");
-  assert.deepEqual(calls[0], ["status", "warn", "Demo 导览暂时无法自动打开：locked"]);
-  assert.deepEqual(calls[1], ["module", "today"]);
-});
-
 test("startup route opener defaults to organizer when no note is requested", async () => {
   const calls = [];
   const route = await openInitialStartupRouteForRuntime({
@@ -436,4 +365,19 @@ test("startup route opener defaults to organizer when no note is requested", asy
 
   assert.equal(route.route, "today");
   assert.deepEqual(calls, [["module", "today"]]);
+});
+
+test("ordinary startup does not change its route when imported demo notes exist", async () => {
+  for (const restored of [false, true]) {
+    const state = { folders: [{ id: "demo-dir", title: "写作 Demo" }], notes: [{ id: "GUIDE-SHORT-PRACTICE" }], ...(restored ? { activeTabId: "tab", selectedFileId: "mine" } : {}) };
+    const calls = [];
+    const route = await openInitialStartupRouteForRuntime({ state, windowRef: { location: { search: "" } },
+      syncNotesForDirectory: () => assert.fail("demo must not require startup loading"),
+      openNoteById: () => assert.fail("demo must not replace normal route"),
+      activateModule: module => calls.push(module)
+    });
+    assert.equal(route.route, restored ? "skipped" : "today");
+    assert.deepEqual(calls, restored ? [] : ["today"]);
+    assert.equal(state.selectedFileId, restored ? "mine" : undefined);
+  }
 });

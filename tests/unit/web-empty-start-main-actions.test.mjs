@@ -13,21 +13,18 @@ test("empty editor first screen makes Demo import the clear primary action", () 
   const html = fs.readFileSync("apps/web/src/prototype.html", "utf8");
 
   assert.match(html, /第一次打开，先形成一条判断/);
-  assert.match(html, /首次完成不是创建笔记库：先形成一条判断/);
-  assert.match(html, /Demo 会带你看到它如何进入可追溯的写作结构/);
   assert.match(html, /data-empty-start-action="seed-demo"/);
-  assert.match(html, /导入示例库 \/ 体验 Demo/);
+  assert.match(html, /导入示例笔记与写作/);
   assert.match(html, /<em>推荐<\/em>/);
   assert.match(html, /data-empty-demo-confirm/);
   assert.match(html, /确认导入示例库/);
   assert.match(html, /data-empty-start-action="seed-demo-confirm"/);
   assert.match(html, /data-empty-start-action="seed-demo-cancel"/);
-  assert.match(html, /首次完成不是创建笔记库/);
-  assert.match(html, /确认后创建 Smart Notes 示例笔记、关系和写作项目/);
+  assert.match(html, /创建卡片笔记写作法的示例笔记、关联、主题和文章/);
   assert.doesNotMatch(html, /data-empty-start-action="open-import"/);
   assert.doesNotMatch(html, /选择 Obsidian 文件夹/);
   assert.match(html, /data-empty-start-action="create-note"/);
-  assert.match(html, /跳过 Demo，写下第一条判断/);
+  assert.match(html, /写下第一条笔记/);
   assert.match(html, /观点、依据、来源、关系和反例的结构/);
 });
 
@@ -39,7 +36,7 @@ test("empty start routes demo import with confirmation and the existing-notes im
   }), true);
   assert.equal(await routeAppShellStateChange("seed-smart-notes-demo", { source: "empty-start" }, {
     confirm: (message) => {
-      calls.push(["confirm", /导入示例/.test(message) && /你的修改会保留/.test(message)]);
+      calls.push(["confirm", /添加卡片笔记写作法的示例笔记/.test(message) && /保留你的修改/.test(message) && /更新未改动的旧版操作说明/.test(message)]);
       return true;
     },
     importSmartNotesDemo: async (payload) => {

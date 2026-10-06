@@ -39,8 +39,6 @@ import { syncModuleChromeClassesForRuntime } from "./app-shell-module-ui.js";
 import { createModuleWorkspaceHeaderRuntimeRoutes } from "./app-module-header-runtime-routes.js";
 import { createSidebarTitleController } from "./app-shell-sidebar-controller.js";
 import { createSidebarTitlePrototypeDepsProvider } from "./app-shell-sidebar-host-deps.js";
-import { installSidebarFlowEventHandler } from "./app-shell-sidebar-flow.js";
-import { buildSmartNotesDemoWalkthrough, renderSmartNotesDemoGuidePanel } from "./beginner-onboarding-flow.js";
 import { installMobileNoteEventBindings } from "./mobile-note-event-bindings.js";
 import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-state-change-host-deps.js";
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
@@ -168,7 +166,6 @@ import { installWritingArticleOutputEvents } from "./writing-article-output.js";
 import { installWritingBookOutputEvents } from "./writing-book-output.js";
 import { exportWritingBook } from "./prototype-api.js";
 import { buildWritingOutlineOutput } from "./writing-outline-output.js";
-import { configureSmartNotesDemoProgress, smartNotesDemoCompletedStepsForState } from "./smart-notes-demo-practice-progress.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { createWritingProjectOpenController } from "./writing-project-open-controller.js";
 import { exportWritingArticle } from "./prototype-api.js";
@@ -331,8 +328,7 @@ const graphPresentationController = createGraphPresentationController({
   graphState,
   windowRef: window,
   isGraphModule: () => state.module === "graph",
-  renderGraphPanel,
-  setRelationTypeFilter: setGraphRelationTypeFilter
+  renderGraphPanel
 });
 const {
   syncGraphDisclosureState,
@@ -341,8 +337,7 @@ const {
   shouldShowGraphDensityHint,
   shouldShowGraphCanvasHelpHint,
   dismissGraphCanvasHelpHint,
-  prepareGraphEntryPresentationState,
-  resetGraphDemoPresentationState
+  prepareGraphEntryPresentationState
 } = graphPresentationController;
 const distillationState = {
   filter: "all"
@@ -3106,27 +3101,6 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   return null;
 }
 
-function renderSmartNotesDemoGuide() {
-  const element = $("demoGuidePanel");
-  if (!element) return null;
-  const flow = buildSmartNotesDemoWalkthrough({
-    notes: state.notes,
-    completedSteps: smartNotesDemoCompletedStepsForState(state)
-  });
-  const demoProjectId = flow?.steps?.find(step => step.action === "open-demo-writing")?.targetNoteId;
-  const writingGuide = state.module === "writing" && writingState.project?.id === demoProjectId;
-  if (!flow || (state.module === "writing" && !writingGuide)) {
-    element.classList.add("hidden");
-    element.innerHTML = "";
-    return null;
-  }
-  const host = $(writingGuide ? "writingPanel" : "editorWorkspace");
-  if (host && element.parentElement !== host) host.prepend(element);
-  element.innerHTML = renderSmartNotesDemoGuidePanel(flow, { escapeHtml });
-  element.classList.remove("hidden");
-  return flow;
-}
-
 function syncNewNoteButtons() {
   const copy = explorerNewNoteButtonCopy(state);
   const label = copy.title || copy.label;
@@ -3468,7 +3442,6 @@ const renderAppShellController = createRenderAppShellController({
     renderGraphPanel,
     renderSettingsPanel,
     renderExplorerSidebarFlow,
-    renderSmartNotesDemoGuide,
     renderWritingPanel,
     applyFocusModeChrome,
     renderStatusMeta,
@@ -4140,7 +4113,6 @@ function isDirectoryUnderOriginalRoot(directoryId) { return rootBoxIdFromFolder(
 
 function writingNoteEligibility(note) { return writingThemeProjectRuntime.writingNoteEligibility(note); }
 
-configureSmartNotesDemoProgress(state, { getVaultPath: currentVaultPath, getStorage: () => window.localStorage });
 
 const writingBasketSession = createWritingBasketSession({
   $, getVaultPath: currentVaultPath, getStorage: () => window.localStorage,
@@ -5454,7 +5426,10 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectoryTree(directoryId);
-    await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
+    for (const contentDirectoryId of result.directoryIds || []) {
+      if (contentDirectoryId !== directoryId) await syncNotesForDirectory(contentDirectoryId);
+    }
+    if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
     await syncNotesForDirectory("dir_fleeting_default");
     await syncNotesForDirectory("dir_literature_default");
     await loadWritingThemeIndexes();
@@ -5463,26 +5438,6 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     if (shouldOpenGuide) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
-    }
-    const writingProjectId = String(result?.writingProjectId || "").trim();
-    if (writingProjectId) {
-      try {
-        const project = await fetchWritingProject(writingProjectId);
-        writingState.project = project;
-        populateWritingFormFromProject(project);
-        const draftScaffoldId = String(result?.draftScaffoldId || project?.scaffold_id || "").trim();
-        if (draftScaffoldId) {
-          const scaffold = await fetchDraftScaffold(draftScaffoldId);
-          writingState.scaffold = scaffold.item || null;
-          writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
-        }
-      } catch {}
-    }
-    if (startup) {
-      // Demo routes should always reopen into a readable, stable first-screen
-      // graph state instead of inheriting stale filters or expanded UI state
-      // from a previous session.
-      resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
     if (shouldOpenGuide) activateModule("explorer");
@@ -5511,7 +5466,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
             state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
             state.selectedFolderId = demoFolder.id;
             await syncNotesForDirectory(demoFolder.id);
-            await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
+            if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
           }
         } catch {}
       }
@@ -6438,37 +6393,6 @@ installDistillationEventBindings({
   handleStateChange,
   renderAll,
   openDistillationQueueNote
-});
-
-installSidebarFlowEventHandler({
-  $,
-  depsProvider: () => ({
-    $,
-    state,
-    writingState,
-    writingDraftBody,
-    createDraftScaffold,
-    getVaultPath: currentVaultPath,
-    applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
-    activateModule,
-    openDistillationModule,
-    openWritingModule,
-    continueWritingProjectEntry,
-    handleStateChange,
-    openNoteById,
-    renderAll,
-    setStatus,
-    dismissSafeOverlaysForNavigation: () => dismissSafeOverlaysForNavigation({
-      graphState,
-      permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
-      closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
-      closeSystemMessages,
-      isSystemMessageModalOpen,
-      renderGraphPanel,
-      setStatus,
-      confirm: window.confirm.bind(window)
-    })
-  })
 });
 
 installMobileNoteEventBindings({

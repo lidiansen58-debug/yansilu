@@ -12,7 +12,6 @@ export function renderAppShell(deps = {}) {
     renderSettingsPanel = () => {},
     explorerRender = () => {},
     renderExplorerSidebarFlow = () => {},
-    renderSmartNotesDemoGuide = () => {},
     renderWritingPanel = () => {},
     renderEditorTabs = () => {},
     applyFocusModeChrome = () => {},
@@ -35,7 +34,6 @@ export function renderAppShell(deps = {}) {
     explorerRender();
   }
   renderExplorerSidebarFlow();
-  renderSmartNotesDemoGuide();
   renderWritingPanel();
   renderEditorTabs();
   applyFocusModeChrome();

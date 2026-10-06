@@ -38,7 +38,7 @@ test("smart notes demo existing guide status stays beginner friendly", () => {
   const message = smartNotesDemoOpenedExistingGuideStatus();
 
   assert.match(message, /保留你的修改/);
-  assert.match(message, /继续练习/);
+  assert.match(message, /继续查看笔记和写作/);
   assert.doesNotMatch(message, /database|locked|error|failed|重试未完成/i);
 });
 

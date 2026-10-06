@@ -56,7 +56,7 @@ export async function runSettingsDemoImport(button, { $, handleStateChange, setS
   button.disabled = true;
   button.setAttribute("aria-busy", "true");
   button.textContent = "\u6b63\u5728\u5bfc\u5165...";
-  setImportFeedback("正在导入示例库。完成后会打开练习入口。", "busy");
+  setImportFeedback("正在导入示例笔记与写作，完成后可在普通目录中查看。", "busy");
   try {
     const imported = await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
     if (imported === false) {

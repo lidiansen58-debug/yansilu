@@ -306,14 +306,14 @@ test("today organizing empty home makes writing a first record the primary actio
   assert.match(html, /从一条笔记开始/);
   assert.match(html, /新建笔记/);
   assert.match(html, /导入笔记/);
-  assert.match(html, /试用示例/);
+  assert.match(html, /导入示例笔记与写作/);
   assert.doesNotMatch(html, /先完成一条自己的判断|你会学到什么|today-empty-next/);
   assert.equal((html.match(/class="mini-btn primary"/g) || []).length, 1);
   assert.equal((html.match(/class="today-empty-home-option"/g) || []).length, 2);
   assert.match(html, /data-today-demo-status/);
   assert.match(html, /data-today-demo-progress/);
   assert.match(html, /role="progressbar"/);
-  assert.ok(html.indexOf("新建笔记") < html.indexOf("试用示例"));
+  assert.ok(html.indexOf("新建笔记") < html.indexOf("导入示例笔记与写作"));
   assert.doesNotMatch(html, /当前笔记库状态/);
   assert.doesNotMatch(html, /今日提醒/);
   assert.doesNotMatch(html, /导入后自动打开导览笔记/);

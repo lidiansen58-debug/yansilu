@@ -1,8 +1,8 @@
 {
-  "id": "demo-smart-notes-product-thinking-v3",
+  "id": "demo-smart-notes-product-thinking-v4",
   "title": "Smart Notes Demo：卡片笔记写作法 x 研思录",
-  "purpose": "帮助第一次使用者用一条真实知识链，理解记录、永久笔记、关联、主题和写作怎样连续发生。",
-  "version": 3,
+  "purpose": "提供卡片笔记写作法的示例笔记、关联、主题和写作正文，操作要点保存为普通笔记供用户查阅。",
+  "version": 4,
   "sources": [
     {
       "id": "SRC-SMART-NOTES",
@@ -11,7 +11,7 @@
       "author": "Sönke Ahrens",
       "source_kind": "book-method-reference",
       "use_boundary": "Demo 只保留方法观念和原创转述，不复刻原文，也不替代阅读原书。",
-      "reading_purpose": "把卡片笔记写作法变成研思录里能直接体验的流程。",
+      "reading_purpose": "通过普通笔记和写作内容展示卡片笔记写作法的使用方式。",
       "tags": [
         "卡片笔记",
         "Smart Notes Demo"
@@ -1146,8 +1146,8 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-GUIDE-SMART-NOTES-START-PERM-PERMANENT-NOTE-IS-JUDGMENT",
-      "from": "GUIDE-SMART-NOTES-START",
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-CONTENTS-PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "from": "NOTE-YANSILU-CONTENTS",
       "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
       "relationType": "associated_with",
       "status": "confirmed",
@@ -1158,44 +1158,8 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-GUIDE-SMART-NOTES-START-PERM-UNLINKED-PRACTICE",
-      "from": "GUIDE-SMART-NOTES-START",
-      "to": "PERM-UNLINKED-PRACTICE",
-      "relationType": "associated_with",
-      "status": "confirmed",
-      "rationale": "markdown_wikilink",
-      "source": "body_wikilink",
-      "relationSource": "body_wikilink",
-      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
-      "confidence": 0.55
-    },
-    {
-      "id": "REL-DEMO-BODY-GUIDE-TODAY-NEXT-STEP-PERM-FLEETING-NOTE-IS-CAPTURE",
-      "from": "GUIDE-TODAY-NEXT-STEP",
-      "to": "PERM-FLEETING-NOTE-IS-CAPTURE",
-      "relationType": "associated_with",
-      "status": "confirmed",
-      "rationale": "markdown_wikilink",
-      "source": "body_wikilink",
-      "relationSource": "body_wikilink",
-      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
-      "confidence": 0.55
-    },
-    {
-      "id": "REL-DEMO-BODY-GUIDE-WHAT-PERMANENT-PERM-PERMANENT-NOTE-IS-JUDGMENT",
-      "from": "GUIDE-WHAT-PERMANENT",
-      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
-      "relationType": "associated_with",
-      "status": "confirmed",
-      "rationale": "markdown_wikilink",
-      "source": "body_wikilink",
-      "relationSource": "body_wikilink",
-      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
-      "confidence": 0.55
-    },
-    {
-      "id": "REL-DEMO-BODY-GUIDE-WHY-RELATE-PERM-RELATION-REASON-MATTERS",
-      "from": "GUIDE-WHY-RELATE",
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-CONTENTS-PERM-RELATION-REASON-MATTERS",
+      "from": "NOTE-YANSILU-CONTENTS",
       "to": "PERM-RELATION-REASON-MATTERS",
       "relationType": "associated_with",
       "status": "confirmed",
@@ -1206,8 +1170,8 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-GUIDE-WRITABLE-THEME-PERM-THEME-INDEX-IS-ENTRY",
-      "from": "GUIDE-WRITABLE-THEME",
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-CONTENTS-PERM-THEME-INDEX-IS-ENTRY",
+      "from": "NOTE-YANSILU-CONTENTS",
       "to": "PERM-THEME-INDEX-IS-ENTRY",
       "relationType": "associated_with",
       "status": "confirmed",
@@ -1218,8 +1182,80 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-GUIDE-INDEX-TO-WRITING-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
-      "from": "GUIDE-INDEX-TO-WRITING",
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-CAPTURE-PERM-FLEETING-NOTE-IS-CAPTURE",
+      "from": "NOTE-YANSILU-CAPTURE",
+      "to": "PERM-FLEETING-NOTE-IS-CAPTURE",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-READING-PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "from": "NOTE-YANSILU-READING",
+      "to": "PERM-PARAPHRASE-BEFORE-JUDGMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-EDIT-PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "from": "NOTE-YANSILU-EDIT",
+      "to": "PERM-PERMANENT-NOTE-IS-JUDGMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-RELATE-PERM-RELATION-REASON-MATTERS",
+      "from": "NOTE-YANSILU-RELATE",
+      "to": "PERM-RELATION-REASON-MATTERS",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-RELATE-PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "from": "NOTE-YANSILU-RELATE",
+      "to": "PERM-CONTRAST-RELATION-CREATES-ARGUMENT",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-THEME-PERM-THEME-INDEX-IS-ENTRY",
+      "from": "NOTE-YANSILU-THEME",
+      "to": "PERM-THEME-INDEX-IS-ENTRY",
+      "relationType": "associated_with",
+      "status": "confirmed",
+      "rationale": "markdown_wikilink",
+      "source": "body_wikilink",
+      "relationSource": "body_wikilink",
+      "insight_question": "正文里出现了这个链接。后续如果它支撑写作，再补一句清楚的关联理由。",
+      "confidence": 0.55
+    },
+    {
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-WRITE-PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
+      "from": "NOTE-YANSILU-WRITE",
       "to": "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES",
       "relationType": "associated_with",
       "status": "confirmed",
@@ -1230,9 +1266,9 @@
       "confidence": 0.55
     },
     {
-      "id": "REL-DEMO-BODY-GUIDE-RELATION-TYPES-PERM-RELATION-REASON-MATTERS",
-      "from": "GUIDE-RELATION-TYPES",
-      "to": "PERM-RELATION-REASON-MATTERS",
+      "id": "REL-DEMO-BODY-NOTE-YANSILU-WRITE-PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
+      "from": "NOTE-YANSILU-WRITE",
+      "to": "PERM-OUTLINE-NEEDS-EVIDENCE-COUNTERPOINT-BOUNDARY",
       "relationType": "associated_with",
       "status": "confirmed",
       "rationale": "markdown_wikilink",
@@ -1608,86 +1644,161 @@
       "note_type": "permanent",
       "title": "研思录使用说明：从一条记录到一篇文章",
       "writing_project_id": "WRITE-SMART-NOTES-DEMO",
-      "body": "# 研思录使用说明：从一条记录到一篇文章\n\n## 先理解这一条路\n\n记录材料 → 用自己的话解释 → 留下自己的判断 → 说明与旧笔记的关系 → 围绕问题组织主题 → 写成文章。\n\n研思录受《卡片笔记写作法》启发。阅读、思考和写作可以在日常记录中连续发生；把想法写成能独立读懂的笔记，再与旧想法连接，能帮助以后继续思考。这份说明是产品自己的实践解释，不是原书摘要。软件里的“当前观点”“怎么形成的”和关系类型是研思录的具体设计，不应当作原书的固定规则。\n\n方法来源：[Sönke Ahrens 的书籍介绍](https://www.soenkeahrens.de/en/takesmartnotes)。先看 [[写作不是最后一步，而是整理笔记的方向]]：不是每条记录都要变成文章，但记录时可以想一想它将来能回答什么问题。\n\n## 1. 先导入示例，亲手做一次\n\n首次体验建议进入设置中的帮助，确认导入示例。导入会增加示例数据，不会替你完成练习。打开“00 动手练习：从材料写成短文”，从上方每一步的练习按钮进入；正文里的链接用于阅读参考。\n\n六步分别要求：保存三个自己的判断，保存一句关联理由，保存一段正文，导出短文。完成后回到同一个笔记库，可以继续之前的练习。重复导入会保留已有内容和练习修改，只补缺失示例。想重新练习，可使用另外一个测试笔记库。\n\n这篇说明是示例写作项目保存的正文。它的提纲和引用来自已有笔记；你可以在写作中心继续修改，或把自己的笔记组织成另一篇文章。\n\n## 2. 随笔：先记下来，之后再整理\n\n在首页点“记一条”（空库可能显示“写下第一条记录”），写下现场想法并保存。随笔可以是一句话、一个问题或一个观察，不必当场写成完整观点。\n\n例如“我总是收藏很多但不会用”。之后回到首页打开待整理记录，问：我真正想解释什么？哪些细节值得保留？参考 [[随笔是捕捉点，不是知识点]]。\n\n保存后重开这条记录，确认输入仍在。处理随笔时保留原材料；不需要把每条随笔都转换成永久笔记。\n\n## 3. 文摘与文献笔记：区分原话和自己的理解\n\n文摘是材料里的原话；文献笔记还要保留书名、作者或来源位置，并写下自己的转述。不要把作者的主张直接当成自己的判断。\n\n打开示例文献笔记“阅读一开始就要面向未来写作”，查看标明作者网站来源的短文摘，再读“我的转述”。文摘是作者的原话，转述是我们自己的理解，不是原句翻译。再打开“用自己的话重说，才能检查理解”练习原创转述：它回答了什么问题？我哪里还不理解？参考 [[文献笔记要先转述，再沉淀判断]]。\n\n需要沉淀时，在材料旁点“生成永久笔记”，生成后点“打开永久笔记”。检查正文和依据，再在“打磨笔记”中修改并点“保存当前观点”。生成并不等于你已经确认这个观点；AI 可选，自己的表达仍由自己核对。\n\n## 4. 永久笔记：留下能继续使用的一条判断\n\n打开 [[永久笔记是一条用户愿意承担的判断]]。一条笔记先说清一个观点，用自己的话补上理由；需要时补充最初问题和适用条件。标题尽量让以后搜索的你看得懂这条笔记在说什么。\n\n比如把“读书”改成“用自己的话解释材料，可以暴露理解中的缺口”。它可以很小，也可以暂时带着疑问。参考 [[边界和反例让永久笔记更可靠]]。\n\n永久不意味着永远正确。后来有新依据时，修改当前观点，写清“这次为什么改变”，再保存。在“怎么形成的”核对最初问题、依据和变化；重开笔记检查新的观点。保留改变原因，有助于以后知道自己为何这样想。\n\n## 5. 关联：说清两条笔记怎样帮助思考\n\n正文中插入笔记链接，选择已有笔记并保存，之后可从链接打开它。正文链接用于把阅读接起来；需要表达论证关系时，再手动补上关系类型和理由。\n\n打开“关系理由练习：给已有笔记补一条说明”，搜索另一条永久笔记并选择它，再选“支持这个观点”“提出不同看法”“补充适用条件”“提供一个例子”或“只是有关”，写一句具体理由并保存。\n\n例如：“自己的转述能发现理解缺口，因此支持把材料加工成自己的判断。”理由应解释两条笔记之间的作用，不要只重复标题。参考 [[关系理由比连线本身更重要]]。推荐关联只是候选，核对目标和理由后再采用。\n\n保存后从笔记关联区查看两条笔记，在图谱中找到并打开节点。连线有助于发现相邻想法，不能代替阅读正文与理由。支持不等于证明，反方和条件也值得保留；参考 [[反驳关系会逼出更清楚的观点]]。\n\n## 6. 主题：围绕问题组织笔记\n\n打开“为什么要关联笔记？”这个主题。主题索引先提出一个中心问题，再选几条能一起回答它的关键笔记，安排阅读顺序。它不是把所有同类资料装进一个文件夹。\n\n参考 [[主题索引不是文件夹，而是问题入口]]。试着把主题问题改成自己的问题，保留真正用得上的观点；资料不足时留下一个待回答问题，不必等收集齐全才开始。\n\n## 7. 写作：从提纲到自己的正文\n\n在主题中点“开始写”，选择这组素材，再点“生成提纲”。已有文章可按当前按钮选择“继续提纲”“继续草稿”或“继续写”。不配置 AI 也可以完成这条流程。\n\n检查每一节引用了哪些观点：有没有依据、反方和适用条件？调整提纲，再开始写正文。提纲不会自动变成一篇完成的文章。参考 [[写作中心应该从已确认判断生成提纲]] 和 [[好提纲需要证据、反方和边界]]。\n\n先写一段自己的解释，保存草稿，重开后继续修改并再保存。在写作的“更多”中选择“导出文章 .md”，选择笔记库外的目录，打开实际导出的 Markdown，核对最终正文和本地图片。也可选择“复制正文”；复制和导出当前编辑内容不会替你保存草稿，提纲导出也不是正文导出。\n\n要组织书稿，在章节目录中新增章节、分别编辑并保存，调整顺序后“导出整稿 .md”。整稿读取已保存章节；未保存改动要先保存。引用链接会保留，跨库阅读依据仍需要原笔记库。\n\n## 8. 明天从哪里继续\n\n回到同一个笔记库，通过首页的下一步或标题、正文搜索找回旧笔记。可以补一条新材料、修订一个判断、补一句关系理由，或者继续文章的一段；一次做一个动作即可。\n\nAI 可以帮助提炼材料、推荐关联和检查提纲，但建议是候选，需要你核对与确认。未配置 AI 不影响手动记录、判断、关联和写作。设置中的离线使用指南可随时查阅。\n\n遇到保存冲突时先保留输入，核对磁盘文件；“结果未确认”不等于没有保存，先检查实际内容再重试。不要靠反复新建解决保存问题。\n\n完成一次体验的证据是：重开后看见自己保存的判断、能回到依据、找到带理由的关联、继续编辑保存过的正文，并打开导出的文章。示例是练习起点；下一次换成自己的短材料，才会逐渐形成自己的笔记网络。\n"
+      "body": "# 研思录使用说明：从一条记录到一篇文章\n\n## 先理解这一条路\n\n记录材料 → 用自己的话解释 → 留下自己的判断 → 说明与旧笔记的关系 → 围绕问题组织主题 → 写成文章。\n\n研思录受《卡片笔记写作法》启发。阅读、思考和写作可以在日常记录中连续发生；把想法写成能独立读懂的笔记，再与旧想法连接，能帮助以后继续思考。这份说明是产品自己的实践解释，不是原书摘要。软件里的“当前观点”“怎么形成的”和关系类型是研思录的具体设计，不应当作原书的固定规则。\n\n方法来源：[Sönke Ahrens 的书籍介绍](https://www.soenkeahrens.de/en/takesmartnotes)。先看 [[写作不是最后一步，而是整理笔记的方向]]：不是每条记录都要变成文章，但记录时可以想一想它将来能回答什么问题。\n\n## 1. 查看示例笔记和写作\n\n在设置的帮助中导入示例，即可在普通笔记目录中查看《卡片笔记写作法》的方法转述、观点、关联和主题。打开 [[示例目录]]，按自己关心的问题阅读，不需要按固定顺序完成任务。\n\n这些内容使用与自己的笔记相同的编辑、保存、搜索、关联和写作功能。可以查看正文链接和已保存的关系理由，也可以修改、补充或组织新的主题。重复导入保留你的修改，补齐缺失示例，并更新未改动的旧版操作说明。\n\n这篇说明也是示例写作项目保存的正文。在写作中心的主题列表中找到“如何从主题索引进入写作中心？”，继续已有文章即可查看提纲和正文。各项操作的要点还保存在普通笔记里，方便通过标题搜索或正文链接查阅。\n\n## 2. 随笔：先记下来，之后再整理\n\n在首页点“记一条”（空库可能显示“写下第一条记录”），写下现场想法并保存。随笔可以是一句话、一个问题或一个观察，不必当场写成完整观点。\n\n例如“我总是收藏很多但不会用”。之后回到首页打开待整理记录，问：我真正想解释什么？哪些细节值得保留？参考 [[随笔是捕捉点，不是知识点]]。\n\n保存后重开这条记录，确认输入仍在。处理随笔时保留原材料；不需要把每条随笔都转换成永久笔记。\n\n## 3. 文摘与文献笔记：区分原话和自己的理解\n\n文摘是材料里的原话；文献笔记还要保留书名、作者或来源位置，并写下自己的转述。不要把作者的主张直接当成自己的判断。\n\n打开示例文献笔记“阅读一开始就要面向未来写作”，查看标明作者网站来源的短文摘，再读“我的转述”。文摘是作者的原话，转述是我们自己的理解，不是原句翻译。再打开“用自己的话重说，才能检查理解”练习原创转述：它回答了什么问题？我哪里还不理解？参考 [[文献笔记要先转述，再沉淀判断]]。\n\n需要沉淀时，在材料旁点“生成永久笔记”，生成后点“打开永久笔记”。检查正文和依据，再在“打磨笔记”中修改并点“保存当前观点”。生成并不等于你已经确认这个观点；AI 可选，自己的表达仍由自己核对。\n\n## 4. 永久笔记：留下能继续使用的一条判断\n\n打开 [[永久笔记是一条用户愿意承担的判断]]。一条笔记先说清一个观点，用自己的话补上理由；需要时补充最初问题和适用条件。标题尽量让以后搜索的你看得懂这条笔记在说什么。\n\n比如把“读书”改成“用自己的话解释材料，可以暴露理解中的缺口”。它可以很小，也可以暂时带着疑问。参考 [[边界和反例让永久笔记更可靠]]。\n\n永久不意味着永远正确。后来有新依据时，修改当前观点，写清“这次为什么改变”，再保存。在“怎么形成的”核对最初问题、依据和变化；重开笔记检查新的观点。保留改变原因，有助于以后知道自己为何这样想。\n\n## 5. 关联：说清两条笔记怎样帮助思考\n\n正文中插入笔记链接，选择已有笔记并保存，之后可从链接打开它。正文链接用于把阅读接起来；需要表达论证关系时，再手动补上关系类型和理由。\n\n打开“关系理由练习：给已有笔记补一条说明”，搜索另一条永久笔记并选择它，再选“支持这个观点”“提出不同看法”“补充适用条件”“提供一个例子”或“只是有关”，写一句具体理由并保存。\n\n例如：“自己的转述能发现理解缺口，因此支持把材料加工成自己的判断。”理由应解释两条笔记之间的作用，不要只重复标题。参考 [[关系理由比连线本身更重要]]。推荐关联只是候选，核对目标和理由后再采用。\n\n保存后从笔记关联区查看两条笔记，在图谱中找到并打开节点。连线有助于发现相邻想法，不能代替阅读正文与理由。支持不等于证明，反方和条件也值得保留；参考 [[反驳关系会逼出更清楚的观点]]。\n\n## 6. 主题：围绕问题组织笔记\n\n打开“为什么要关联笔记？”这个主题。主题索引先提出一个中心问题，再选几条能一起回答它的关键笔记，安排阅读顺序。它不是把所有同类资料装进一个文件夹。\n\n参考 [[主题索引不是文件夹，而是问题入口]]。试着把主题问题改成自己的问题，保留真正用得上的观点；资料不足时留下一个待回答问题，不必等收集齐全才开始。\n\n## 7. 写作：从提纲到自己的正文\n\n在主题中点“开始写”，选择这组素材，再点“生成提纲”。已有文章可按当前按钮选择“继续提纲”“继续草稿”或“继续写”。不配置 AI 也可以完成这条流程。\n\n检查每一节引用了哪些观点：有没有依据、反方和适用条件？调整提纲，再开始写正文。提纲不会自动变成一篇完成的文章。参考 [[写作中心应该从已确认判断生成提纲]] 和 [[好提纲需要证据、反方和边界]]。\n\n先写一段自己的解释，保存草稿，重开后继续修改并再保存。在写作的“更多”中选择“导出文章 .md”，选择笔记库外的目录，打开实际导出的 Markdown，核对最终正文和本地图片。也可选择“复制正文”；复制和导出当前编辑内容不会替你保存草稿，提纲导出也不是正文导出。\n\n要组织书稿，在章节目录中新增章节、分别编辑并保存，调整顺序后“导出整稿 .md”。整稿读取已保存章节；未保存改动要先保存。引用链接会保留，跨库阅读依据仍需要原笔记库。\n\n## 8. 明天从哪里继续\n\n回到同一个笔记库，通过首页的下一步或标题、正文搜索找回旧笔记。可以补一条新材料、修订一个判断、补一句关系理由，或者继续文章的一段；一次做一个动作即可。\n\nAI 可以帮助提炼材料、推荐关联和检查提纲，但建议是候选，需要你核对与确认。未配置 AI 不影响手动记录、判断、关联和写作。设置中的离线使用指南可随时查阅。\n\n遇到保存冲突时先保留输入，核对磁盘文件；“结果未确认”不等于没有保存，先检查实际内容再重试。不要靠反复新建解决保存问题。\n\n可以通过重开笔记核对保存的判断，从关联回到依据，并继续编辑写作中心保存过的正文。示例展示的是普通的软件功能；把内容换成自己的材料，就可以用同样的操作建立自己的笔记网络。\n"
     }
   ],
   "guide_notes": [
     {
-      "id": "GUIDE-SMART-NOTES-START",
-      "note_type": "guide",
-      "title": "00 从这里开始：3 分钟看懂观点怎样形成",
+      "id": "NOTE-YANSILU-CONTENTS",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "示例目录",
+      "thesis": "示例内容可以通过普通笔记、主题和写作中心查看与修改。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 00 从这里开始：3 分钟看懂观点怎样形成\n\n你不用先学术语，只看一条链：记录材料 -> 用自己的话转述 -> 保存当前观点 -> 看它为什么变化 -> 建立关系 -> 组织主题 -> 查看提纲。\n\n1. 看 [[手机上先记一句：我总是收藏很多但不会用]]。\n2. 看 [[用自己的话重说，才能检查理解]]，再打开 [[永久笔记是一条用户愿意承担的判断]]，切到“怎么形成的”看最初问题、改变原因和依据。\n3. 打开 [[关系理由练习：给已有笔记补一条说明]]，搜索一条笔记，选择它带来的影响并写一句理由。\n4. 打开 [[为什么要关联笔记？]]，再进入示例写作项目查看提纲。\n\n先跟着做一遍；不必一次理解全部功能。"
+      "body": "# 示例目录\n\n这组内容包含《卡片笔记写作法》的方法转述、随笔、文献笔记、永久笔记、关系、主题，以及一篇已有提纲和正文的文章。它们与自己的笔记使用相同的软件功能。\n\n按关心的问题查看：\n- [[记录与整理：从随笔保留自己的判断]]\n- [[阅读材料：区分文摘、转述和自己的观点]]\n- [[编辑观点：保存判断、依据和改变原因]]\n- [[关联笔记：选择对象并说明关系理由]]\n- [[组织主题：围绕问题选取关键笔记]]\n- [[继续写作：查看提纲并编辑已保存的正文]]\n- [[导出文章：保存正文并查看导出的文件]]\n\n方法示例从 [[永久笔记是一条用户愿意承担的判断]]、[[关系理由比连线本身更重要]] 和 [[主题索引不是文件夹，而是问题入口]] 展开。完整说明见 [[研思录使用说明：从一条记录到一篇文章]]。\n\n在写作中心打开“如何从主题索引进入写作中心？”这个主题，继续已有文章，可以查看示例提纲和正文。无需完成任务或解锁后续内容。"
     },
     {
-      "id": "GUIDE-TODAY-NEXT-STEP",
-      "note_type": "guide",
-      "title": "01 今天先做哪一步？",
+      "id": "NOTE-YANSILU-CAPTURE",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "记录与整理：从随笔保留自己的判断",
+      "thesis": "随笔先保存想法，再根据需要生成并编辑永久笔记。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 01 今天先做哪一步？\n\n想动手就打开“00 动手练习：从材料写成短文”，跟着上方的下一步，不必读完全部示例。用自己的话写下并保存当前观点；改变已有判断时，写清“这次为什么改变”，再到“怎么形成的”看问题、依据和变化。\n\n继续：[[PERM-FLEETING-NOTE-IS-CAPTURE|继续阅读]]"
+      "body": "# 记录与整理：从随笔保留自己的判断\n\n在首页点“记一条”，写下问题、观察或想法并保存。之后打开这条随笔，使用“生成永久笔记”，再点“打开永久笔记”查看和修改结果。原材料会保留，便于回看依据。\n\n在“打磨笔记”里用自己的话写当前观点，补充理由和适用条件，点“保存当前观点”。生成的内容需要亲自核对，不能代替自己的判断；并非每条随笔都需要转成永久笔记。\n\n查看 [[手机上先记一句：我总是收藏很多但不会用]] 和 [[随笔是捕捉点，不是知识点]]，可以看到材料与观点的区别。"
     },
     {
-      "id": "GUIDE-WHAT-PERMANENT",
-      "note_type": "guide",
-      "title": "02 什么是永久笔记？",
+      "id": "NOTE-YANSILU-READING",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "阅读材料：区分文摘、转述和自己的观点",
+      "thesis": "保留出处并用自己的话转述，能帮助形成可核对的判断。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 02 什么是永久笔记？\n\n永久笔记是一条你愿意承担的当前观点。需要时可以写最初的问题、补充说明和边界；观点改变时，保留原因和影响它的笔记。\n\n继续看：[[永久笔记是一条用户愿意承担的判断]]。"
+      "body": "# 阅读材料：区分文摘、转述和自己的观点\n\n文摘保存原话，文献笔记保留出处及自己的转述。打开 [[用自己的话重说，才能检查理解]]，查看来源与“我的转述”，再比较 [[文献笔记要先转述，再沉淀判断]]。\n\n编辑时把原话和自己的理解分开。需要留下独立观点时，生成并打开永久笔记，核对正文与来源，再保存自己的判断。这里的方法文字是原创转述，明确引用的短文摘另有出处。"
     },
     {
-      "id": "GUIDE-WHY-RELATE",
-      "note_type": "guide",
-      "title": "03 为什么要建立关系？",
+      "id": "NOTE-YANSILU-EDIT",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "编辑观点：保存判断、依据和改变原因",
+      "thesis": "永久笔记的正文和当前观点都通过普通编辑与保存功能维护。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 03 为什么要建立关系？\n\n正文中自动生成的链接和手动保存的关联都会进入知识网络。需要时补一句理由，让未来的你看懂它是支持、反例、条件还是例子。\n\n继续看：[[关系理由比连线本身更重要]]。"
+      "body": "# 编辑观点：保存判断、依据和改变原因\n\n从目录或搜索打开笔记，直接编辑正文并保存。在“打磨笔记”中编辑当前观点，按需补充问题、说明和适用条件，点“保存当前观点”。修改已有判断时写清“这次为什么改变”。\n\n打开 [[永久笔记是一条用户愿意承担的判断]]，在“怎么形成的”查看最初问题、依据和变化。保存后重开笔记可以核对结果。示例观点属于示例作者，可以按自己的理解修改；AI 生成的候选仍需自己核对。"
     },
     {
-      "id": "GUIDE-WRITABLE-THEME",
-      "note_type": "guide",
-      "title": "04 什么是可写主题？",
+      "id": "NOTE-YANSILU-RELATE",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "关联笔记：选择对象并说明关系理由",
+      "thesis": "关联的作用取决于目标笔记、关系类型和具体理由。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 04 什么是可写主题？\n\n当几条永久笔记能一起回答一个问题时，就可以整理成主题索引。\n\n继续看：[[主题索引不是文件夹，而是问题入口]]。"
+      "body": "# 关联笔记：选择对象并说明关系理由\n\n阅读笔记正文里的链接可以打开相关内容。手动关联时打开关联表单，搜索并选择另一条笔记，阅读两边的内容，再选择关系类型并写一句具体理由，最后保存。\n\n支持、不同看法、适用条件和例子表达不同的作用；拿不准时可以选“只是有关”。正文链接和手动关联都会进入网络，已有关系可以查看和修改。推荐关系需要核对后采用。\n\n查看 [[关系理由比连线本身更重要]] 与 [[反驳关系会逼出更清楚的观点]]。图谱帮助发现相邻想法，不能代替阅读正文和理由。"
     },
     {
-      "id": "GUIDE-INDEX-TO-WRITING",
-      "note_type": "guide",
-      "title": "05 怎么从主题进入写作中心？",
+      "id": "NOTE-YANSILU-THEME",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "组织主题：围绕问题选取关键笔记",
+      "thesis": "主题用中心问题组织笔记，保存选择和用途后再用于写作。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 05 怎么从主题进入写作中心？\n\n打开主题，确认中心问题、关键笔记和各自用途。点“开始写”选择这组素材，再点“生成提纲”。提纲可修改，不会自动写成文章；想接着写已有文章，按当前按钮选“继续提纲”“继续草稿”或“继续写”。写一段自己的解释并保存，再从“更多”选择“导出文章 .md”，核对导出的正文。组织书稿时分别保存章节，再按目录顺序导出已保存整稿。\n\n继续：[[PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES|继续阅读]]"
+      "body": "# 组织主题：围绕问题选取关键笔记\n\n在图谱中选取一组相关笔记，整理成主题时确认中心问题，保留真正有用的笔记，按需写各条笔记的用途，再保存。内容也可以从主题列表打开查看。\n\n查看“为什么要关联笔记？”和“如何从主题索引进入写作中心？”这两个主题，再比较 [[主题索引不是文件夹，而是问题入口]]。主题可以继续增删笔记或修改问题；材料还没完成作者或原创确认时，先核对材料再进入写作。"
     },
     {
-      "id": "GUIDE-RELATION-TYPES",
-      "note_type": "guide",
-      "title": "06 关系怎么选？",
+      "id": "NOTE-YANSILU-WRITE",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "继续写作：查看提纲并编辑已保存的正文",
+      "thesis": "已有文章可以通过主题中的继续入口打开，保留提纲和正文接着写。",
       "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
       "tags": [
-        "导览",
-        "Smart Notes Demo"
+        "使用方法",
+        "卡片笔记"
       ],
-      "body": "# 06 关系怎么选？\n\n先选“只是有关”“支持这个观点”“提出不同看法”“补充适用条件”或“提供一个例子”，再写一句为什么。暂时说不清时，先保留正文链接也可以。\n\n继续：[[PERM-RELATION-REASON-MATTERS|继续阅读]]"
+      "body": "# 继续写作：查看提纲并编辑已保存的正文\n\n打开写作中心的主题列表，在“如何从主题索引进入写作中心？”中继续已有文章，查看已保存的提纲与正文。这篇正文是 [[研思录使用说明：从一条记录到一篇文章]]，可以直接阅读或编辑保存。\n\n新文章先选相关笔记并确认主题，再生成提纲。检查各节来源、理由、反方和适用条件，修改结构后开始写正文。已有文章按当前按钮选择“继续提纲”“继续草稿”或“继续写”，无需重新生成。\n\n参考 [[写作中心应该从已确认判断生成提纲]] 和 [[好提纲需要证据、反方和边界]]。保存草稿后重开，可以接着编辑。"
+    },
+    {
+      "id": "NOTE-YANSILU-EXPORT",
+      "note_type": "permanent",
+      "directoryId": "dir_yansilu_usage_notes",
+      "title": "导出文章：保存正文并查看导出的文件",
+      "thesis": "文章导出使用当前正文，整稿导出使用已保存章节。",
+      "status": "active",
+      "distillation_status": "confirmed",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "使用方法",
+        "卡片笔记"
+      ],
+      "body": "# 导出文章：保存正文并查看导出的文件\n\n在写作中心保存草稿后，打开“更多”，选择“导出文章 .md”，选笔记库以外的目录。打开导出的 Markdown，核对正文和本地图片。也可用“复制正文”取得当前内容。\n\n复制或导出当前正文不会替你保存草稿，导出提纲也不同于导出正文。书稿的各章节要分别保存，再按目录顺序导出整稿。笔记引用会保留，继续查看原笔记仍需要对应笔记库。\n\n完整说明见 [[研思录使用说明：从一条记录到一篇文章]]。"
     }
   ],
   "counts": {
@@ -1696,10 +1807,10 @@
     "literature_notes": 4,
     "permanent_notes": 14,
     "index_cards": 3,
-    "relations": 38,
+    "relations": 41,
     "writing_projects": 1,
     "draft_scaffolds": 1,
     "final_essays": 2,
-    "guide_notes": 7
+    "guide_notes": 8
   }
 }

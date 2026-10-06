@@ -25,6 +25,9 @@ test("imported manual continues through writing UI, saves, reopens and exports a
   await page.locator('#settingsImportSmartNotesDemo').click();
   await waitFor(async () => assert.equal((await fetchJson(apiBase, '/api/v1/writing-projects/WRITE-SMART-NOTES-DEMO')).status, 200), 15000);
   await waitFor(async () => assert.equal(await page.locator('#settingsImportSmartNotesDemo').isEnabled(), true), 15000);
+  await waitFor(async () => assert.equal(await page.locator('#settingsImportSmartNotesDemoStatus').getAttribute('data-tone'), 'ok'));
+  assert.match(await page.locator('#settingsImportSmartNotesDemoStatus').innerText(), /示例已导入/);
+  assert.equal(await page.evaluate(() => window.__prototypeState.module), 'today');
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('[data-writing-sidebar-action="topics"]').click();
   const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button');

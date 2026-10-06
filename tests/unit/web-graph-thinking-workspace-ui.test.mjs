@@ -73,9 +73,6 @@ import {
   shouldShowGraphDensityHintForRuntime
 } from "../../apps/web/src/graph-density-hint-controller.js";
 import {
-  resetGraphDemoPresentationStateForRuntime
-} from "../../apps/web/src/graph-presentation-controller.js";
-import {
   graphResearchNavigatorState,
   renderGraphResearchNavigatorPanelView
 } from "../../apps/web/src/graph-research-navigator.js";
@@ -2025,60 +2022,6 @@ test("graph click workflow actions consume events before generic note opening", 
     handler.indexOf("[data-graph-ai-candidate-apply]") < handler.indexOf('const row = event.target.closest("[data-open-note]")'),
     "AI candidate click action should run before generic note opening"
   );
-});
-
-test("graph demo startup resets presentation state for a stable first screen", () => {
-  const relationFilterCalls = [];
-  const graphState = {
-    readingLens: "status",
-    focusDepth: "3",
-    selection: { kind: "node", nodeId: "n1" },
-    researchNavigatorHidden: true,
-    researchNavigatorTouched: true,
-    zoom: "detail",
-    expanded: true,
-    workbenchPanelOpen: true,
-    workbenchPanelTab: "questions",
-    thinkingPanelOpen: true,
-    thinkingPanelVisible: false,
-    thinkingFilter: "theme",
-    utilityDrawerOpen: true,
-    utilityDrawerVisible: false,
-    utilityDrawerPosition: { x: 10, y: 20 },
-    sectionOpen: {
-      "bridge-gaps": true,
-      "weak-relations": true,
-      "review-queue": true,
-      "ai-analysis": true
-    }
-  };
-
-  assert.equal(resetGraphDemoPresentationStateForRuntime(graphState, {
-    setRelationTypeFilter: (...args) => relationFilterCalls.push(args)
-  }), graphState);
-  assert.deepEqual(relationFilterCalls, [["all", { persist: false }]]);
-  assert.equal(graphState.readingLens, "insight");
-  assert.equal(graphState.focusDepth, "1");
-  assert.equal(graphState.selection, null);
-  assert.equal(Object.prototype.hasOwnProperty.call(graphState, "legendOpen"), false);
-  assert.equal(graphState.researchNavigatorHidden, true);
-  assert.equal(graphState.researchNavigatorTouched, true);
-  assert.equal(graphState.zoom, "detail");
-  assert.equal(graphState.expanded, false);
-  assert.equal(graphState.workbenchPanelOpen, false);
-  assert.equal(graphState.workbenchPanelTab, "clues");
-  assert.equal(graphState.thinkingPanelOpen, false);
-  assert.equal(graphState.thinkingPanelVisible, true);
-  assert.equal(graphState.thinkingFilter, "all");
-  assert.equal(graphState.utilityDrawerOpen, false);
-  assert.equal(graphState.utilityDrawerVisible, true);
-  assert.equal(graphState.utilityDrawerPosition, null);
-  assert.deepEqual(graphState.sectionOpen, {
-    "bridge-gaps": false,
-    "weak-relations": false,
-    "review-queue": false,
-    "ai-analysis": false
-  });
 });
 
 test("graph density hint is temporary and does not stay on the map", () => {

@@ -11,6 +11,27 @@ import { seedSmartNotesProductThinking } from "../../scripts/seed-smart-notes-pr
 import { SMART_NOTES_MANUAL_ID, smartNotesDemoManual } from "../../scripts/smart-notes-demo-manual.mjs";
 import { beginDemoDraftInitialization, finishDemoDraftInitialization } from "../../scripts/smart-notes-demo-draft-initialization.mjs";
 
+test("example instructions are ordinary permanent notes and writing data, without a practice project", async t => {
+  const vaultPath = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-example-content-"));
+  t.after(() => fs.rm(vaultPath, { recursive: true, force: true }));
+  const seeded = await seedSmartNotesProductThinking(vaultPath);
+  assert.equal(seeded.firstNoteId, "NOTE-YANSILU-CONTENTS");
+  assert.deepEqual(seeded.writingProjectIds, ["WRITE-SMART-NOTES-DEMO"]);
+  const fixture = JSON.parse(await fs.readFile("tests/fixtures/demo-smart-notes-product-thinking/demo.json", "utf8"));
+  for (const instruction of fixture.guide_notes) {
+    const note = await getNoteById(vaultPath, instruction.id);
+    assert.equal(note.noteType, "permanent");
+    assert.equal(note.directoryId, "dir_yansilu_usage_notes");
+    assert.ok(note.body.includes(instruction.body));
+  }
+  await assert.rejects(getWritingProject(vaultPath, "WRITE-SHORT-PRACTICE"), /not found/);
+  const id = "NOTE-YANSILU-RELATE";
+  await updateNoteContent(vaultPath, id, { body: "# 我的关联说明\n\n我自己保存的内容。" });
+  const edited = await getNoteById(vaultPath, id);
+  await seedSmartNotesProductThinking(vaultPath);
+  assert.deepEqual(await getNoteById(vaultPath, id), edited);
+});
+
 test("partial marker write does not publish a damaged file and import retries safely", async t => {
   const vaultPath = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-demo-marker-write-"));
   t.after(() => fs.rm(vaultPath, { recursive: true, force: true }));
@@ -145,7 +166,7 @@ test("imported user manual is a saved writing draft with resolvable sources and 
   assert.ok(manual.body.includes(smartNotesDemoManual().body.trim()));
   const fixture = JSON.parse(await fs.readFile(seeded.fixturePath, "utf8"));
   for (const match of manual.body.matchAll(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)) {
-    const source = fixture.permanent_notes.find(note => note.title === match[1]);
+    const source = [...fixture.permanent_notes, ...fixture.guide_notes].find(note => note.title === match[1]);
     assert.ok(source, `manual source is missing: ${match[1]}`);
     assert.equal((await getNoteById(vaultPath, source.id)).title, match[1]);
   }
@@ -279,31 +300,4 @@ test("reimport preserves edited notes, sources, relations, themes and writing wo
   assert.match((await getNoteById(vaultPath, "GUIDE-REIMPORT-MISSING")).body, /只添加缺失示例/);
   assert.deepEqual(await getNoteById(vaultPath, noteId), before.note);
   assert.deepEqual(await getWritingProject(vaultPath, project.id), before.project);
-});
-
-test("short practice starts with real source material and three unconfirmed blank judgments", async (t) => {
-  const vaultPath = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-short-demo-"));
-  t.after(() => fs.rm(vaultPath, { recursive: true, force: true }));
-  const seeded = await seedSmartNotesProductThinking(vaultPath);
-  assert.equal(seeded.firstNoteId, "GUIDE-SHORT-PRACTICE");
-  assert.equal(seeded.writingProjectId, "WRITE-SHORT-PRACTICE");
-  const material = await getNoteById(vaultPath, "LN-SHORT-PRACTICE");
-  const source = await getNoteById(vaultPath, "LN-PARAPHRASE-IS-FIRST-CHECK");
-  const paragraph = source.body.match(/## 我的转述\s*\n([\s\S]*?)(?=\n## |$)/)[1].trim();
-  assert.ok(material.body.includes(paragraph));
-  for (const id of ["PERM-PRACTICE-EXPLAIN", "PERM-PRACTICE-REUSE", "PERM-PRACTICE-WRITE"]) {
-    const note = await getNoteById(vaultPath, id);
-    assert.equal(note.thesis || "", "");
-    assert.notEqual(note.distillationStatus, "confirmed");
-    assert.ok(note.startingQuestion);
-    assert.ok(note.body.includes(paragraph));
-  }
-  const project = await getWritingProject(vaultPath, seeded.writingProjectId);
-  assert.equal(project.scaffold_id, null);
-  assert.equal(project.basket_note_ids.length, 3);
-  assert.ok((await getWritingProject(vaultPath, "WRITE-SMART-NOTES-DEMO")).scaffold_id);
-  await updateNoteContent(vaultPath, "PERM-PRACTICE-EXPLAIN", { thesis: "自己的判断", body: "自己写的解释" });
-  const before = await getNoteById(vaultPath, "PERM-PRACTICE-EXPLAIN");
-  await seedSmartNotesProductThinking(vaultPath);
-  assert.deepEqual(await getNoteById(vaultPath, before.id), before);
 });

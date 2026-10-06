@@ -28,7 +28,7 @@ test("Smart Notes Demo fixture teaches one complete beginner knowledge chain", a
 
   assert.doesNotMatch(allText, /PN-SN|WP-SN|IC-SN/);
   assert.doesNotMatch(allText, /今日整理/);
-  assert.match(allText, /记录材料 -> 用自己的话转述 -> 保存当前观点 -> 看它为什么变化/);
+  assert.match(allText, /通过普通笔记和写作内容展示卡片笔记写作法/);
 
   for (const id of [
     "PERM-FLEETING-NOTE-IS-CAPTURE",
@@ -39,7 +39,7 @@ test("Smart Notes Demo fixture teaches one complete beginner knowledge chain", a
     "PERM-WRITING-CENTER-FROM-CONFIRMED-NOTES"
   ]) assert.ok(fixture.permanent_notes.some((note) => note.id === id), `missing ${id}`);
   assert.ok(fixture.index_cards.some((card) => card.id === "THEME-WHY-LINK-NOTES"));
-  assert.ok(fixture.guide_notes.some((note) => note.id === "GUIDE-SMART-NOTES-START"));
+  assert.ok(fixture.guide_notes.some((note) => note.id === "NOTE-YANSILU-CONTENTS"));
   assert.ok(fixture.fleeting_notes.some((note) => note.status === "needs_processing"));
   assert.ok(fixture.literature_notes.some((note) => note.status === "needs_processing"));
   assert.ok(fixture.relations.some((relation) => relation.from === "PERM-PERMANENT-NOTE-IS-JUDGMENT"));
