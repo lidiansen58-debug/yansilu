@@ -1,0 +1,214 @@
+/* Note workspaces share a readable measure, quiet chrome and one scroll owner. */
+#relatedPanel.inspector-panel {
+  z-index: 3000;
+  inset: 7vh 24px auto auto;
+  width: min(760px, calc(100vw - 48px));
+  height: min(800px, 86dvh);
+  max-height: 86dvh;
+  border-radius: 16px;
+  background: #fff;
+  backdrop-filter: none;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, .28), 0 20px 60px rgba(15, 23, 42, .18);
+}
+#relatedPanel .panel-head {
+  min-height: 64px;
+  padding: 12px 28px;
+  background: #fff;
+}
+#relatedPanel .panel-title { font-size: 20px; font-weight: 700; }
+#relatedPanel #btnHideRelated { min-width: 56px; height: 44px; }
+#relatedPanel #resultArea {
+  padding: 0 28px 28px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+#relatedPanel .permanent-note-workspace { gap: 0; }
+#relatedPanel .note-workspace-context {
+  margin: 20px 0 12px;
+  color: #52627a;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+#relatedPanel .permanent-note-workspace-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  width: 100%;
+  gap: 20px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #dce4e8;
+  border-radius: 0;
+  background: #fff;
+}
+#relatedPanel .permanent-note-workspace-tab {
+  min-height: 48px;
+  padding: 8px 2px;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #52627a;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: none;
+}
+#relatedPanel .permanent-note-workspace-tab.is-active {
+  border-bottom-color: #0f766e;
+  color: #0f766e;
+  background: transparent;
+}
+#relatedPanel .inspector-deferred-body { padding-top: 24px; }
+#relatedPanel [data-permanent-workspace-pane][hidden] { display: none; }
+#relatedPanel .semantic-relation-form { gap: 20px; }
+#relatedPanel .semantic-relation-form label { font-size: 14px; line-height: 1.6; }
+#relatedPanel :is(textarea, input:not([type="checkbox"]), select),
+.permanent-relation-panel :is(textarea, input:not([type="checkbox"]), select) {
+  font-size: 15px;
+  line-height: 1.65;
+  border-radius: 8px;
+  box-shadow: none;
+}
+#relatedPanel textarea { resize: vertical; min-height: 80px; }
+#relatedPanel textarea[name="thesis"] { min-height: 132px; }
+#relatedPanel .mini-btn, .permanent-relation-panel .mini-btn {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 14px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+#relatedPanel :is(button, summary, textarea, input, select):focus-visible,
+.permanent-relation-panel :is(button, summary, textarea, input, select):focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 3px;
+}
+#relatedPanel .viewpoint-optional-details {
+  border: 0;
+  border-top: 1px solid #e2e8ed;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+#relatedPanel .viewpoint-optional-details > summary {
+  min-height: 48px;
+  padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+#relatedPanel .inspector-section-head { align-items: center; flex-wrap: wrap; gap: 12px; }
+#relatedPanel .inspector-section-title { font-size: 16px; font-weight: 600; }
+#relatedPanel .semantic-relation-head-actions { flex-wrap: wrap; }
+#relatedPanel .semantic-relation-tabs { border: 0; background: #f2f5f5; padding: 3px; }
+#relatedPanel .semantic-relation-tab { min-height: 44px; font-size: 13px; }
+#relatedPanel .semantic-relation-tab.is-active { color: #0f766e; background: #fff; box-shadow: none; }
+#relatedPanel .semantic-relation-tab-panel .inspector-list { width: 100%; }
+#relatedPanel .semantic-relation-summary-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  max-width: none;
+  padding: 16px;
+  border: 1px solid #e2e8ed;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: none;
+}
+#relatedPanel .semantic-relation-summary-row .related-item-title {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.6;
+}
+#relatedPanel .semantic-relation-open { min-height: 44px; }
+#relatedPanel .semantic-relation-summary-row .semantic-relation-card-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  font-size: 12px;
+  color: #52627a;
+}
+#relatedPanel .relation-summary-context p { margin: 6px 0 0; color: #334155; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+#relatedPanel .viewpoint-formation-step { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 18px 0; }
+#relatedPanel .viewpoint-formation-step > small { grid-column: 1; }
+#relatedPanel .viewpoint-formation-step > strong { font-size: 15px; font-weight: 500; line-height: 1.7; }
+#relatedPanel .viewpoint-change-source-list { max-height: none; overflow: visible; }
+#relatedPanel .viewpoint-change-source-list label { display: flex; align-items: flex-start; min-height: 44px; }
+#relatedPanel .viewpoint-change-source-list span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+#relatedPanel .viewpoint-change-source-list input { width: 18px; height: 18px; margin: 0; }
+body:has(.app[data-focus-mode="true"]) #relatedPanel { display: none; }
+body:has(#relatedPanel:not(.hidden)) .app { pointer-events: none; }
+#relatedPanel .source-promotion-panel { border: 0; background: transparent; box-shadow: none; padding: 0; }
+#relatedPanel .source-promotion-title { font-size: 18px; }
+#relatedPanel .source-promotion-copy { font-size: 14px; line-height: 1.7; }
+.permanent-relation-overlay { left: 0; z-index: 4000; }
+.permanent-relation-panel { background: #fff; }
+.permanent-relation-head { background: #fff; }
+.permanent-relation-type-card:not(.is-active) small { display: none; }
+.permanent-relation-panel .permanent-relation-type-card { min-height: 44px; box-shadow: none; }
+.permanent-relation-panel .permanent-relation-type-card:not(.is-active) { align-content: center; }
+.permanent-relation-type-card strong { font-size: 14px; }
+#permanentNoteModal .modal { width: min(520px, calc(100vw - 24px)); background: #fff; }
+#permanentNoteModal :is(button, select) { min-height: 44px; }
+#permanentNoteModal .permanent-note-source-card { border: 0; border-left: 3px solid #0f766e; border-radius: 0; box-shadow: none; background: #f5f8f7; }
+#permanentNoteModal .modal-note { background: transparent; border: 0; padding: 0; }
+#editorWorkspace .toolbar #btnShowRelated {
+  background: #f0f7f5 !important;
+  color: #0f766e !important;
+  border-color: #b8d8d0 !important;
+  box-shadow: none !important;
+}
+#editorWorkspace .toolbar :is(#btnRecordPermanent, #btnDistillSourceAi):not(.hidden) {
+  min-height: 44px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+#editorWorkspace .toolbar #btnRecordPermanent:not(.hidden) {
+  width: auto !important;
+  min-width: 128px !important;
+  padding: 0 12px !important;
+  gap: 8px !important;
+  background: #0f766e !important;
+}
+#editorWorkspace .toolbar #btnRecordPermanent:not(.hidden) span { display: inline !important; }
+#editorWorkspace .toolbar #btnDistillSourceAi:not(.hidden) {
+  background: #fff !important;
+  color: #0f766e !important;
+  border-color: #b8d8d0 !important;
+}
+.permanent-relation-body :is(.permanent-relation-source, .permanent-relation-picker, .permanent-relation-confirm) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.distillation-shell { max-width: 920px; margin-inline: auto; }
+.distillation-queue-item { min-height: 64px; }
+@media (max-width: 700px) {
+  #relatedPanel.inspector-panel {
+    inset: 12px;
+    width: auto;
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, .28);
+  }
+  #relatedPanel .panel-head { padding: 12px 16px; }
+  #relatedPanel #resultArea { padding: 0 16px 24px; }
+  #relatedPanel .permanent-note-workspace-tabs { gap: 16px; }
+  #relatedPanel .permanent-note-workspace-tab { font-size: 14px; }
+  #relatedPanel .semantic-relation-summary-row { padding: 12px; }
+  #relatedPanel :is(textarea, input:not([type="checkbox"]), select) { font-size: 16px; }
+  .permanent-relation-overlay { padding: 12px; }
+  .permanent-relation-panel { width: 100%; max-height: calc(100dvh - 24px); }
+  .permanent-relation-panel.is-editing-existing { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #relatedPanel *, .permanent-relation-panel * { animation: none; transition: none; }
+}

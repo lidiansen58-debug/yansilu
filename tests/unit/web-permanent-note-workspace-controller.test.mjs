@@ -40,6 +40,26 @@ function host(overrides = {}) {
   return app;
 }
 
+test("result requests expire on cancellation, newer requests and context changes", () => {
+  let context = "note-a";
+  const controller = new PermanentNoteWorkspaceController(host({
+    previewContextGuard: () => {
+      const captured = context;
+      return () => context === captured;
+    }
+  }));
+  const first = controller.beginResultRequest();
+  assert.equal(first(), true);
+  const second = controller.beginResultRequest();
+  assert.equal(first(), false);
+  assert.equal(second(), true);
+  controller.invalidateResultRequests();
+  assert.equal(second(), false);
+  const third = controller.beginResultRequest();
+  context = "note-b";
+  assert.equal(third(), false);
+});
+
 test("relation snapshot repaint preserves an opened boundary area only in the mounted note", () => {
   let mounted = workspace("note-a");
   const oldDetails = { open: true }, newDetails = { open: false };
@@ -67,7 +87,8 @@ test("permanent note workspace renders viewpoint and relation tabs", () => {
   assert.match(html, /data-permanent-note-workspace data-note-id="note-a"/);
   assert.match(html, /data-permanent-workspace-tab="viewpoint"/);
   assert.match(html, />当前观点<\/button>/);
-  assert.match(html, />怎么形成的<\/button>/);
+  assert.match(html, />笔记关联<\/button>/);
+  assert.match(html, />形成过程<\/button>/);
   assert.match(html, /data-permanent-workspace-tab="relations"/);
   assert.match(html, /data-note-distillation-section/);
   assert.match(html, /data-note-relations-section/);

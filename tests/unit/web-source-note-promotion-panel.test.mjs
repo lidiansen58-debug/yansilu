@@ -49,7 +49,7 @@ test("source note promotion panel shows generated result and open state", () => 
   assert.match(html, /长期判断/);
   assert.match(html, /永久笔记盒 \/ 写作方法/);
   assert.match(html, /当前已打开/);
-  assert.match(html, /可更新/);
+  assert.doesNotMatch(html, /source-promotion-state-grid/);
   assert.match(html, /data-open-linked-note="pn_1"[\s\S]*>打开永久笔记</);
   assert.match(html, /data-source-note-action="record-permanent"[\s\S]*>重新生成</);
 });

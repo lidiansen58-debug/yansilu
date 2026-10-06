@@ -1817,11 +1817,11 @@ test("prototype permanent note saves a current viewpoint and shows how it formed
   }, 10000);
 
   await page.locator("[data-permanent-workspace-tab='viewpoint']", { hasText: "当前观点" }).click();
-  await page.locator("[data-note-distillation-section]", { hasText: "你现在认为是什么？" }).waitFor({ state: "visible" });
-  await page.locator("#relatedPanel [data-permanent-workspace-tab='relations']:visible", { hasText: "怎么形成的" }).click();
-  await page.locator("#relatedPanel [data-permanent-workspace-pane='relations']:visible").waitFor({ state: "visible" });
+  await page.locator("#relatedPanel [data-permanent-workspace-pane='viewpoint']:visible").waitFor({ state: "visible" });
+  await page.locator("#relatedPanel [data-permanent-workspace-tab='history']:visible", { hasText: "形成过程" }).click();
+  await page.locator("#relatedPanel [data-permanent-workspace-pane='history']:visible").waitFor({ state: "visible" });
   const formationState = await page.evaluate(() => ({
-    text: document.querySelector("#relatedPanel [data-permanent-workspace-pane='relations']:not([hidden])")?.textContent || "",
+    text: document.querySelector("#relatedPanel [data-permanent-workspace-pane='history']:not([hidden])")?.textContent || "",
     note: window.__prototypeEditor?.activeNote?.() || null
   }));
   assert.match(formationState.text, /What makes a viewpoint reusable\?/);

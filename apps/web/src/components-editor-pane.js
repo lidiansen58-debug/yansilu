@@ -3897,7 +3897,7 @@ export class EditorPane {
       existing?.remove?.();
       return false;
     }
-    if (existing) existing.outerHTML = html;
+    if (existing) this.permanentRelationComposer().replaceOverlay(existing, html);
     else document.body?.insertAdjacentHTML?.("beforeend", html);
     this.bindPermanentRelationWorkspaceOverlayEvents(this.permanentRelationWorkspaceElement());
     return true;
@@ -5819,7 +5819,7 @@ export class EditorPane {
       if (!preserveGraphComposer) this.permanentRelationWorkspaceState = defaultPermanentRelationWorkspaceState("");
       this.permanentNoteWorkspace().reset("");
       this.syncPermanentRelationWorkspaceOverlay();
-      this.els.result.innerHTML = `<div class="related-empty">打开笔记后可打磨。</div>`;
+      this.permanentNoteWorkspace().replaceResult(`<div class="related-empty">打开笔记后可打磨。</div>`);
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
@@ -5886,7 +5886,7 @@ export class EditorPane {
         : "";
 
     const showInspectorOverview = !sidebarLayout.showDeferredWorkspace;
-    this.els.result.innerHTML = `
+    this.permanentNoteWorkspace().replaceResult(`
       ${
         showInspectorOverview
           ? `<div class="inspector-overview">
@@ -5914,7 +5914,7 @@ export class EditorPane {
               : ""
         }
       </div>
-    `;
+    `);
     this.refreshEditorBodyRelationActions(note, tab, {
       relationState: isPermanentNote ? this.semanticRelationsState : "idle",
       relations: isPermanentNote ? this.currentSemanticRelations : null
@@ -5936,14 +5936,16 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return;
       const rootId = rootBoxIdFromFolder(this.state, note.folderId);
-      this.setInspectorVisible(true);
-      this.els.result.innerHTML = `<div class="related-empty">正在从 SQLite 检索 #${escapeHtml(tag)}...</div>`;
+      this.permanentNoteWorkspace().openResult(`<div class="related-empty">正在从 SQLite 检索 #${escapeHtml(tag)}...</div>`);
+      const requestCurrent = this.permanentNoteWorkspace().beginResultRequest();
       let list = [];
       try {
         const result = await fetchNotesByTag(tag, { rootDirectoryId: rootId });
+        if (!requestCurrent()) return;
         this.upsertApiNotes(result.items);
         list = result.items.filter((item) => item.id !== note.id);
       } catch (error) {
+        if (!requestCurrent()) return;
         list = this.state.notes.filter(
           (n) => n.id !== note.id && rootBoxIdFromFolder(this.state, n.folderId) === rootId && (n.tags || []).includes(tag)
         );
@@ -5964,7 +5966,7 @@ export class EditorPane {
           </button>
         `;
       };
-      this.els.result.innerHTML = `
+      this.permanentNoteWorkspace().replaceResult(`
         <div class="inspector-overview">
           <div class="inspector-overview-head">
             <div class="inspector-overview-title">同标签笔记：#${escapeHtml(tag)}</div>
@@ -5982,7 +5984,7 @@ export class EditorPane {
                 .join("")}</div></section></div>`
             : `<div class="related-empty">当前目录下没有更多带 #${escapeHtml(tag)} 的笔记。</div>`
         }
-      `;
+      `);
       this.onStatus(`已从 SQLite 检索标签 #${tag}`, "ok");
       return;
     }
@@ -5993,20 +5995,21 @@ export class EditorPane {
       if (!note) return;
       const tokenValue = linkMatch[1];
       const contextCurrent = this.previewContextGuard();
+      const requestCurrent = this.permanentNoteWorkspace().beginResultRequest();
       const scoped = this.linkResolutionCandidates({ excludeNoteId: note.id });
       const resolved = await this.resolvePreviewLinkToken(tokenValue, scoped);
-      if (!contextCurrent()) return;
+      if (!requestCurrent()) return;
       if (resolved?.ambiguous) {
         this.onStatus(`链接有多个匹配：${tokenValue}。请核对来源笔记后更新链接。`, "warn");
         return;
       }
       if (resolved?.note) {
-        this.setInspectorVisible(true);
-        await this.showNotePreviewInInspector(resolved.note.id, {
+        const shown = await this.showNotePreviewInInspector(resolved.note.id, {
           eyebrow: "正文链接",
-          mode: "wikilink"
+          mode: "wikilink",
+          requestCurrent
         });
-        if (!contextCurrent()) return;
+        if (!shown || !contextCurrent()) return;
         this.onStatus(`已打开链接笔记预览：${resolved.note.title}`, "ok");
       } else {
         this.onStatus(`未找到关联笔记：${tokenValue}`, "warn");
@@ -6091,16 +6094,15 @@ export class EditorPane {
   }
 
   async showNotePreviewInInspector(noteId, options = {}) {
-    const contextCurrent = this.previewContextGuard();
+    const requestCurrent = options.requestCurrent || this.permanentNoteWorkspace().beginResultRequest();
     const note = await this.loadNoteForPreview(noteId);
-    if (!contextCurrent()) return;
+    if (!requestCurrent()) return false;
     if (!note) {
-      this.els.result.innerHTML = `<div class="related-empty bad">没有找到这条笔记。</div>`;
-      return;
+      this.permanentNoteWorkspace().openResult(`<div class="related-empty bad">没有找到这条笔记。</div>`);
+      return false;
     }
     const body = typeof note.body === "string" && note.body.trim() ? note.body : `# ${note.title || "未命名笔记"}\n`;
-    this.setInspectorVisible(true);
-    this.els.result.innerHTML = `
+    this.permanentNoteWorkspace().openResult(`
       <div class="note-peek-actions">
         <button class="mini-btn primary" type="button" data-open-linked-note="${escapeHtml(note.id)}">编辑笔记</button>
         <button class="mini-btn icon-btn is-ghost" type="button" data-close-note-peek aria-label="关闭">×</button>
@@ -6110,7 +6112,8 @@ export class EditorPane {
           ${renderMarkdownPreview(body, { noteMarkdownPath: note.markdownPath || "" })}
         </div>
       </section>
-    `;
+    `);
+    return true;
   }
 
   extractCoreClaimFromBody(body) {

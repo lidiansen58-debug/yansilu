@@ -243,7 +243,7 @@ export function routeEditorRelationClick(host, event) {
     section.querySelectorAll("[data-relation-tab]").forEach((button) => {
       const isActive = button.getAttribute("data-relation-tab") === tab;
       button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
     section.querySelectorAll("[data-relation-tab-panel]").forEach((panel) => {
       panel.hidden = panel.getAttribute("data-relation-tab-panel") !== tab;

@@ -48,6 +48,15 @@ const deps = {
   typeFromFolder: () => "permanent"
 };
 
+test("editing an existing relation keeps an intentionally empty rationale on repaint", () => {
+  const relation = { id: "edited", fromNoteId: target.id, toNoteId: note.id, rationale: "old reason" };
+  const html = renderPermanentRelationWorkspace({ note, notes: [target], relations: { backlinks: [relation] },
+    state: { open: true, selectedTargetNoteId: target.id, editingRelationId: relation.id,
+      rationale: "", dirty: true, pairPreviewState: "ready" }, deps });
+  assert.match(html, /name="rationale"[^>]*><\/textarea>/);
+  assert.doesNotMatch(html, /name="rationale"[^>]*>old reason/);
+});
+
 test("recommendation picker filters saved pairs, self targets and duplicates before its limit", () => {
   const blocked = [note.id, "outgoing", "incoming", "outgoing", "incoming"];
   const candidates = [...blocked, "next", "next", "another"].map(id => ({ targetNoteId: id, targetTitle: id }));

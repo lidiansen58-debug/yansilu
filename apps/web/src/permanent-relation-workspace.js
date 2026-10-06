@@ -228,7 +228,7 @@ export function renderPermanentRelationWorkspace({
   const existing = selectedTarget ? permanentRelationWorkspaceExistingLink(relations, note.id, selectedTarget.id, workspaceState.editingRelationId) : null;
   const isEditingExisting = Boolean(existing || workspaceState.editingRelationId);
   const relationTypeValue = workspaceState.relationType || existing?.relationType || existing?.relation_type || selectedTarget?.candidate?.relationType || "associated_with";
-  const rawRationale = workspaceState.rationale || existing?.rationale || "";
+  const rawRationale = workspaceState.dirty ? workspaceState.rationale : workspaceState.rationale || existing?.rationale || "";
   const rationaleValue = rawRationale === "markdown_wikilink" ? "" : rawRationale;
   const canSave = permanentRelationWorkspaceCanSave({ state: workspaceState, relations, allowExistingUpdate: true });
   const softBlockedReasons = new Set(["missing_rationale"]);

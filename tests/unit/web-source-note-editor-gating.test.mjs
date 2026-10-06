@@ -654,7 +654,8 @@ test("editor inspector shows source-note promote flow instead of relation panels
   assert.match(pane.els.result.innerHTML, /生成永久笔记/);
   assert.match(pane.els.result.innerHTML, /这里先完成永久笔记；正式打磨请在永久笔记里继续/);
   assert.match(pane.els.result.innerHTML, /可以生成永久笔记/);
-  assert.match(pane.els.result.innerHTML, /生成状态[\s\S]*未生成/);
+  assert.match(pane.els.result.innerHTML, /data-source-promotion-status="ready"[\s\S]*未生成/);
+  assert.doesNotMatch(pane.els.result.innerHTML, /source-promotion-state-grid/);
   assert.match(pane.els.result.innerHTML, /随笔只负责抓住还不稳定的想法；值得长期保留时/);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="record-permanent"[\s\S]*>生成永久笔记</);
   assert.match(pane.els.result.innerHTML, /data-source-note-action="dismiss-fleeting-cleanup"[\s\S]*>标记稍后清理</);
@@ -967,6 +968,7 @@ test("preview wikilink actions resolve cross-box stable note ids", async () => {
   pane.showNotePreviewInInspector = async (noteId, options = {}) => {
     previewedNoteId = noteId;
     previewOptions = options;
+    return true;
   };
   pane.onStatus = (message) => {
     statusText = message;
