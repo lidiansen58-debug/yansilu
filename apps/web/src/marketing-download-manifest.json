@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "item": {
+    "productName": "研思录",
+    "version": "0.1.1-beta.2",
+    "releaseTag": "beta2-ci-pr226-20261007",
+    "bundleReady": true,
+    "notice": "Beta 测试候选版，需手动安装。",
+    "platformNotices": {
+      "windows": "Beta 测试候选版，需手动安装。Windows 可能显示 SmartScreen 提示。",
+      "macos": "Beta 测试候选版，需手动安装。macOS 尚未完成 Apple 公证。",
+      "linux": "Beta 测试候选版，需手动安装。基于 Ubuntu 24.04 x64 构建，尚未实机验收。"
+    },
+    "generatedAt": "2026-10-07T09:42:37.000Z",
+    "totalFiles": 4,
+    "items": [
+      {
+        "file": "yansilu_0.1.1-beta.2_x64-setup.exe",
+        "bytes": 33631935,
+        "sha256": "7bd4e87da76081ef904731861930e99404729eb056820afd5d4f64953db998e3",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta2-ci-pr226-20261007/yansilu_0.1.1-beta.2_x64-setup.exe"
+      },
+      {
+        "file": "yansilu_0.1.1-beta.2_universal.dmg",
+        "bytes": 179369865,
+        "sha256": "1e2b01a4d7f4c7016e5175e8c8af279de95207b4092f1b6f7b56f8d2d86065b4",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta2-ci-pr226-20261007/yansilu_0.1.1-beta.2_universal.dmg"
+      },
+      {
+        "file": "yansilu_0.1.1-beta.2_amd64.AppImage",
+        "bytes": 133503480,
+        "sha256": "7b2e8318c35a4ce86d5fc1c8060fcd955d113ee066e4281a0595b84047da08ea",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta2-ci-pr226-20261007/yansilu_0.1.1-beta.2_amd64.AppImage"
+      },
+      {
+        "file": "yansilu_0.1.1-beta.2_amd64.deb",
+        "bytes": 64934494,
+        "sha256": "012e6e220f3a1b3fa51319897b5f3b6ccd6ea12eb130f017f8fde2388ae9aad9",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta2-ci-pr226-20261007/yansilu_0.1.1-beta.2_amd64.deb"
+      }
+    ]
+  }
+}

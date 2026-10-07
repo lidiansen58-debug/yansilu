@@ -204,7 +204,7 @@ test("marketing download puts Windows and macOS choices in the first screen", as
   assert.equal(res.status, 200);
   const html = await res.text();
   assert.match(html, /data-download-buttons/);
-  assert.match(html, /Windows 和 macOS 都提供桌面版/);
+  assert.match(html, /Windows、macOS 和 Linux 都提供桌面版/);
   assert.match(html, /DMG 安装包/);
   assert.match(html, /data-download-other-options hidden/);
   assert.match(html, /其他版本/);

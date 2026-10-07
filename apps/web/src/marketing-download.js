@@ -60,9 +60,9 @@ export function renderDownloadButtons(items, { fallback = false, platform = dete
   return platforms;
 }
 
-async function fetchReleaseAssets(version = "") {
-  const endpoint = version
-    ? `${RELEASES_API_URL}/tags/v${encodeURIComponent(version)}`
+async function fetchReleaseAssets(version = "", releaseTag = "") {
+  const endpoint = version || releaseTag
+    ? `${RELEASES_API_URL}/tags/${encodeURIComponent(releaseTag || `v${version}`)}`
     : `${RELEASES_API_URL}?per_page=1`;
   try {
     const response = await readDownloadJson(endpoint);
@@ -70,18 +70,28 @@ async function fetchReleaseAssets(version = "") {
     const payload = response.payload;
     const release = Array.isArray(payload) ? payload.find((item) => !item.draft) : payload;
     if (!release || release.draft) return null;
+    const items = Array.isArray(release.assets)
+      ? release.assets.map((asset) => ({ file: asset.name, downloadUrl: asset.browser_download_url })) : [];
+    const tagVersion = String(release.tag_name || "").match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/u)?.[1];
+    const assetVersions = [...new Set(downloadChoices(items).map(choice => String(choice.item.file)
+      .match(/_(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)_(?:universal|x64|x86_64|amd64|arm64|aarch64)(?:[-.]|$)/iu)?.[1]).filter(Boolean))];
     return {
-      version: String(release.tag_name || "").replace(/^v/, "") || version,
-      items: Array.isArray(release.assets)
-        ? release.assets.map((asset) => ({ file: asset.name, downloadUrl: asset.browser_download_url })) : []
+      version: tagVersion || version || (assetVersions.length === 1 ? assetVersions[0] : ""),
+      notice: release.prerelease ? "Beta 测试版，需手动安装。" : "",
+      items
     };
   } catch {
     return null;
   }
 }
 
-function showDownloads(status, items, version) {
+function showDownloads(status, items, version, notice = "") {
   const platforms = renderDownloadButtons(items);
+  const releaseNote = document.querySelector("[data-download-release-note]");
+  if (releaseNote) {
+    releaseNote.textContent = platforms.length ? notice : "";
+    releaseNote.hidden = !releaseNote.textContent;
+  }
   if (!platforms.length) {
     status.textContent = "暂未获取到安装包，请前往官方下载页。";
     setText("[data-download-primary-note]", "GitHub Release 提供全部已发布版本。");
@@ -111,19 +121,20 @@ export async function initDownloadPage() {
     const item = payload?.item || {};
     const localItems = item.bundleReady && Array.isArray(item.items) ? item.items : [];
     const hasLocalInstaller = downloadChoices(localItems).length > 0;
+    const notice = item.platformNotices?.[detectDownloadPlatform(globalThis.navigator)] || item.notice;
     status.dataset.tone = "info";
-    if (hasLocalInstaller) showDownloads(status, localItems, item.version);
-    const release = await fetchReleaseAssets(item.version);
+    if (hasLocalInstaller) showDownloads(status, localItems, item.version, notice);
+    const release = await fetchReleaseAssets(item.version, item.releaseTag);
     if (hasLocalInstaller || downloadChoices(release?.items || []).length) {
-      showDownloads(status, [...localItems, ...(release?.items || [])], item.version || release?.version);
+      showDownloads(status, [...localItems, ...(release?.items || [])], item.version || release?.version, notice || release?.notice);
     } else {
       const latest = item.version ? await fetchReleaseAssets() : release;
-      showDownloads(status, latest?.items || [], latest?.version || "");
+      showDownloads(status, latest?.items || [], latest?.version || "", latest?.notice);
     }
   } catch {
     const release = await fetchReleaseAssets();
     status.dataset.tone = "error";
-    showDownloads(status, release?.items || [], release?.version || "");
+    showDownloads(status, release?.items || [], release?.version || "", release?.notice);
   }
 }
 

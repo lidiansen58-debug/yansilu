@@ -4,7 +4,6 @@ import path from "node:path";
 const root = process.cwd();
 const source = path.join(root, "apps", "web", "src");
 const output = path.join(root, "dist", "marketing-site");
-const desktopConfigPath = path.join(root, "apps", "desktop", "src-tauri", "tauri.conf.json");
 
 const pages = {
   "index.html": "marketing-home.html",
@@ -38,18 +37,7 @@ async function main() {
     fs.cp(path.join(source, "assets"), path.join(output, "assets"), { recursive: true })
   ]);
 
-  const desktopConfig = JSON.parse(await fs.readFile(desktopConfigPath, "utf8"));
-  const downloadManifest = {
-    ok: true,
-    item: {
-      productName: desktopConfig.productName,
-      version: desktopConfig.version,
-      bundleReady: false,
-      generatedAt: null,
-      totalFiles: 0,
-      items: []
-    }
-  };
+  const downloadManifest = JSON.parse(await fs.readFile(path.join(source, "marketing-download-manifest.json"), "utf8"));
   await fs.mkdir(path.join(output, "api"), { recursive: true });
   await fs.writeFile(path.join(output, "api", "download-manifest"), JSON.stringify(downloadManifest), "utf8");
   await fs.writeFile(path.join(output, "_headers"), [
