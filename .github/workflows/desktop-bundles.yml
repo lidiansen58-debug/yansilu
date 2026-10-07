@@ -163,6 +163,10 @@ jobs:
         if: runner.os == 'macOS'
         run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs
 
+      - name: Test Linux packaging regressions
+        if: runner.os == 'Linux'
+        run: node --test tests/unit/desktop-linux-bundle.test.mjs tests/integration/linux-deb-package.test.mjs
+
       - name: Prepare desktop API runtime
         run: npm run prepare:desktop:runtime
 

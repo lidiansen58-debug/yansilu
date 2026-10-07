@@ -3,6 +3,8 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import { hasCommand, withCargoBin } from "./rust-env.mjs";
+import { desktopBuildConfig } from "./desktop-build-config.mjs";
+import { verifyLinuxDebBundle } from "./desktop-linux-bundle.mjs";
 
 const env = withCargoBin({ ...process.env });
 const requestedBundles = process.argv.slice(2).filter(Boolean);
@@ -38,21 +40,23 @@ function envFlagIsEnabled(value) {
 }
 
 function resolveTauriConfigPath() {
-  if (envFlagIsEnabled(process.env.YANSILU_DESKTOP_UPDATER_ARTIFACTS)) {
+  const updaterArtifacts = envFlagIsEnabled(process.env.YANSILU_DESKTOP_UPDATER_ARTIFACTS);
+  if (updaterArtifacts && process.platform !== "linux") {
     console.log("Desktop updater artifacts: enabled");
     return TAURI_CONFIG_PATH;
   }
 
   const sourcePath = path.resolve(process.cwd(), TAURI_CONFIG_PATH);
-  const config = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
-  config.bundle = {
-    ...config.bundle,
-    createUpdaterArtifacts: false
-  };
+  const config = desktopBuildConfig(JSON.parse(fs.readFileSync(sourcePath, "utf8")), {
+    platform: process.platform,
+    updaterArtifacts
+  });
 
-  const generatedPath = path.join(path.dirname(sourcePath), "tauri.conf.no-updater-artifacts.json");
+  const generatedPath = path.join(path.dirname(sourcePath), process.platform === "linux"
+    ? "tauri.conf.linux-build.json"
+    : "tauri.conf.no-updater-artifacts.json");
   fs.writeFileSync(generatedPath, `${JSON.stringify(config, null, 2)}\n`);
-  console.log("Desktop updater artifacts: disabled for this build");
+  console.log(`Desktop updater artifacts: ${updaterArtifacts ? "enabled" : "disabled for this build"}`);
   return `./${path.relative(process.cwd(), generatedPath).replaceAll(path.sep, "/")}`;
 }
 
@@ -148,6 +152,24 @@ child.on("exit", (code, signal) => {
     }
   }
   if ((code ?? 0) === 0 || fs.existsSync(path.resolve(bundleRoot, "macos", "研思录.app", "Contents", "MacOS", "yansilu-desktop"))) {
+    if (process.platform === "linux" && bundles.includes("deb")) {
+      try {
+        const architecture = desktopTarget.startsWith("aarch64-") ? "arm64"
+          : desktopTarget.startsWith("x86_64-") ? "amd64"
+          : process.arch === "arm64" ? "arm64" : "amd64";
+        const debDir = path.join(bundleRoot, "deb");
+        const packages = fs.readdirSync(debDir).filter(name => name.endsWith(".deb"));
+        if (packages.length !== 1) throw new Error(`Expected one Debian package, found ${packages.length}.`);
+        verifyLinuxDebBundle({
+          filePath: path.join(debDir, packages[0]),
+          version: tauriConfig.version,
+          architecture
+        });
+      } catch (error) {
+        console.error(`Linux package validation failed: ${error.message}`);
+        process.exit(1);
+      }
+    }
     renameUniversalMacosUpdaterArtifacts();
     if (process.platform === "darwin" && bundles.includes("dmg")) {
       const appPath = path.resolve(bundleRoot, "macos", `${tauriConfig.productName}.app`);

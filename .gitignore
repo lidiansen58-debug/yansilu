@@ -17,6 +17,7 @@ coverage/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/desktop-api-runtime/
 apps/desktop/src-tauri/tauri.conf.no-updater-artifacts.json
+apps/desktop/src-tauri/tauri.conf.linux-build.json
 vault-example/yansilu-vault/.yansilu/auth-state.json
 vault-example/yansilu-vault/.yansilu/mobile-access.json
 vault-example/yansilu-vault/.yansilu/vault.json
