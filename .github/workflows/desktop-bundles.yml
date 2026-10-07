@@ -37,6 +37,9 @@ jobs:
               - 'scripts/collect-release-assets.mjs'
               - 'scripts/desktop-*.mjs'
               - 'scripts/generate-update-manifest.mjs'
+              - 'scripts/macos-*.mjs'
+              - 'scripts/package-macos-dmg.mjs'
+              - 'scripts/prepare-universal-desktop-api-runtime.mjs'
 
   preflight:
     if: github.event_name == 'pull_request'
@@ -95,15 +98,14 @@ jobs:
             artifact_name: yansilu-linux-bundles
           - os: macos-latest
             bundle_env: app,dmg
-            artifact_name: yansilu-macos-arm64-bundles
-          - os: macos-15-intel
-            bundle_env: app,dmg
-            artifact_name: yansilu-macos-intel-bundles
+            artifact_name: yansilu-macos-universal-bundles
+            desktop_target: universal-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
+      YANSILU_DESKTOP_TARGET: ${{ matrix.desktop_target }}
       YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && 'true' || 'false' }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -120,6 +122,14 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install macOS universal Rust targets
+        if: matrix.desktop_target == 'universal-apple-darwin'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Verify macOS Universal builder
+        if: matrix.desktop_target == 'universal-apple-darwin'
+        run: test "$(uname -m)" = arm64
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
@@ -149,6 +159,10 @@ jobs:
             exit 1
           fi
 
+      - name: Test macOS packaging regressions
+        if: runner.os == 'macOS'
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs
+
       - name: Prepare desktop API runtime
         run: npm run prepare:desktop:runtime
 
@@ -163,8 +177,8 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            apps/desktop/src-tauri/target/release/bundle/**
-            !apps/desktop/src-tauri/target/release/bundle/**/*.dSYM/**
+            apps/desktop/src-tauri/target/**/release/bundle/**
+            !apps/desktop/src-tauri/target/**/release/bundle/**/*.dSYM/**
           if-no-files-found: error
 
   release-rehearsal:
