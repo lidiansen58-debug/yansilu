@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { universalLibnodeName } from "./macos-runtime-layout.mjs";
+import { copyMacosBundleDirectory } from "./macos-bundle-copy.mjs";
 
 const repoRoot = process.cwd();
 const tauriRoot = path.join(repoRoot, "apps", "desktop", "src-tauri");
@@ -18,10 +19,6 @@ function run(command, args, options = {}) {
   });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} exited with code ${result.status ?? 1}.`);
-}
-
-function copyDir(source, target) {
-  fs.cpSync(source, target, { recursive: true, force: true });
 }
 
 function combineMachOBinaries(armPath, intelPath, destination) {
@@ -71,7 +68,7 @@ try {
     fs.existsSync(intelLibraryDir) ? fs.readdirSync(intelLibraryDir) : []
   );
 
-  copyDir(armRuntimeRoot, runtimeRoot);
+  await copyMacosBundleDirectory(armRuntimeRoot, runtimeRoot);
   combineMachOBinaries(armNode, intelNode, path.join(runtimeRoot, "node", "node"));
   if (libnodeName) {
     combineMachOBinaries(
