@@ -206,6 +206,12 @@ test("marketing download puts Windows and macOS choices in the first screen", as
   assert.match(html, /data-download-buttons/);
   assert.match(html, /Windows 和 macOS 都提供桌面版/);
   assert.match(html, /DMG 安装包/);
+  assert.match(html, /data-download-other-options hidden/);
+  assert.match(html, /其他版本/);
+  assert.match(html, /x64 安装包/);
+  const model = await fetch(`${webBase}/marketing-download-model.js`);
+  assert.equal(model.status, 200);
+  assert.match(await model.text(), /detectDownloadPlatform/);
   assert.doesNotMatch(html, /data-download-primary(?:[\s>])/);
   assert.doesNotMatch(html, /data-download-files|releaseTitle/);
 });

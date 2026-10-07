@@ -6590,6 +6590,22 @@ body.page-home-carousel {
   color: var(--site-muted);
 }
 
+.download-other-options {
+  margin-top: 16px;
+}
+
+.download-other-options summary {
+  width: fit-content;
+  padding: 8px 0;
+  color: var(--site-ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.download-other-options[open] .download-platform-actions {
+  margin-top: 8px;
+}
+
 @media (max-width: 980px) {
   .home-product-hero-grid,
   .page-demo-center-v2 .v2-page-hero-grid,

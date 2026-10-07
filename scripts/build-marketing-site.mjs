@@ -34,6 +34,7 @@ async function main() {
     fs.copyFile(path.join(source, "marketing-site.js"), path.join(output, "marketing-site.js")),
     fs.copyFile(path.join(source, "marketing-tabs.js"), path.join(output, "marketing-tabs.js")),
     fs.copyFile(path.join(source, "marketing-download.js"), path.join(output, "marketing-download.js")),
+    fs.copyFile(path.join(source, "marketing-download-model.js"), path.join(output, "marketing-download-model.js")),
     fs.cp(path.join(source, "assets"), path.join(output, "assets"), { recursive: true })
   ]);
 
