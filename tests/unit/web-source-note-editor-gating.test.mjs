@@ -3,6 +3,32 @@ import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
+import { originalityGuard } from "../../packages/originality-guard/src/originality-guard.mjs";
+
+test("saved note checks do not demand a citation locator for an independent observation", () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.resolvePlanFromWindow = () => ({});
+  const payload = pane.originalityPayloadFromLiterature({ id: "observation" }, "An independent judgment formed from practice.");
+  assert.equal(payload.originalityPlan.requireCitationLocator, false);
+  assert.equal(originalityGuard(payload, payload.originalityPlan).evaluations[0].status, "pass");
+});
+
+test("saved note checks still block copied literature and honor an explicit locator requirement", () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState();
+  const body = "A distinctive source passage copied without any independent judgment.";
+  const literature = [{ id: "source", body }];
+  pane.resolvePlanFromWindow = () => ({});
+  const copied = pane.originalityPayloadFromLiterature({ id: "copy" }, body, literature);
+  assert.equal(originalityGuard(copied, copied.originalityPlan).evaluations[0].status, "blocked");
+  pane.resolvePlanFromWindow = () => ({ requireCitationLocator: undefined, warnThreshold: undefined });
+  const independent = pane.originalityPayloadFromLiterature({ id: "independent" }, "My independent explanation.", literature);
+  assert.equal(originalityGuard(independent, independent.originalityPlan).evaluations[0].status, "pass");
+  pane.resolvePlanFromWindow = () => ({ requireCitationLocator: true });
+  const explicit = pane.originalityPayloadFromLiterature({ id: "strict" }, "My independent explanation.", literature);
+  assert.equal(explicit.originalityPlan.requireCitationLocator, true);
+  assert.ok(originalityGuard(explicit, explicit.originalityPlan).evaluations[0].reasons.includes("citation_locator_missing"));
+});
 
 test("pending relation recommendation retains focus after AI settings", async () => {
   const pane = Object.create(EditorPane.prototype);
@@ -1463,6 +1489,32 @@ This custom section should stay top-level.
   assert.doesNotMatch(normalized, /## 为什么成立/);
   assert.doesNotMatch(normalized, /## 补充内容/);
   assert.doesNotMatch(normalized, /### 自定义问题/);
+});
+
+test("preview refresh does not schedule editor focus or selection while the viewpoint panel has focus", () => {
+  for (const mode of ["source", "wysiwyg"]) {
+    for (const panelFocused of [true, false]) {
+      const pane = Object.create(EditorPane.prototype);
+      const calls = [];
+      pane.state = { previewMode: mode };
+      pane.activeTab = () => null;
+      pane.els = { body: { value: "saved" }, relatedPanel: {
+        ownerDocument: { activeElement: {} }, contains: () => panelFocused
+      } };
+      pane.richEditor = { getValue: () => "saved", focus: () => calls.push("focus") };
+      pane.markdownEditor = { getValue: () => "saved", focus: () => calls.push("focus") };
+      pane.isStructuredWorkspaceActive = () => false;
+      pane.pendingEditorSelection = { from: 1, to: 3 };
+      pane.normalizedSelectionRangeForValue = () => pane.pendingEditorSelection || { from: 1, to: 3 };
+      pane.setEditorValue = value => assert.equal(value, "saved");
+      pane.hideSelectionAiAction = pane.updateModeToggleButton = pane.refreshRichAssetBindings = () => {};
+      pane.clearMarkdownSelectionOverride = pane.setMarkdownSelectionOverride = () => {};
+      pane.renderLiteratureWorkspace = pane.renderContextualToolbarState = () => {};
+      pane.setEditorSelectionRange = () => calls.push("selection");
+      pane.renderPreviewVisibility();
+      assert.deepEqual(calls, panelFocused ? [] : ["focus", "selection"]);
+    }
+  }
 });
 
 test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to plain wysiwyg mode", () => {

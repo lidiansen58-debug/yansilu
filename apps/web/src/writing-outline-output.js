@@ -14,8 +14,9 @@ function appendList(lines, label, values) {
 export function buildWritingOutlineOutput({ project = null, scaffold = null } = {}) {
   const sections = Array.isArray(scaffold?.sections) ? scaffold.sections : [];
   if (!sections.length) throw new Error("提纲尚无章节，请先生成提纲。");
-  const notes = new Map((Array.isArray(project?.basket_notes) ? project.basket_notes : [])
-    .filter((note) => note?.id).map((note) => [note.id, note]));
+  const sourceNotes = [...(Array.isArray(project?.basket_notes) ? project.basket_notes : []),
+    ...(Array.isArray(scaffold?.evidence_notes) ? scaffold.evidence_notes : [])];
+  const notes = new Map(sourceNotes.filter(note => note?.id && note.status !== "missing" && note.note_type !== "missing").map(note => [note.id, note]));
   const lines = [`# ${heading(project?.title) || "未命名文章"}`, "", "## 文章提纲"];
   const brief = [
     ["目标", project?.goal], ["读者", project?.audience], ["语气", project?.tone],

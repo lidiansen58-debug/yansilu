@@ -52,7 +52,7 @@ test("scheduled tasks model summarizes schedule scope budget and runs", () => {
   );
   assert.equal(
     scheduledTaskBudgetSummary({ maxRunsPerPeriod: 3, runsThisPeriod: 1, maxEstimatedCostPerPeriod: 2, period: "week" }),
-    "1/3 次 / week，上限 2"
+    "1/3 次 / 周，上限 2"
   );
   assert.deepEqual(scheduledRunSummary({ total: 2, succeeded: 1, skipped: "1", failed: -1 }), {
     total: 2,

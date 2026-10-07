@@ -70,6 +70,20 @@ test("last requested project wins when an earlier project response is late", asy
   assert.deepEqual(commits, ["b"]);
 });
 
+test("typing in the current outline while another project loads cancels replacement", async () => {
+  const h = setup();
+  h.writingState.scaffold.sections = [{ heading: "Original outline", purpose: "Original purpose" }];
+  const waiting = deferred(), fetch = h.deps.fetchWritingProject;
+  h.deps.fetchWritingProject = async id => { await waiting.promise; return fetch(id); };
+  const opening = h.controller.open("new");
+  h.writingState.scaffold.sections[0].heading = "Still editing my current outline";
+  waiting.resolve();
+  assert.equal(await opening, null);
+  assert.equal(h.writingState.project.id, "old");
+  assert.equal(h.writingState.scaffold.sections[0].heading, "Still editing my current outline");
+  assert.deepEqual(h.commits, []);
+});
+
 test("dirty or saving chapter blocks project replacement and saved chapter is reset on open", async () => {
   const s = setup();
   for (const saveState of ["dirty", "error", "saving"]) {

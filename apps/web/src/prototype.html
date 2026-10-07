@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="./prototype.css" />
   <link rel="stylesheet" href="./global-note-search.css" />
   <link rel="stylesheet" href="./note-core-flow.css" />
+  <link rel="stylesheet" href="./writing-history.css" />
+  <link rel="stylesheet" href="./settings-workspace.css" />
 </head>
 <body>
   <a class="skip-link" href="#editorWorkspace">跳到正文</a>
@@ -125,7 +127,15 @@
       <section class="workspace-shell" id="editorWorkspace" tabindex="-1">
         <div class="editor-stage-shell">
           <div class="editor-stage-top">
-            <div class="tabs" id="tabs"></div>
+            <div class="editor-heading-row">
+              <div class="tabs" id="tabs"></div>
+              <div class="editor-note-actions">
+                <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                <button class="tb tb-label has-icon hidden" id="btnRecordPermanent" title="创建永久笔记" data-tip="创建永久笔记" aria-label="创建永久笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.1L12 5.2v7.1a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.1 2.3v2.2a.9.9 0 0 0 .9.9h2.2M7.5 6.6v4M5.5 8.6h4" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg><span>创建永久笔记</span></button>
+                <button class="tb tb-label has-icon hidden" id="btnDistillSourceAi" title="帮我提炼" data-tip="帮我提炼" aria-label="帮我提炼" data-contextual-ai-action-id="distill_material"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.2L12 5.1v7.2a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.2 2.4v2.1a.8.8 0 0 0 .8.8h2M5.4 7h4.8M5.4 9h3.5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M11.9 8.7l.32.78.78.32-.78.32-.32.78-.32-.78-.78-.32.78-.32.32-.78z" fill="currentColor"/></svg><span>帮我提炼</span></button>
+                <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+              </div>
+            </div>
             <div class="crumb" id="breadcrumb"></div>
             <div class="toolbar">
           <div class="toolbar-group toolbar-group-editor-actions">
@@ -164,12 +174,6 @@
             </div>
             <button class="tb tb-label has-icon" id="btnFocusMode" title="专注模式：收起导航和关联，只保留当前笔记" data-tip="专注模式：收起导航和关联，只保留当前笔记" aria-label="专注模式" aria-pressed="false"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2c1.3 1.45 2.95 2.25 5 2.45-.25 4.25-1.95 6.9-5 9.1-3.05-2.2-4.75-4.85-5-9.1 2.05-.2 3.7-1 5-2.45z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.2 8.05c1.05-.2 1.9-.7 2.8-1.6.72.74 1.55 1.25 2.62 1.48" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>专注模式</span></button>
             <button class="tb tb-label has-icon" id="btnShowRelated" title="打开打磨笔记" data-tip="打开打磨笔记" aria-label="打磨笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 3.15h7.1a1.7 1.7 0 0 1 1.7 1.7v6.3a1.7 1.7 0 0 1-1.7 1.7H3.1z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.05 6h4.5M5.05 8.05h3.55M5.05 10.1h2.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M12.45 1.9l.38.94.97.38-.97.38-.38.94-.38-.94-.97-.38.97-.38.38-.94zM12.9 8.75l.28.7.72.28-.72.28-.28.7-.28-.7-.72-.28.72-.28.28-.7z" fill="currentColor"/></svg><span>打磨笔记</span></button>
-          </div>
-          <div class="toolbar-group">
-            <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <button class="tb tb-label has-icon hidden" id="btnRecordPermanent" title="创建永久笔记" data-tip="创建永久笔记" aria-label="创建永久笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.1L12 5.2v7.1a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.1 2.3v2.2a.9.9 0 0 0 .9.9h2.2M7.5 6.6v4M5.5 8.6h4" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg><span>创建永久笔记</span></button>
-            <button class="tb tb-label has-icon hidden" id="btnDistillSourceAi" title="帮我提炼" data-tip="帮我提炼" aria-label="帮我提炼" data-contextual-ai-action-id="distill_material"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.2L12 5.1v7.2a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.2 2.4v2.1a.8.8 0 0 0 .8.8h2M5.4 7h4.8M5.4 9h3.5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M11.9 8.7l.32.78.78.32-.78.32-.32.78-.32-.78-.78-.32.78-.32.32-.78z" fill="currentColor"/></svg><span>帮我提炼</span></button>
-            <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
@@ -278,7 +282,7 @@
                     <textarea id="literatureParaphraseInput" placeholder="不用贴原句，用你自己的判断把意思说清楚"></textarea>
                   </div>
                   <div class="literature-field compact">
-                    <label for="literatureSupportsJudgmentInput">判断种子</label>
+                    <label for="literatureSupportsJudgmentInput">我的想法（可选）</label>
                     <textarea id="literatureSupportsJudgmentInput" placeholder="写出这条材料可能长出的观点、论证或决策"></textarea>
                   </div>
                   <div class="literature-field compact">
@@ -294,7 +298,7 @@
                     <textarea id="literatureWhyKeepInput" placeholder="说明它为什么值得留下，而不只是“看起来重要”"></textarea>
                   </div>
                   <div class="literature-reflection-note">
-                    没有转述时，这条文献笔记只能停留在草稿状态；有判断种子或追问后，才适合继续记录永久笔记。                  </div>
+                    保留出处和原文，写出自己的理解后，可以创建永久笔记继续形成判断。                  </div>
                 </section>
               </div>
             </div>
@@ -462,6 +466,9 @@
                   <div class="writing-page-subtitle" id="writingScopeHint">选一个主题，写完一篇文章。</div>
                 </div>
                 <div class="writing-head-actions">
+                  <button class="mini-btn" type="button" data-writing-related-open>
+                    相关笔记 <span id="writingRelatedNotesCount">0</span>
+                  </button>
                   <button class="mini-btn writing-mobile-topic-picker" type="button" data-writing-topic-picker>主题库</button>
                   <button class="mini-btn icon-btn" type="button" data-writing-help-toggle aria-label="帮助" title="帮助" data-tip="帮助">?</button>
                   <details class="writing-more-menu" id="writingMoreMenu">
@@ -472,6 +479,8 @@
                       <button class="mini-btn" id="btnWritingExportBook" type="button" title="按目录导出所有已保存章节及附件">导出整稿 .md</button>
                       <button class="mini-btn" id="btnWritingCopyScaffold" type="button">复制提纲 Markdown</button>
                       <button class="mini-btn" id="btnWritingExportScaffold" type="button">导出提纲 .md</button>
+                      <button class="mini-btn" id="btnWritingReloadScaffold" type="button">载入已保存提纲</button>
+                      <button class="mini-btn" id="btnWritingHistory" type="button">提纲历史</button>
                       <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
                     </div>
                   </details>
@@ -508,9 +517,6 @@
                         <div class="writing-section-title">先定题目</div>
                         <div class="writing-section-note" id="writingThemeDetailHint">写下题目和你想回答的问题。</div>
                       </div>
-                      <button class="mini-btn" type="button" data-writing-related-open>
-                        相关笔记 <span id="writingRelatedNotesCount">0</span>
-                      </button>
                     </div>
                     <div class="writing-topic-layout">
                       <div class="import-grid writing-form-grid">
@@ -536,9 +542,6 @@
                         <div class="writing-section-note">把文章的主要段落排好，再开始写正文。</div>
                       </div>
                       <div class="writing-section-head-actions">
-                        <button class="mini-btn" type="button" data-writing-related-open>
-                          相关笔记 <span id="writingRelatedNotesCountOutline">0</span>
-                        </button>
                         <button class="mini-btn" id="btnWritingOutlineCheckPlaceholder" type="button">检查提纲</button>
                         <button class="mini-btn primary" id="btnWritingStartDraft" type="button" data-writing-tab-jump="draft">开始写草稿</button>
                       </div>
@@ -552,12 +555,9 @@
                   <section class="writing-section writing-draft-panel" id="writingDraftPanel">
                     <div class="writing-section-head">
                       <div>
-                        <div class="writing-section-title">草稿</div>
+                        <div class="writing-section-title" id="writingDraftTitle">草稿</div>
                         <div class="writing-section-note">按提纲写正文。</div>
                       </div>
-                      <button class="mini-btn" type="button" data-writing-related-open>
-                        相关笔记 <span id="writingRelatedNotesCountDraft">0</span>
-                      </button>
                     </div>
                     <label for="writingDraftTarget">选择正文</label>
                     <div class="writing-draft-target-row">
@@ -780,12 +780,6 @@
                         </div>
                       </section>
                       <section class="settings-card" id="settingsCardImportExport">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">导入导出工具</div>
-                            <div class="settings-card-note">导入 Obsidian 文件夹、预览外部资料，或把永久笔记导出到目标目录。</div>
-                          </div>
-                        </div>
                         <div id="importPageMount"></div>
                       </section>
                       <section class="settings-card hidden" id="settingsCardMobileAccess">
@@ -807,18 +801,11 @@
                         <div id="settingsPermanentTemplateDetail">
                           <div class="settings-template-editor">
                             <div class="settings-template-editor-shell">
-                              <div class="settings-template-editor-head">
-                                <div class="settings-template-editor-copy">
-                                  <div class="settings-template-editor-title">Markdown 模板</div>
-                                  <div class="settings-template-editor-note">新建永久笔记时会按这里生成。</div>
-                                </div>
-                                <div class="settings-template-editor-chip">永久笔记</div>
-                              </div>
-                              <textarea id="settingsPermanentTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                              <textarea id="settingsPermanentTemplateEditor" aria-label="永久笔记模板内容" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
                             </div>
                           </div>
                           <div class="settings-template-footer">
-                            <div class="settings-template-feedback" id="settingsPermanentTemplateFeedback">
+                            <div class="settings-template-feedback" id="settingsPermanentTemplateFeedback" role="status" aria-live="polite">
                               <span class="settings-template-feedback-dot" aria-hidden="true"></span>
                               <span id="settingsPermanentTemplateFeedbackText">保存后会用于后续新建。</span>
                             </div>
@@ -837,18 +824,11 @@
                         <div id="settingsLiteratureTemplateDetail">
                           <div class="settings-template-editor">
                             <div class="settings-template-editor-shell">
-                              <div class="settings-template-editor-head">
-                                <div class="settings-template-editor-copy">
-                                  <div class="settings-template-editor-title">Markdown 模板</div>
-                                  <div class="settings-template-editor-note">新建文献笔记时会按这里生成。</div>
-                                </div>
-                                <div class="settings-template-editor-chip">文献笔记</div>
-                              </div>
-                              <textarea id="settingsLiteratureTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                              <textarea id="settingsLiteratureTemplateEditor" aria-label="文献笔记模板内容" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
                             </div>
                           </div>
                           <div class="settings-template-footer">
-                            <div class="settings-template-feedback" id="settingsLiteratureTemplateFeedback">
+                            <div class="settings-template-feedback" id="settingsLiteratureTemplateFeedback" role="status" aria-live="polite">
                               <span class="settings-template-feedback-dot" aria-hidden="true"></span>
                               <span id="settingsLiteratureTemplateFeedbackText">保存后会用于后续新建。</span>
                             </div>
@@ -1081,166 +1061,111 @@
                       <section class="settings-card" id="settingsDesktopHelpCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">按任务找帮助</div>
-                            <div class="settings-card-note">不用先研究概念，先找到下一步动作。</div>
+                            <a href="./help/quick-start.html" target="_blank" rel="noopener">完整使用指南与常见问题</a>
                           </div>
                         </div>
                         <div class="settings-help-topic-list settings-help-task-list">
-                          <div class="settings-help-topic">
-                            <strong>研思录最核心的路径</strong>
-                            <span>从首页开始：处理一条材料，写下当前观点；观点变化时保留原因和依据；再用关系、主题进入写作。一天只推进一个动作也可以。</span>
-                          </div>
-                          <div class="settings-help-topic settings-help-topic-action">
-                            <strong>卡片笔记写作法示例</strong>
-                            <span>查看示例笔记、关联、主题和文章，操作要点保存在笔记正文中，可随时阅读和编辑。</span>
-                            <button class="mini-btn primary" id="settingsImportSmartNotesDemo" type="button" data-settings-help-action="import-demo">导入示例笔记与写作</button>
-                            <small class="settings-demo-import-status" id="settingsImportSmartNotesDemoStatus" aria-live="polite">导入前会请你确认；导入时会显示进度。</small>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>第一次打开先做什么</strong>
-                            <span>先记一条随笔，或选择一条已有材料整理成自己的观点。可导入示例笔记与写作，查看正常操作的已有内容。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-home">打开首页</button>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>有一条想法怎么办</strong>
-                            <span>粗想法先写成随笔；读到的材料先做文献笔记；已经能说清楚的判断再转成永久笔记。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-home">去首页处理</button>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>为什么要关联</strong>
-                            <span>正文链接和手动关联都会进入图谱。需要时补一句理由，说明它怎样支持、反驳、限定或举例。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-graph">打开关系网络</button>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>怎么开始写作</strong>
-                            <span>确认主题问题和素材用途，再生成提纲、写正文。接着写已有文章时，按当前按钮选“继续提纲”“继续草稿”或“继续写”。</span>
-                            <div class="settings-inline-actions">
-                              <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
-                              <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作</button>
+                          <details class="settings-help-task" open>
+                            <summary>记录想法，整理成自己的观点</summary>
+                            <div class="settings-help-task-body">
+                              <p>先记一条随笔。读书或文章摘录放在文献笔记，保留出处和原文，在“我的理解”中用自己的话说明意思；作者和年份可补充。创建永久笔记后，写清判断和依据，再“保存当前观点”。</p>
+                              <p>观点改变时，在“这次为什么改变”中留下原因；之后可在“形成过程”中回看。</p>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-home">打开首页</button>
                             </div>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>如何备份和迁移</strong>
-                            <span>用备份与恢复把整个笔记库加密打包。换电脑时恢复到新文件夹，不覆盖当前库。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>手机访问适合怎么用</strong>
-                            <span>手机适合随手记录、拍资料、轻量查看。复杂整理、建联和写作回电脑完成。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
-                          </div>
-                          <div class="settings-help-topic">
-                            <strong>AI 可以帮什么</strong>
-                            <span>提炼材料、建议关联、检查写作。采用草稿后仍需亲自核对、改写和确认；模型效果仍待改进，不用 AI 也能完整使用。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
-                          </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>关联笔记，发现主题</summary>
+                            <div class="settings-help-task-body">
+                              <p>正文链接和手动关联都会进入图谱。选择两条有关的笔记，用一句话说明它们怎样支持、反驳、限定或举例；不确定时选“只是有关”。</p>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-graph">打开关系网络</button>
+                            </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>用笔记写文章和书籍</summary>
+                            <div class="settings-help-task-body">
+                              <p>在写作中心选择主题或相关笔记，确认要回答的问题，再生成提纲、写正文。已有项目可以“继续提纲”“继续草稿”或“继续写”。</p>
+                              <div class="settings-inline-actions">
+                                <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
+                                <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作</button>
+                              </div>
+                            </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>备份笔记，换一台电脑</summary>
+                            <div class="settings-help-task-body">
+                              <p>先创建整个笔记库的加密备份，把文件复制到可信的位置。新电脑恢复到新的笔记库，不覆盖当前库。</p>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
+                            </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>用手机随手记</summary>
+                            <div class="settings-help-task-body">
+                              <p>让电脑保持运行，手机和电脑连接同一 Wi-Fi，再扫码配对。手机适合记录、拍资料和查看，深度整理和写作回电脑完成。不要将访问地址暴露到公网。</p>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">打开手机访问</button>
+                            </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>让 AI 辅助整理和写作</summary>
+                            <div class="settings-help-task-body">
+                              <p>AI 可以提炼材料、建议关联和检查写作。采用草稿后仍需亲自核对、改写和确认；不用 AI 也能完整使用。远程模型仅在你启用后调用，费用由第三方收取。</p>
+                              <button class="mini-btn" type="button" data-settings-help-action="open-ai-settings">查看 AI 设置</button>
+                            </div>
+                          </details>
+                          <details class="settings-help-task">
+                            <summary>查看一套完整示例</summary>
+                            <div class="settings-help-task-body">
+                              <p>卡片笔记写作法示例包含笔记、关联、主题和文章，操作要点保存在笔记正文中。示例只会在确认后添加，不会替换已有笔记。</p>
+                              <button class="mini-btn" id="settingsImportSmartNotesDemo" type="button" data-settings-help-action="import-demo">导入示例笔记与写作</button>
+                              <small class="settings-demo-import-status" id="settingsImportSmartNotesDemoStatus" aria-live="polite">导入时会显示进度。</small>
+                            </div>
+                          </details>
                         </div>
-                        <div class="settings-support-safe-note">示例只会在确认后添加。可在笔记目录和写作中心查看，操作方法也保存在示例笔记中。</div>
                       </section>
                       <section class="settings-card" id="settingsUpdateCard">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">关于与更新</div>
-                            <div class="settings-card-note">研思录只检查更新并展示下载入口，不会静默替换程序或迁移你的笔记库。</div>
-                          </div>
-                        </div>
                         <div class="settings-help-meta settings-update-meta">
-                          <p><a href="./help/quick-start.html" target="_blank" rel="noopener">离线使用指南与常见问题</a></p>
                           <div class="settings-stat-row">
-                            <span class="settings-stat-badge" id="settingsUpdateStatusBadge">等待检查</span>
                             <span class="settings-stat-badge muted" id="settingsUpdateCurrentVersion">当前版本：--</span>
-                            <span class="settings-stat-badge muted" id="settingsUpdateLatestVersion">最新版本：--</span>
+                            <span class="settings-stat-badge" id="settingsUpdateStatusBadge" role="status">等待检查</span>
+                            <span class="settings-stat-badge muted" id="settingsUpdateLatestVersion" hidden>最新版本：--</span>
                           </div>
                           <div id="settingsUpdateCheckedAt" class="settings-card-note">尚未检查。</div>
-                          <div id="settingsUpdateManifestUrl" class="settings-card-note">更新清单：未配置</div>
-                          <div id="settingsUpdateError" class="settings-support-safe-note hidden"></div>
+                          <div id="settingsUpdateError" class="settings-support-safe-note hidden" role="alert"></div>
                           <div id="settingsUpdateCriticalNotice" class="settings-support-safe-note hidden"></div>
                         </div>
-                        <div class="settings-feedback-choice-list" aria-label="版本更新操作">
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>手动检查</strong>
-                              <span>立即读取更新清单；失败不会影响主界面。</span>
-                            </div>
-                            <button class="mini-btn primary" id="settingsCheckUpdate" type="button">检查更新</button>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>下载与安装</strong>
-                              <span id="settingsUpdateDownloadHint">有新版本时会显示下载入口。</span>
-                              <span id="settingsUpdateInstallProgress" class="settings-card-note hidden"></span>
-                            </div>
-                            <div class="settings-inline-actions">
-                              <button class="mini-btn primary" id="settingsInstallUpdate" type="button" disabled>桌面版可用</button>
-                              <button class="mini-btn" id="settingsRelaunchUpdate" type="button" disabled>重启后更新</button>
-                              <button class="mini-btn" id="settingsOpenUpdateDownload" type="button" disabled>打开下载页</button>
-                            </div>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>稍后提醒</strong>
-                              <span>今天先不处理，明天后再自动提醒。</span>
-                            </div>
-                            <button class="mini-btn is-subtle" id="settingsRemindUpdateLater" type="button">稍后提醒</button>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>自动检查</strong>
-                              <span>启动后延迟检查一次，最多每天一次。</span>
-                            </div>
+                        <div class="settings-inline-actions settings-update-actions" aria-label="版本更新操作">
+                          <button class="mini-btn primary" id="settingsCheckUpdate" type="button">检查更新</button>
+                          <button class="mini-btn primary" id="settingsInstallUpdate" type="button" hidden>下载更新</button>
+                          <button class="mini-btn primary" id="settingsRelaunchUpdate" type="button" hidden>重启后更新</button>
+                          <button class="mini-btn" id="settingsOpenUpdateDownload" type="button" hidden>打开下载页</button>
+                        </div>
+                        <div id="settingsUpdateDownloadHint" class="settings-card-note" hidden></div>
+                        <div id="settingsUpdateInstallProgress" class="settings-card-note hidden" role="status"></div>
+                        <div id="settingsUpdateChangelog" class="settings-update-notes"></div>
+                        <details class="settings-update-disclosure">
+                          <summary>更新偏好</summary>
+                          <div class="settings-update-disclosure-body">
                             <label class="settings-inline-toggle">
                               <input id="settingsAutoUpdateEnabled" type="checkbox" checked />
-                              <span>启动后自动检查</span>
+                              <span>启动后自动检查（每天最多一次）</span>
                             </label>
-                          </div>
-                          <div class="settings-feedback-choice">
-                            <div>
-                              <strong>忽略这个版本</strong>
-                              <span>只忽略当前检测到的最新版本；手动检查仍会显示结果。</span>
+                            <div class="settings-inline-actions" id="settingsUpdateDeferActions" hidden>
+                              <button class="mini-btn is-subtle" id="settingsRemindUpdateLater" type="button">明天再提醒</button>
+                              <button class="mini-btn is-subtle" id="settingsIgnoreUpdateVersion" type="button">忽略当前版本</button>
                             </div>
-                            <button class="mini-btn is-subtle" id="settingsIgnoreUpdateVersion" type="button" disabled>忽略当前版本</button>
                           </div>
-                        </div>
-                        <div class="settings-help-topic-list" id="settingsUpdateChangelog">
-                          <div class="settings-help-topic">
-                            <strong>更新说明</strong>
-                            <span>检查更新后显示。</span>
-                          </div>
-                        </div>
-                      </section>
-                      <section class="settings-card" id="settingsLocalRulesCard">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">本地使用说明</div>
-                            <div class="settings-card-note">你的笔记留在自己的设备上。需要时，按下面三件事处理即可。</div>
-                          </div>
-                        </div>
-                        <div class="settings-help-topic-list settings-local-help-list">
-                          <div class="settings-help-topic">
-                            <strong>笔记在哪儿</strong>
-                            <span>正文和附件都在当前笔记库里，正文是 Markdown 文件。备份这个目录，你的重要内容就始终在手里。</span>
-                            <details class="settings-local-help-details">
-                              <summary>查看本地索引说明</summary>
-                              <p>SQLite 只用于关系、索引和查询加速，不是保存笔记正文的唯一地方。切换笔记库只会重新读取目标文件夹，不会删除原来的笔记。</p>
-                            </details>
-                          </div>
-                          <div class="settings-help-topic settings-help-topic-action">
-                            <strong>手机怎么用</strong>
-                            <span>手机适合随手记录、拍资料和轻量查看；整理关系和写作回到电脑完成。使用时让电脑保持运行，并和手机处于同一 Wi-Fi。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-mobile-access">管理手机访问</button>
-                          </div>
-                          <div class="settings-help-topic settings-help-topic-action">
-                            <strong>换电脑前做什么</strong>
-                            <span>先创建加密备份，再把备份文件复制到任意你信任的位置。新电脑恢复到新的笔记库，原来的内容不会被覆盖。</span>
-                            <button class="mini-btn" type="button" data-settings-help-action="open-backup">打开备份与恢复</button>
-                          </div>
-                        </div>
-                        <details class="settings-local-help-details settings-local-help-troubleshooting">
-                          <summary>选不到文件夹或无法打开笔记库</summary>
-                          <p>先确认路径存在，并且当前账户有读写权限。系统选择器不可用时，可以手动输入路径。</p>
                         </details>
-                        <div class="settings-support-safe-note">隐私提醒：手机访问只建议在自己的局域网内使用，不要把访问地址直接暴露到公网。发送反馈前，也请检查邮件里是否有不想公开的信息。</div>
+                        <details class="settings-update-disclosure">
+                          <summary>更新来源</summary>
+                          <div id="settingsUpdateManifestUrl" class="settings-card-note settings-update-disclosure-body">更新清单：未配置</div>
+                        </details>
                       </section>
+                      <details class="settings-card settings-help-task hidden" id="settingsLocalRulesCard">
+                        <summary>笔记保存在哪里？打不开笔记库怎么办？</summary>
+                        <div class="settings-help-task-body">
+                          <p>你的笔记留在自己的设备上。正文是 Markdown 文件，正文和附件都在当前笔记库中。关系、索引和查询信息另存于本地数据库，完整迁移请使用加密备份。</p>
+                          <p>切换笔记库不会删除原来的笔记。选不到文件夹或无法打开笔记库时，先确认路径存在且当前账户有读写权限；系统选择器不可用时可手动输入路径。</p>
+                        </div>
+                      </details>
 
                       <section class="settings-card" id="settingsFeedbackCard">
                         <div class="settings-card-head">
@@ -1266,7 +1191,7 @@
           </div>
         </div>
         <div class="settings-template-preview-modal" id="settingsTemplatePreviewModal" aria-hidden="true">
-          <div class="settings-template-preview-dialog">
+          <div class="settings-template-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTemplatePreviewTitle">
             <div class="settings-template-preview-dialog-head">
               <div class="settings-template-preview-dialog-copy">
                 <div class="settings-template-preview-dialog-title" id="settingsTemplatePreviewTitle">模板预览</div>
@@ -1280,28 +1205,6 @@
           </div>
         </div>
       </section>
-      <div class="editor-helper" id="editorHelper">
-        <button class="editor-helper-close" id="btnDismissEditorHelper" type="button" aria-label="关闭提示">×</button>
-        <div class="editor-helper-kicker" id="editorHelperKicker">当前任务</div>
-        <div class="editor-helper-title" id="editorHelperTitle">把资料慢慢提炼成自己的判断</div>
-        <div class="editor-helper-body" id="editorHelperBody">这里会根据你当前正在处理的笔记，提示下一步推荐、相关任务和未来的 AI 协作入口。</div>
-        <div class="editor-helper-actions">
-          <button class="editor-helper-action" id="btnEditorHelperAction" type="button">知道了</button>
-          <button class="editor-helper-action is-secondary" id="btnEditorHelperMute" type="button">不再提示</button>
-        </div>
-      </div>
-      <div class="asset-preview-mask hidden" id="assetPreviewMask">
-        <div class="asset-preview-card">
-          <div class="asset-preview-head">
-            <div class="asset-preview-title" id="assetPreviewTitle">附件预览</div>
-            <button class="asset-preview-close" id="btnCloseAssetPreview" type="button" aria-label="关闭预览">×</button>
-          </div>
-          <div class="asset-preview-body" id="assetPreviewBody"></div>
-          <div class="asset-preview-foot">
-            <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">用浏览器打开</a>
-          </div>
-        </div>
-      </div>
       <div class="note-search-mask" id="noteSearchDialog" role="dialog" aria-modal="true" aria-label="搜索全部笔记" hidden>
         <section class="note-search-dialog">
           <div class="note-search-head"><label for="globalNoteSearchInput">搜索笔记</label><input id="globalNoteSearchInput" type="search" placeholder="标题、正文、标签或来源" autocomplete="off"><button type="button" data-close-note-search aria-label="关闭搜索" title="关闭搜索">×</button></div>
@@ -1313,14 +1216,21 @@
         <span id="statusText" class="status-pill">就绪</span>
         <button type="button" data-dismiss-status aria-label="关闭提示" title="关闭提示">×</button>
       </div>
-      <div class="save-ai-suggestion hidden" id="saveAiSuggestion" aria-live="polite" role="status">
-        <div class="save-ai-suggestion-text" id="saveAiSuggestionText"></div>
-        <button class="save-ai-suggestion-primary" id="btnSaveAiSuggestionPrimary" type="button">立即处理</button>
-        <button class="save-ai-suggestion-secondary" id="btnSaveAiSuggestionLater" type="button">稍后</button>
-      </div>
     </main>
   </div>
   <div id="contextMenu" class="ctx-menu hidden"></div>
+  <div class="asset-preview-mask hidden" id="assetPreviewMask" role="dialog" aria-modal="true" aria-labelledby="assetPreviewTitle">
+    <div class="asset-preview-card">
+      <div class="asset-preview-head">
+        <div class="asset-preview-title" id="assetPreviewTitle">附件预览</div>
+        <button class="asset-preview-close" id="btnCloseAssetPreview" type="button" aria-label="关闭预览">×</button>
+      </div>
+      <div class="asset-preview-body" id="assetPreviewBody"></div>
+      <div class="asset-preview-foot">
+        <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">用浏览器打开</a>
+      </div>
+    </div>
+  </div>
   <div class="panel inspector-panel hidden" id="relatedPanel" role="dialog" aria-modal="true" aria-labelledby="notePolishTitle">
     <div class="panel-head">
       <div><div class="panel-title" id="notePolishTitle">打磨笔记</div></div>

@@ -1,5 +1,6 @@
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { readWritingInput } from "./writing-input-recovery.js";
+import { restoreWritingOutline } from "./writing-outline-recovery.js";
 
 export function createWritingProjectOpenController(depsProvider = () => ({})) {
   async function open(projectId) {
@@ -17,6 +18,7 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
     const vaultPath = getVaultPath(), vaultScope = state.noteMoveVaultScope, module = state.module;
     const context = () => JSON.stringify([writingState.project?.id, writingState.project?.draft_note_id,
       writingState.scaffold?.id, writingState.selectedThemeIndexId, writingState.draftMarkdown,
+      writingState.scaffold?.sections, writingState.scaffold?.open_questions,
       writingState.bookChapter?.id, writingState.bookChapter?.markdown, writingState.bookChapter?.saveState,
       parseWritingBasketIds(), getWritingFormSnapshot()]);
     const before = context();
@@ -63,11 +65,12 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       assertWritingDraftCanLeave(writingState);
       const recovered = project.scaffold_id
         ? readWritingInput(deps, JSON.stringify(["article", id, project.scaffold_id])) : null;
+      const outline = restoreWritingOutline(deps, id, scaffold?.item);
       // Commit only after essential reads succeed and this is still the selected request.
       resetWritingStrongModelState();
       writingState.project = draft ? { ...project, draft_note: draft } : project;
-      writingState.scaffold = scaffold?.item || null;
-      writingState.scaffoldMarkdown = scaffold?.export?.markdown || scaffold?.item?.markdown || "";
+      writingState.scaffold = outline.item || null;
+      writingState.scaffoldMarkdown = outline.restored ? outline.item.markdown : scaffold?.export?.markdown || scaffold?.item?.markdown || "";
       writingState.draftMarkdown = draft?.body ?? "";
       writingState.draftSaveState = "idle";
       if (recovered) {
@@ -95,6 +98,8 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       committed = true;
       renderWritingPanel();
       if (recovered) setStatus("已恢复本机未保存的文章内容，请核对后保存。", "warn", { notify: true, force: true });
+      if (outline.restored) setStatus(outline.conflict ? "已恢复本机提纲；服务端也有修改。可先导出当前提纲，再从“更多”载入已保存提纲。"
+        : "已恢复本机未保存的提纲，请核对后继续编辑。", "warn", { notify: true, force: true });
       if (warnings.length) setStatus(`主题已打开；${warnings.join("；")}。可稍后刷新。`, "warn", { notify: true, force: true, holdMs: 8000 });
       return writingState.project;
     } catch (error) {

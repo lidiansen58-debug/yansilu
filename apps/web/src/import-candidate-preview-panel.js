@@ -1,6 +1,5 @@
 import {
   candidateBadge,
-  candidateGroups,
   candidateIdsByOriginalityStatus,
   candidateMeta,
   candidatePreviewItems,
@@ -11,6 +10,7 @@ import {
   riskyCandidateIds,
   safeCandidateIds
 } from "./import-candidate-preview-model.js";
+import { importCandidatePage, renderImportCandidatePagination } from "./import-candidate-pagination.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -121,8 +121,9 @@ export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null
 }
 
 export function renderCandidatePreview(candidatePreview, options = {}) {
-  const groups = candidateGroups(candidatePreview);
-  if (!groups.length) return "";
+  if (!candidatePreviewItems(candidatePreview).length) return "";
+  const pagination = options.pagination || importCandidatePage(candidatePreview, options);
+  const groups = pagination.groups;
 
   const interactive = Boolean(options.interactive);
   const summary = options.summary || { selectedIds: new Set(), selectedCount: 0, totalCount: 0, excludedCount: 0 };
@@ -138,31 +139,18 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
   const safeCount = safeCandidateIds(candidatePreview).length;
   const confirmableCount = confirmableCandidateIds(candidatePreview, originalityGuard).length;
   const excludedCount = summary.excludedCount;
-  const selectedIdSet = summary.selectedIds instanceof Set ? summary.selectedIds : new Set();
   const previewFilter = interactive ? focusReason : "";
   const visibleCandidateCount = candidatePreviewItems(candidatePreview).length;
 
-  function itemVisibleForFilter(item) {
-    const candidateId = String(item.id || "");
-    if (!previewFilter) return true;
-    if (previewFilter === "blocked") return item.originalityStatus === "blocked";
-    if (previewFilter === "warning") return item.originalityStatus === "warning";
-    if (previewFilter === "risky") return item.originalityStatus === "warning" || item.originalityStatus === "blocked";
-    if (previewFilter === "safe") return item.originalityStatus !== "blocked";
-    if (previewFilter === "confirmable") return isConfirmableCandidate(item, originalityGuard);
-    if (previewFilter === "excluded") return !selectedIdSet.has(candidateId);
-    return true;
-  }
-
   const truncatedNotice =
     interactive && candidatePreview.truncated
-      ? `<div class="candidate-summary candidate-summary-warn">Showing ${escapeHtml(visibleCandidateCount)} visible candidates from a larger preview set. Confirm imports only the visible selected candidates.</div>`
+      ? `<div class="candidate-summary candidate-summary-warn">本次预览显示 ${escapeHtml(visibleCandidateCount)} 条；确认时只导入预览中已勾选的内容。</div>`
       : "";
 
   return `
-    <div class="result-candidates simple">
+    <div class="result-candidates simple" data-import-preview-record="${escapeHtml(options.importRecordId || "")}">
       <div class="result-candidates-toolbar">
-        <div class="result-candidates-title">将导入：${escapeHtml(candidateTotalText(total))}</div>
+        <div class="result-candidates-title">找到：${escapeHtml(candidateTotalText(total))}</div>
         <div class="toolbar-note">已选 ${summary.selectedCount}/${summary.totalCount}</div>
       </div>
       ${truncatedNotice}
@@ -172,6 +160,12 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
               <div class="toolbar-actions">
                 <button class="mini-btn" type="button" data-candidate-action="all">全选</button>
                 <button class="mini-btn" type="button" data-candidate-action="none">清空</button>
+              </div>
+            </div>
+            <details class="candidate-selection-options" data-import-preview-record="${escapeHtml(options.importRecordId || "")}"${previewFilter || options.selectionOptionsOpen ? " open" : ""}>
+              <summary>筛选与批量选择</summary>
+              <div class="result-candidates-toolbar">
+                <div class="toolbar-actions">
                 <button class="mini-btn" type="button" data-candidate-action="permanent">只选永久</button>
                 ${confirmableCount < summary.totalCount ? `<button class="mini-btn" type="button" data-candidate-action="confirmable">只选可确认 ${escapeHtml(confirmableCount)}</button>` : ""}
                 ${safeCount < summary.totalCount ? `<button class="mini-btn" type="button" data-candidate-action="safe">只选安全 ${escapeHtml(safeCount)}</button>` : ""}
@@ -193,10 +187,11 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                 ${confirmableCount > 0 && confirmableCount < summary.totalCount ? `<button class="mini-btn ${previewFilter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">${escapeHtml(filterLabel("confirmable", confirmableCount))}</button>` : ""}
                 ${excludedCount > 0 ? `<button class="mini-btn ${previewFilter === "excluded" ? "is-filter-active" : ""}" type="button" data-candidate-filter="excluded">${escapeHtml(filterLabel("excluded", excludedCount))}</button>` : ""}
               </div>
-            </div>`
+            </div>
+            </details>`
           : ""
       }
-      ${(options.showExcludedSummary || (interactive && excludedCount > 0)) ? renderExcludedCandidateSummary(candidatePreview, { selectedIds: summary.selectedIds }) : ""}
+      ${options.showExcludedSummary ? renderExcludedCandidateSummary(candidatePreview, { selectedIds: summary.selectedIds }) : ""}
       ${
         hasFocus
           ? `<div class="candidate-focus-banner">
@@ -205,19 +200,17 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
             </div>`
           : ""
       }
+      ${renderImportCandidatePagination(pagination)}
+      ${!pagination.total ? `<div class="toolbar-note">没有符合筛选的笔记。</div>` : ""}
       ${groups
         .map((group) => {
-          const groupItems = group.items.map((item) => ({
-            ...item,
-            candidateGroup: group.title
-          })).filter(itemVisibleForFilter);
+          const groupItems = group.items;
           if (!groupItems.length) return "";
           return `
             <div class="candidate-group">
               <div class="candidate-group-title">${escapeHtml(candidateGroupLabel(group.title))}</div>
               <div class="candidate-list">
                 ${groupItems
-                  .slice(0, interactive ? 8 : 6)
                   .map((item) => {
                     const candidateId = String(item.id || "");
                     const checked = summary.selectedIds.has(candidateId);
@@ -239,12 +232,13 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                               <span class="candidate-badge candidate-badge-${escapeHtml(tone)}">${escapeHtml(candidateBadge(item))}</span>
                             </div>
                             <div class="candidate-meta" title="${escapeHtml(candidateMeta(item))}">${escapeHtml(candidateMeta(item))}</div>
+                            ${item.excerpt ? `<div class="candidate-excerpt">${escapeHtml(item.excerpt)}</div>` : ""}
                             ${candidateReasonBadges(item) ? `<div class="candidate-reasons">${candidateReasonBadges(item)}</div>` : ""}
                             ${
                               skipReason
                                 ? `<div class="candidate-inline-note">${escapeHtml(skipReason.message)}</div>`
                                 : !confirmable
-                                  ? `<div class="candidate-inline-note">Originality guard requires override, so this item stays read-only in the simplified importer.</div>`
+                                  ? `<div class="candidate-inline-note">未通过原创性检查，当前设置不允许导入。请核对内容和检查原因。</div>`
                                 : !checked
                                   ? `<div class="candidate-inline-note">确认前取消勾选。</div>`
                                   : ""

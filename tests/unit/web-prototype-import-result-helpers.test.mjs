@@ -100,7 +100,24 @@ test("prototype import result helpers preserve import result file and summary be
     literatureBatchSummaryForPayload: () => ({ pending: 1, refine: 0, ready: 0, paraphraseDone: 0, total: 1, remaining: 1 })
   });
   assert.match(html, /data-import-writing-action="open-literature-queue"/);
-  assert.match(html, /data-import-writing-action="add-permanent-notes"/);
+  assert.equal((html.match(/<button /g) || []).length, 1);
+  assert.match(html, /class="mini-btn primary"/);
+  assert.match(html, /整理第一条笔记/);
+  assert.doesNotMatch(html, /加入并打开写作|相关笔记|预测|待提炼|result-metrics/);
+});
+
+test("permanent-only import uses the ordinary home path without assuming writing readiness", () => {
+  const html = renderImportWritingActions({ stage: "confirm", result: { createdFiles: [{ noteType: "permanent", noteId: "pn1" }] } });
+  assert.match(html, /data-import-writing-action="open-today"/);
+  assert.equal((html.match(/<button /g) || []).length, 1);
+  assert.doesNotMatch(html, /create-writing-project|add-permanent-notes/);
+});
+
+test("failed and interrupted history never offer a success follow-up for partial files", () => {
+  for (const status of ["failed", "interrupted", "confirming"]) {
+    assert.equal(renderImportWritingActions({ stage: "record", importRecord: { status, confirmResult: { createdFiles: [{ noteType: "literature", noteId: "ln1" }] } } }), "");
+  }
+  assert.match(renderImportWritingActions({ stage: "record", importRecord: { status: "completed", confirmResult: { createdFiles: [{ noteType: "literature", noteId: "ln1" }] } } }), /整理第一条笔记/);
 });
 
 test("prototype import result helpers render writing details and literature batch counts", () => {

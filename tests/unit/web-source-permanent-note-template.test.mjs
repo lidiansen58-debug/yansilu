@@ -41,3 +41,22 @@ test("source draft preserves custom template content instead of deleting user pr
   assert.match(body, /## 自定栏目\n\n保留内容/);
   assert.match(body, /\[\[材料\]\]/);
 });
+
+test("fleeting draft uses the user's title instead of turning a long paragraph into a title", () => {
+  const excerpt = "我今天试着合上书解释其中一个观点，发现自己记住了结论，却没有记住作者讨论这个结论时限定的条件。";
+  const body = originalDraftBodyFromSource({
+    sourceType: "fleeting", sourceTitle: "解释后再核对", sourceNoteId: "material-1",
+    sourceBody: `# 解释后再核对\n\n${excerpt}`
+  });
+  assert.equal(body.split("\n")[0], "# 解释后再核对");
+  assert.ok(body.includes(excerpt), "The full original record is retained, not shortened with the title");
+  assert.match(body, /\[\[material-1\|解释后再核对\]\]/);
+});
+
+test("an untitled source can still seed a draft title without copying it as the judgment", () => {
+  const body = originalDraftBodyFromSource({
+    sourceType: "fleeting", sourceTitle: "未命名笔记", sourceBody: "# 未命名笔记\n\n合上书解释一次。"
+  });
+  assert.equal(body.split("\n")[0], "# 合上书解释一次。");
+  assert.match(body, /## 核心观点\n\n用自己的话/);
+});

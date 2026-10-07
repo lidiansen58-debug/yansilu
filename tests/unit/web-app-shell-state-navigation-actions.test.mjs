@@ -70,6 +70,42 @@ test("navigation actions select graph folders through explorer context and refre
   ]);
 });
 
+for (const change of ["enter-graph", "leave-graph", "folder", "vault"]) {
+  test(`a delayed folder load does not refresh or repaint after ${change}`, async () => {
+    const state = { module: change === "enter-graph" ? "explorer" : "graph", selectedFolderId: "d1", noteMoveVaultScope: {} };
+    let finish;
+    const reads = new Promise(resolve => { finish = resolve; });
+    const calls = [];
+    const pending = handleSelectFolderStateChange({}, {
+      state, syncNotesForDirectory: () => reads,
+      refreshDirectoryGraph: async () => calls.push("graph"),
+      renderAll: () => calls.push("render"),
+      setStatus: text => calls.push(text)
+    });
+    if (change === "enter-graph") state.module = "graph";
+    if (change === "leave-graph") state.module = "today";
+    if (change === "folder") state.selectedFolderId = "d2";
+    if (change === "vault") state.noteMoveVaultScope = {};
+    finish();
+    await pending;
+    assert.deepEqual(calls, []);
+  });
+}
+
+test("a delayed old-vault folder error does not replace newer feedback", async () => {
+  const state = { module: "graph", selectedFolderId: "d1", noteMoveVaultScope: {} };
+  let fail;
+  const calls = [];
+  const pending = handleSelectFolderStateChange({}, {
+    state, syncNotesForDirectory: () => new Promise((_resolve, reject) => { fail = reject; }),
+    setStatus: text => calls.push(text), renderAll: () => calls.push("render")
+  });
+  state.noteMoveVaultScope = {};
+  fail(new Error("old vault unavailable"));
+  await pending;
+  assert.deepEqual(calls, []);
+});
+
 test("navigation actions focus graph notes and collapse disconnected groups", () => {
   const status = statusRecorder();
   const calls = [];

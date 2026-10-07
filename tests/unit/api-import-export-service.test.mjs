@@ -9,11 +9,13 @@ import { fileURLToPath } from "node:url";
 import {
   createDirectory,
   createNoteInDirectory,
+  getNoteById,
   deleteNoteById,
   initVault,
   listNoteCatalogEntriesByType,
   listNoteRelations,
   listNotesInDirectoryScope,
+  parseMarkdownWithFrontmatter,
   readNote,
   registerMarkdownNoteInCatalog,
   writeLiteratureNoteIfAbsent,
@@ -252,11 +254,11 @@ test("createPreview only accepts obsidian and keeps records in memory", async ()
   assert.equal(preview.status, "preview");
   assert.deepEqual(preview.summary, {
     sources: 2,
-    literatureNotes: 2,
+    literatureNotes: 1,
     permanentNotes: 1,
-    warnings: 1
+    warnings: 0
   });
-  assert.deepEqual(preview.originalityGuard.flaggedPermanentIds, preview.samples.permanentNoteIds);
+  assert.deepEqual(preview.originalityGuard.flaggedPermanentIds, []);
   const record = await service.getImportRecord(preview.importRecordId);
   assert.equal(record?.state, "preview");
 });
@@ -338,13 +340,13 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
 
   const result = await service.confirmImport(
     record,
-    { confirm: true, directoryId: "dir_literature_default", overrideOriginality: true },
+    { confirm: true, directoryId: "dir_literature_default" },
     "req_confirm"
   );
   assert.equal(result.status, "completed");
   assert.deepEqual(result.result.created, {
     sources: 2,
-    literatureNotes: 2,
+    literatureNotes: 1,
     permanentNotes: 1
   });
   assert.ok(result.result.createdFiles.some((item) => item.noteType === "asset"));
@@ -354,7 +356,7 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   const permanentEntries = await listNoteCatalogEntriesByType(vaultPath, "permanent");
   assert.equal(sourceEntries.length, 2);
   assert.deepEqual([...new Set(sourceEntries.map((entry) => entry.directoryId))], ["dir_source_default"]);
-  assert.equal(literatureEntries.length, 2);
+  assert.equal(literatureEntries.length, 1);
   assert.equal(permanentEntries.length, 1);
 
   const literatureNotes = await Promise.all(literatureEntries.map((entry) => readNote(vaultPath, "literature", entry.id)));
@@ -407,7 +409,7 @@ test("confirmImport extracts permanent-note distillation fields and returns orga
   const record = await service.getImportRecord(preview.importRecordId);
   const result = await service.confirmImport(
     record,
-    { confirm: true, directoryId: "dir_original_default", overrideOriginality: true },
+    { confirm: true, directoryId: "dir_original_default" },
     "req_distillation_confirm"
   );
 
@@ -582,7 +584,7 @@ test("confirmImport honors selectedCandidateIds subset", async () => {
   assert.deepEqual(result.result.selection, {
     mode: "subset",
     candidateIds: [selectedSourceId],
-    totalCandidates: 5,
+    totalCandidates: 4,
     selectedCandidates: 1,
     counts: {
       sources: 1,
@@ -611,6 +613,10 @@ test("confirmImport blocks originality-flagged permanent notes by default and al
       'tags: ["permanent"]',
       "---",
       "",
+      "## 一句话论点",
+      "A copied claim should remain a source excerpt.",
+      "",
+      "## 原文",
       "A copied claim should remain a source excerpt."
     ].join("\n"),
     "utf8"
@@ -626,6 +632,12 @@ test("confirmImport blocks originality-flagged permanent notes by default and al
   );
   assert.equal(record?.state, "preview");
 
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true, selectedCandidateIds: preview.samples.permanentNoteIds }, "req_originality_subset"),
+    { code: "IMPORT_ORIGINALITY_BLOCKED" },
+    "Deselecting the quotation cannot erase preview evidence"
+  );
+
   const confirmed = await service.confirmImport(record, { confirm: true, overrideOriginality: true }, "req_originality_override");
   assert.equal(confirmed.status, "completed");
   assert.deepEqual(confirmed.originalityGuard.flaggedPermanentIds, preview.samples.permanentNoteIds);
@@ -634,6 +646,52 @@ test("confirmImport blocks originality-flagged permanent notes by default and al
   assert.equal(permanentEntries.length, 1);
   const permanent = await readNote(vaultPath, "permanent", permanentEntries[0].id);
   assert.match(permanent.markdown, /originality_status: blocked/);
+});
+
+test("permanent migration keeps content, aliases, relations, assets and draft eligibility without override", async t => {
+  const vaultPath = await makeTempDir("yansilu-permanent-migration-vault-");
+  const importRoot = await makeTempDir("yansilu-permanent-migration-source-");
+  t.after(() => fs.rm(vaultPath, { recursive: true, force: true }));
+  t.after(() => fs.rm(importRoot, { recursive: true, force: true }));
+  const service = createService(vaultPath);
+  const history = [{ previousThesis: "Any explanation is enough.", thesis: "An explanation should name its limits.", reason: "A counterexample revealed a missing condition.", changedAt: "2026-10-01T00:00:00Z", sourceNoteIds: [] }];
+  const files = new Map([
+    ["claim.md", `---\nnote_type: permanent\ntitle: Explain conditions\naliases: [Condition judgment]\nstatus: active\ndistillation_status: confirmed\nstarting_question: What makes an explanation useful?\nviewpoint_history: ${JSON.stringify(history.map(item => JSON.stringify(item)))}\n---\n# Explain conditions\n\n## 一句话论点\nAn explanation should name its limits.\n\n## 我的依据\n[[Evidence alias|Evidence]]\n\n![Chart](assets/chart.png)\n`],
+    ["evidence.md", "---\ntype: permanent\ntitle: Evidence\naliases: [Evidence alias]\n---\n# Evidence\n\n## 一句话论点\nCounterexamples help test the scope of a judgment.\n"]
+  ]);
+  for (const [name, body] of files) await fs.writeFile(path.join(importRoot, name), body, "utf8");
+  await fs.mkdir(path.join(importRoot, "assets"));
+  const asset = Buffer.from([0, 1, 2, 3, 255]);
+  await fs.writeFile(path.join(importRoot, "assets/chart.png"), asset);
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "migration-preview");
+  assert.deepEqual(preview.summary, { sources: 2, literatureNotes: 0, permanentNotes: 2, warnings: 0 });
+  const result = await service.confirmImport(await service.getImportRecord(preview.importRecordId), { confirm: true }, "migration-confirm");
+  assert.deepEqual(result.result.created, { sources: 2, literatureNotes: 0, permanentNotes: 2 });
+  const entries = await listNoteCatalogEntriesByType(vaultPath, "permanent");
+  const notes = await Promise.all(entries.map(entry => getNoteById(vaultPath, entry.id)));
+  const claim = notes.find(note => note.title === "Explain conditions");
+  const evidence = notes.find(note => note.title === "Evidence");
+  assert.match(claim.body, /\[\[Evidence alias\|Evidence\]\]/);
+  assert.equal((claim.body.match(/^# Explain conditions$/gm) || []).length, 1);
+  assert.equal(claim.thesis, "An explanation should name its limits.");
+  assert.equal(claim.startingQuestion, "What makes an explanation useful?");
+  assert.deepEqual(claim.viewpointHistory, history);
+  for (const note of notes) {
+    assert.equal(note.status, "draft");
+    assert.equal(note.authorship.user_confirmed, false);
+    assert.notEqual(note.distillationStatus, "confirmed");
+  }
+  const stored = await readNote(vaultPath, "permanent", claim.id);
+  assert.deepEqual(parseMarkdownWithFrontmatter(stored.markdown).frontmatter.aliases, ["Condition judgment"]);
+  const relations = await listNoteRelations(vaultPath, claim.id);
+  assert.ok(relations.outgoingLinks.some(link => link.toNoteId === evidence.id && link.rationale === "markdown_wikilink"));
+  const copiedAsset = result.result.createdFiles.find(item => item.noteType === "asset");
+  assert.deepEqual(await fs.readFile(path.join(vaultPath, copiedAsset.path)), asset);
+  const repeated = await service.createPreview("obsidian", { path: importRoot }, {}, "migration-repeat");
+  const duplicate = await service.confirmImport(await service.getImportRecord(repeated.importRecordId), { confirm: true }, "migration-repeat-confirm");
+  assert.deepEqual(duplicate.result.created, { sources: 0, literatureNotes: 0, permanentNotes: 0 });
+  for (const [name, body] of files) assert.equal(await fs.readFile(path.join(importRoot, name), "utf8"), body);
+  assert.deepEqual(await fs.readFile(path.join(importRoot, "assets/chart.png")), asset);
 });
 
 test("confirmImport cleans up already written files and marks the record failed when a downstream step throws", async () => {

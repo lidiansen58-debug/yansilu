@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { graphBuildVisualLayout } from "../../apps/web/src/graph-visual-layout.js";
+import { graphNodeRadiusByTier, graphNodeStarTier } from "../../apps/web/src/graph-visual-geometry.js";
 
 const layoutDeps = {
   graphHash(value = "") {
@@ -17,6 +18,85 @@ const layoutDeps = {
     return tier === "focus" ? 16 : tier === "major" ? 11 : tier === "isolated" ? 7 : 5;
   }
 };
+
+test("small maps give real low-degree endpoints a visible radius without enlarging dense graphs", () => {
+  const nodes = Array.from({ length: 12 }, (_, i) => ({ id: `n${i}` }));
+  const edges = [{ fromNoteId: "n0", toNoteId: "n1" }];
+  const deps = { ...layoutDeps, graphNodeRadiusByTier, graphNodeStarTier };
+  const small = graphBuildVisualLayout(nodes, edges, {}, deps);
+  assert.equal(small.smallGraph, true);
+  assert.ok(small.nodes.every(node => node.radius >= 8));
+  assert.equal(small.nodes.length, nodes.length);
+  const larger = graphBuildVisualLayout([...nodes, { id: "n12" }], edges, {}, deps);
+  assert.equal(larger.smallGraph, false);
+  assert.equal(larger.nodeMap.get("n1").radius, graphNodeRadiusByTier("dust", 1));
+  const dense = graphBuildVisualLayout(nodes, Array.from({ length: 140 }, () => edges[0]), {}, deps);
+  assert.equal(dense.smallGraph, false);
+  assert.equal(dense.nodeMap.get("n11").radius, graphNodeRadiusByTier("dust", 0));
+});
+
+function assertRealClusterPaths(layout, edges) {
+  for (const cluster of layout.clusterMeta) {
+    const members = new Set(cluster.memberIds);
+    const reached = new Set([cluster.anchorId]);
+    const queue = [cluster.anchorId];
+    for (let i = 0; i < queue.length; i += 1) {
+      for (const edge of edges) {
+        const neighbor = edge.fromNoteId === queue[i] ? edge.toNoteId :
+          edge.toNoteId === queue[i] ? edge.fromNoteId : null;
+        if (neighbor && members.has(neighbor) && !reached.has(neighbor)) {
+          reached.add(neighbor);
+          queue.push(neighbor);
+        }
+      }
+    }
+    assert.deepEqual([...reached].sort(), [...members].sort(), `Unrelated members under ${cluster.anchorId}`);
+  }
+}
+
+test("disconnected groups and zero-degree notes are not assigned to unrelated anchors", () => {
+  const nodes = "abcdefghijk".split("").map(id => ({ id, title: id }));
+  const pairs = [["a", "b"], ["a", "c"], ["a", "d"], ["b", "c"], ["b", "d"],
+    ["c", "d"], ["e", "f"], ["g", "h"], ["i", "j"]];
+  const edges = pairs.map(([fromNoteId, toNoteId]) => ({ fromNoteId, toNoteId }));
+  const layout = graphBuildVisualLayout(nodes, edges, {}, layoutDeps);
+  assertRealClusterPaths(layout, edges);
+  for (const [from, to] of [["e", "f"], ["g", "h"], ["i", "j"]]) {
+    assert.ok(layout.clusterMeta.some(cluster => cluster.memberIds.includes(from) && cluster.memberIds.includes(to)));
+  }
+  assert.equal(layout.nodeMap.get("k").clusterIndex, -1);
+  assert.ok(layout.clusterMeta.every(cluster => !cluster.memberIds.includes("k")));
+});
+
+test("body and manual relations have equal influence on cluster membership", () => {
+  const nodes = "abcdef".split("").map(id => ({ id, title: id }));
+  const edges = [["a", "b"], ["b", "c"], ["d", "e"], ["e", "f"]]
+    .map(([fromNoteId, toNoteId], i) => ({ fromNoteId, toNoteId, source: i % 2 ? "manual" : "body_wikilink" }));
+  const first = graphBuildVisualLayout(nodes, edges, {}, layoutDeps);
+  const swapped = graphBuildVisualLayout(nodes, edges.map(edge => ({ ...edge,
+    source: edge.source === "manual" ? "body_wikilink" : "manual" })), {}, layoutDeps);
+  assertRealClusterPaths(first, edges);
+  assert.deepEqual(first.clusterMeta, swapped.clusterMeta);
+  assert.deepEqual(first.nodes, swapped.nodes);
+});
+
+test("small real groups leave space between endpoint hit targets and relation midpoint", () => {
+  const layout = graphBuildVisualLayout([{ id: "a" }, { id: "b" }], [{ fromNoteId: "a", toNoteId: "b" }], {}, layoutDeps);
+  const a = layout.nodeMap.get("a"), b = layout.nodeMap.get("b");
+  assert.ok(Math.hypot(a.x - b.x, a.y - b.y) > 44);
+  assertRealClusterPaths(layout, [{ fromNoteId: "a", toNoteId: "b" }]);
+});
+
+test("more than four disconnected groups all retain their own real anchor", () => {
+  const nodes = [], edges = [];
+  for (let i = 0; i < 7; i += 1) {
+    nodes.push({ id: `a${i}` }, { id: `b${i}` });
+    edges.push({ fromNoteId: `a${i}`, toNoteId: `b${i}` });
+  }
+  const layout = graphBuildVisualLayout(nodes, edges, {}, layoutDeps);
+  assert.equal(new Set(layout.clusterMeta.map(cluster => cluster.clusterKey)).size, 7);
+  assertRealClusterPaths(layout, edges);
+});
 
 test("graph visual layout creates missing edge endpoint nodes and centers the focused note", () => {
   const layout = graphBuildVisualLayout(

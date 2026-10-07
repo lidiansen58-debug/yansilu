@@ -17,10 +17,10 @@ export function graphNodeAttentionReasons(node = {}, { selected = false, inSelec
   if (selected) reasons.push("当前选中");
   if (node.isFocused) reasons.push("当前焦点");
   if (node.isGraphIsolatedCandidate || selectedIsolated) reasons.push("待关联笔记");
-  if (inSelectedTheme) reasons.push("可写主题成员");
+  if (inSelectedTheme) reasons.push("所选笔记群成员");
   if (inSelectedBridge) reasons.push("桥接推荐两端");
   if (node.isHub && !node.isFocused) reasons.push("关系最密集");
-  if (node.isAnchor && !node.isHub) reasons.push("可写主题核心");
+  if (node.isAnchor && !node.isHub) reasons.push("笔记群中心");
   if (!node.isGraphIsolatedCandidate && Number(node.degree || 0) >= 4) reasons.push("连接较多");
   return uniqueStrings(reasons);
 }
@@ -81,6 +81,7 @@ export function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = 
   const relationGroup = graphRelationVisual(relationType).key;
   const denseMode = options.denseMode === true;
   const intercluster = options.intercluster === true;
+  if (!denseMode) return true;
   if (relationGroup === "index") return true;
   if (denseMode) {
     if (relationGroup === "bridge") return strongest >= 3;
@@ -91,11 +92,6 @@ export function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = 
       return intercluster ? strongest >= 4 && weakest >= 2 : strongest >= 4 && weakest >= 3;
     }
     return false;
-  }
-  if (strongest >= 4) return true;
-  if (relationGroup === "bridge") return strongest >= 3;
-  if (["support", "conflict", "boundary", "flow"].includes(relationGroup)) {
-    return strongest >= 3 && weakest >= 2;
   }
   return false;
 }

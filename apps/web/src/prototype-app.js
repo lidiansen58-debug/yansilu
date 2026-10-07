@@ -9,6 +9,7 @@ import { deriveLiteratureSectionLabelsFromTemplate, EditorPane, normalizeFieldTe
 import { renderImportPageMount } from "./import-page-mount.js";
 import { importConfirmButtonState, preferredImportDirectoryIdFromOptions } from "./import-toolbar-model.js";
 import { createImportToolbarActions } from "./import-toolbar-actions.js";
+import { fetchImportRecord } from "./prototype-api.js";
 import { renderImportToolbarMount } from "./import-toolbar-mount.js";
 import { createImportWorkspaceShellController } from "./import-workspace-shell.js";
 import { renderImportResultMount } from "./import-result-mount.js";
@@ -26,15 +27,12 @@ import { dismissSafeOverlaysForEscape, dismissSafeOverlaysForNavigation } from "
 import { installStartupAutoOpenEventBindings } from "./startup-auto-open-event-bindings.js";
 import { installDirtyTabsBeforeUnloadEventBindings } from "./dirty-tabs-beforeunload-event-bindings.js";
 import { installEditorShellEventBindings } from "./editor-shell-event-bindings.js";
-import { installSaveAiSuggestionRouteEventBindings } from "./save-ai-suggestion-route-events.js";
 import { editorSelectionAiActionElements } from "./app-shell-editor-elements.js";
 import { createExplorerPaneHostDeps } from "./explorer-host-deps.js";
 import { createEditorPaneHostDeps } from "./editor-host-deps.js";
-import { editorHelperNoteType, editorHelperShouldHide } from "./editor-helper-model.js";
 import { createDirectoryOptionRuntime } from "./directory-option-runtime.js";
 import { createRenderAppShellController } from "./app-shell-render-all.js";
 import { createRenderAppShellPrototypeDepsProvider } from "./app-shell-render-all-host-deps.js";
-import { buildWorkspaceStatusHintModel } from "./workspace-status-hint-model.js";
 import { syncModuleChromeClassesForRuntime } from "./app-shell-module-ui.js";
 import { createModuleWorkspaceHeaderRuntimeRoutes } from "./app-module-header-runtime-routes.js";
 import { createSidebarTitleController } from "./app-shell-sidebar-controller.js";
@@ -63,7 +61,6 @@ import { createNoteRuntimeController } from "./note-runtime-controller.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import { aiInboxFeedbackFromWorkspace, aiInboxFiltersFromWorkspace, bindAiInboxWorkspaceEvents, renderAiInboxWorkspaceView } from "./ai-inbox-workspace.js";
 import { createAiInboxWorkspaceHostDeps } from "./ai-inbox-host-deps.js";
-import { dismissSaveAiSuggestionForLater, saveAiSuggestionPrimaryRoute } from "./save-ai-suggestion-model.js";
 import { createSaveAiSuggestionWorkflowRoutes } from "./save-ai-suggestion-workflow-routes.js";
 import { aiSuggestionFiltersFromWorkspace, aiSuggestionReviewedContentFromWorkspace, bindAiSuggestionsWorkspaceEvents, normalizeVisibleSuggestionFilters, renderAiSuggestionsWorkspaceView } from "./ai-suggestions-workspace.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "./ai-suggestions-host-deps.js";
@@ -87,7 +84,6 @@ import { loadAiSuggestionDetailForRuntime, refreshAiSuggestionsForRuntime } from
 import { createAiSuggestionsActionRoutes } from "./ai-suggestions-action-routes.js";
 import { finalizeAiInboxActionRefreshForRuntime, loadAiInboxDetailForRuntime, refreshAiInboxEvaluationSummaryForRuntime, refreshAiInboxForRuntime, runAiInboxSummaryForRuntime } from "./ai-inbox-runtime-controller.js";
 import { createAiInboxActionRoutes } from "./ai-inbox-action-routes.js";
-import { renderScheduledTasksPanel } from "./scheduled-tasks-panel.js";
 import { mountSettingsAutomationWorkspace } from "./settings-automation-workspace.js";
 import { renderSettingsAutomationRunHistory } from "./settings-automation-run-history.js";
 import { readableMobileAccessError, renderMobileAccessDesktopPanel } from "./mobile-access-desktop-panel.js";
@@ -111,6 +107,7 @@ import { renderGraphIsolatedJoinNetworkFlowHtml } from "./graph-isolated-relatio
 import { renderGraphIsolatedNextStepActionsHtml } from "./graph-isolated-next-step.js";
 import { graphThemeCandidateNoteIdsForNode as computeGraphThemeCandidateNoteIdsForNode, renderGraphRelationWorkspaceForNote as renderGraphRelationWorkspaceMarkup, renderGraphThemeIndexWorkspace as renderGraphThemeIndexWorkspaceMarkup } from "./prototype-graph-workspace.js";
 import { captureGraphReadingReturnContext, restoreGraphReadingReturnContext } from "./graph-reading-return-context.js";
+import { syncDirectoryTreeNotes } from "./directory-tree-note-sync.js";
 import { createGraphThemeConfirmationDialog } from "./graph-theme-confirmation-dialog.js";
 import { renderGraphResearchNavigatorEntryView, renderGraphThinkingItemsView, renderGraphThinkingPanelContentView, renderGraphThinkingPanelView, renderGraphThinkingReviewNoteView, renderGraphWorkbenchEntryPillsView, renderGraphWorkbenchPanelView, renderGraphWorkbenchPriorityQueueView } from "./graph-workbench-panel.js";
 import { graphRelationQualityLabel, graphRelationReviewReasonLabel, renderGraphUtilityDrawerView, renderRelationReviewQueueSectionView } from "./graph-review-surface-view.js";
@@ -166,6 +163,8 @@ import { installWritingArticleOutputEvents } from "./writing-article-output.js";
 import { installWritingBookOutputEvents } from "./writing-book-output.js";
 import { exportWritingBook } from "./prototype-api.js";
 import { buildWritingOutlineOutput } from "./writing-outline-output.js";
+import { restoreDraftScaffold } from "./prototype-api.js";
+import { openWritingScaffoldVersion } from "./writing-scaffold-open-controller.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { createWritingProjectOpenController } from "./writing-project-open-controller.js";
 import { exportWritingArticle } from "./prototype-api.js";
@@ -188,10 +187,12 @@ import { createWritingProjectRuntimeController } from "./writing-project-runtime
 import { findReviewOutlineProjectWithRefresh } from "./review-checklist-outline-entry.js";
 import { createWritingEntryRuntimeHost } from "./writing-entry-runtime-host.js";
 import { createWritingThemeProjectRuntime } from "./writing-theme-project-runtime.js";
+import { captureWritingProjectCreationContext } from "./writing-project-creation-context.js";
 import { normalizeWritingProjectTitleSeed as computeNormalizeWritingProjectTitleSeed, resetWritingLocalBookIdeasState as resetWritingLocalBookIdeasForRuntime, suggestedThemeIndexTitle as computeSuggestedThemeIndexTitle, suggestedWritingProjectTitle as computeSuggestedWritingProjectTitle, syncWritingLocalBookIdeasFromProjectState as syncWritingLocalBookIdeasFromProjectForRuntime, writingSourceIndexSummary as computeWritingSourceIndexSummary, writingThemeLabels as computeWritingThemeLabels, writingThemeSummary as computeWritingThemeSummary } from "./prototype-writing-workspace.js";
 import { createWritingBookRuntime } from "./writing-book-runtime.js";
 import { createWritableThemeDiscoveryController } from "./writable-theme-discovery-controller.js";
 import { scheduledTaskFormDefaults } from "./scheduled-tasks-model.js";
+import { mountScheduledTasksPanel } from "./scheduled-tasks-workspace-view.js";
 import { createScheduledTasksRuntimeController } from "./scheduled-tasks-runtime-controller.js";
 import { aiSettingsSelectionFromPreferences, canonicalizeAiSettingsSelection, isAiLocalFlowActive, isLocalModelPack, isLocalProviderId, localProviderPresetForModelPack, normalizeAiRuntimeMode, providerPresetForModelPack, shouldUseOllamaLocalRuntimeForSelection, supportedAiSettingsModelPack } from "./ai-settings-state.js";
 import { renderAiLocalModelControlsForRuntime, renderAiLocalModelRecommendationsForRuntime, renderAiProviderConfigControlsForRuntime } from "./settings-ai-controls-view.js";
@@ -383,7 +384,7 @@ const aiInboxState = {
 };
 const settingsState = {
   activeSection: "workspace",
-  activeItem: "mobile-access",
+  activeItem: "current-vault",
   vault: null,
   noteTemplates: {
     permanent: {
@@ -647,9 +648,6 @@ const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switc
 let statusRevision = 0;
 let statusHoldUntil = 0;
 let statusHoldPriority = 0;
-let editorHelperDismissed = false;
-const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
-let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
 let saveAiSuggestion = null;
 const dismissedSaveAiSuggestionKeys = new Set();
 const SYSTEM_MESSAGES_KEY = "yansilu:system-messages:v1";
@@ -1023,7 +1021,6 @@ const systemMessagesShellController = createSystemMessagesShellController({
     },
     notes: state.notes,
     escapeHtml,
-    hideEditorHelper,
     renderSystemMessages
   }))
 });
@@ -1169,8 +1166,7 @@ const settingsNoteTemplateRuntime = createSettingsNoteTemplateRuntime({
   renderTemplateMarkdownPreviewHtml,
   settingsState,
   setStatus,
-  validateLiteratureTemplateSource,
-  writeStoredText
+  validateLiteratureTemplateSource
 });
 
 function loadNoteTemplateSettingsFromStorage() { return noteRuntimeController.loadNoteTemplateSettingsFromStorage(); }
@@ -1773,23 +1769,6 @@ function ollamaRuntimeStateLabel() {
   return "等待检测本地 AI";
 }
 
-function hideEditorHelper() {
-  const helper = $("editorHelper");
-  if (!helper) return;
-  helper.classList.add("hidden");
-  helper.hidden = true;
-  helper.setAttribute("aria-hidden", "true");
-  helper.style.pointerEvents = "none";
-  const action = $("btnEditorHelperAction");
-  if (action) {
-    action.dataset.helperAction = "noop";
-    action.dataset.targetNoteId = "";
-  }
-  if (typeof document !== "undefined" && helper.contains(document.activeElement)) {
-    document.activeElement?.blur?.();
-  }
-}
-
 function setImportRecordId(value) {
   importState.importRecordId = String(value || "").trim();
   const input = $("importRecordId");
@@ -1892,7 +1871,11 @@ const importWorkspaceShellController = createImportWorkspaceShellController({
   importConfirmButtonState,
   importTargetDirectories: (...args) => importTargetDirectories(...args),
   directoryPathLabel,
-  mountExportCardIntoImportShell
+  mountExportCardIntoImportShell,
+  syncDirectoryOptions: ({ exportDirectoryId = "" } = {}) => {
+    directoryOptionRuntime.syncImportDirectoryOptions();
+    directoryOptionRuntime.syncExportDirectoryOptions(exportDirectoryId);
+  }
 });
 
 function currentImportToolbarValues() { return importWorkspaceShellController.currentToolbarValues(); }
@@ -1901,8 +1884,8 @@ function renderImportToolbar() {
   importWorkspaceShellController.renderToolbar();
 }
 
-function renderImportPageShell() {
-  importWorkspaceShellController.renderPage();
+function renderImportPageShell(options = {}) {
+  if (importWorkspaceShellController.renderPage(options)) rerenderImportResult();
 }
 
 function mountExportCardIntoImportShell() {
@@ -2045,20 +2028,23 @@ async function runAiInboxSummary(artifactId) {
   }, artifactId);
 }
 
-function renderScheduledTasksWorkspace() {
+function renderScheduledTasksWorkspace(options = {}) {
   const el = $("settingsScheduledTasksPanel");
   if (!el) return;
   const currentNoteId = state.selectedFileId || state.activeTabId || "";
   const currentDirectoryId = state.selectedFolderId || "";
   const currentNote = (Array.isArray(state.notes) ? state.notes : []).find((note) => note?.id === currentNoteId) || null;
   const currentDirectory = (Array.isArray(state.folders) ? state.folders : []).find((folder) => folder?.id === currentDirectoryId) || null;
-  el.innerHTML = renderScheduledTasksPanel({
+  mountScheduledTasksPanel(el, {
+    vaultScope: currentVaultPath(),
     items: settingsState.ai.scheduledTasks,
     total: settingsState.ai.scheduledTasksTotal,
     templates: settingsState.ai.scheduledTaskTemplates,
     templatesLoading: settingsState.ai.scheduledTaskTemplatesLoading,
     templatesError: settingsState.ai.scheduledTaskTemplatesError,
     form: settingsState.ai.scheduledTaskForm,
+    formError: settingsState.ai.scheduledTaskFormError,
+    actionError: settingsState.ai.scheduledTaskActionError,
     currentNoteId,
     currentNoteLabel: currentNote?.title || currentNote?.name || "",
     currentDirectoryId,
@@ -2070,7 +2056,7 @@ function renderScheduledTasksWorkspace() {
     runSummary: settingsState.ai.scheduledTaskRunSummary,
     compact: true,
     formOpen: settingsState.ai.scheduledTaskFormOpen
-  });
+  }, options);
 }
 
 function renderAiSuggestionsWorkspace() {
@@ -2637,6 +2623,8 @@ function continueWritingEntry(noteIds = [], options = {}) { return writingEntryR
 
 const writingProjectRuntimeController = createWritingProjectRuntimeController(() => ({
   $,
+  state,
+  getVaultPath: currentVaultPath,
   activateModule,
   aiFeatureRequestOptions: featureAiRequestOptions,
   aiAvailable: settingsState.ai.routePreview?.access?.ready === true,
@@ -2661,6 +2649,7 @@ const writingProjectRuntimeController = createWritingProjectRuntimeController(()
   setStatus,
   showWritingResult,
   suggestedWritingProjectTitle,
+  syncWritingProject,
   syncWritingLocalBookIdeasFromProject,
   window,
   writingKnownNoteById,
@@ -2762,7 +2751,8 @@ async function createReviewOutlineFromTodayChecklist({ themeId = "", noteIds = [
   });
 }
 
-async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index", assertCurrent = () => {} } = {}) {
+async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index", assertCurrent = () => {}, onEntryApplied = () => {} } = {}) {
+  const entryContext = captureWritingProjectCreationContext({ state, writingState, getVaultPath: currentVaultPath, parseWritingBasketIds });
   if (replaceBasket || resetContext) assertWritingDraftCanLeave(writingState);
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
@@ -2771,6 +2761,7 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
+  entryContext.assertCurrent();
   assertCurrent();
   if (replaceBasket || resetContext) assertWritingDraftCanLeave(writingState);
   const entryPlan = planWritingThemeIndexEntry({
@@ -2825,6 +2816,7 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
     normalizeWritingProjectTitleSeed,
     suggestedWritingProjectTitle
   });
+  onEntryApplied();
   renderWritingPanel();
   return {
     indexCard,
@@ -2868,6 +2860,9 @@ async function saveWritableThemeDiscoverySuggestion(suggestionId = "", draft = {
 
 const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   $,
+  state,
+  getVaultPath: currentVaultPath,
+  parseWritingBasketIds,
   createWritingProject,
   currentWritingBookStructure: (...args) => currentWritingBookStructure(...args),
   deriveBasketWritingReadiness,
@@ -2886,6 +2881,7 @@ const writingThemeProjectRuntime = createWritingThemeProjectRuntime({
   renderWritingPanel: (...args) => renderWritingPanel(...args),
   sameUniqueStringSet,
   showWritingResult,
+  syncWritingProject,
   syncWritingLocalBookIdeasFromProject,
   useThemeIndexAsWritingEntry,
   writingKnownNoteById,
@@ -3047,12 +3043,9 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
 }
 
 async function syncNotesForDirectoryTree(rootDirectoryId) {
-  const rootId = String(rootDirectoryId || "").trim();
-  if (!rootId) return;
-  const directoryIds = descendantDirectoryIds(rootId).filter((id) => folderById(state, id));
-  for (const directoryId of directoryIds) {
-    await syncNotesForDirectory(directoryId);
-  }
+  return syncDirectoryTreeNotes(rootDirectoryId, {
+    state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory
+  });
 }
 
 function descendantDirectoryIds(directoryId) {
@@ -3180,7 +3173,6 @@ const saveAiSuggestionWorkflowRoutes = createSaveAiSuggestionWorkflowRoutes(() =
 const {
   clearSaveAiSuggestion,
   relationNetworkWorkflowMessageForNote,
-  renderSaveAiSuggestion,
   saveAiSuggestionForNote,
   showSaveAiSuggestionForNote,
   sourcePromotionWorkflowMessageForNote,
@@ -3297,67 +3289,8 @@ function syncExplorerContextToActiveTab() {
     : applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
 }
 
-function noteGrowthStage(note, body = "") {
-  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").toLowerCase();
-  const text = String(body || note?.body || "");
-  const tagCount = parseTags(text).length;
-  const linkCount = parseLinks(text).length;
-  const bodyLength = text.replace(/\s+/g, "").length;
-
-  if (noteType === "fleeting") return "捕捉中";
-  if (noteType === "literature") return "转述中";
-  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已有关系";
-  if (bodyLength >= 140 || tagCount >= 2) return "正在成形";
-  return "提炼中";
-}
-
 function renderStatusMeta() {
   return;
-}
-
-function renderWorkspaceStatusHint() {
-  const helper = $("editorHelper");
-  if (!helper) return;
-  const kicker = $("editorHelperKicker");
-  const title = $("editorHelperTitle");
-  const body = $("editorHelperBody");
-  const action = $("btnEditorHelperAction");
-  const visibility = editorHelperShouldHide({
-    elementsReady: Boolean(kicker && title && body && action),
-    dismissed: editorHelperDismissed,
-    muted: editorHelperMuted,
-    module: state.module
-  });
-  if (visibility.hide) {
-    hideEditorHelper();
-    return;
-  }
-  const activeNote = activeEditorNote();
-  const activeBody = activeEditorBody();
-  const model = buildWorkspaceStatusHintModel({
-    activeNote,
-    activeBody,
-    noteType: editorHelperNoteType(activeNote, { typeFromFolder: (folderId) => typeFromFolder(state, folderId) }),
-    focusMode: state.focusMode,
-    growthStage: activeNote ? noteGrowthStage(activeNote, activeBody) : "",
-    hasGeneratedOriginal: activeNote ? noteHasGeneratedOriginal(activeNote) : false,
-    generatedOriginalNoteId: activeNote ? noteGeneratedOriginalNoteId(activeNote) : "",
-    isPermanentLike: activeNote ? isPermanentLikeNote(activeNote) : false
-  });
-  if (!model.visible) {
-    hideEditorHelper();
-    return;
-  }
-  action.dataset.helperAction = model.helperAction || "noop";
-  action.dataset.targetNoteId = model.targetNoteId || "";
-  helper.hidden = false;
-  helper.setAttribute("aria-hidden", "false");
-  helper.style.pointerEvents = "";
-  helper.classList.remove("hidden");
-  kicker.textContent = model.kicker || "";
-  title.textContent = model.title || "";
-  body.textContent = model.body || "";
-  action.textContent = model.actionText || "";
 }
 
 function applyFocusModeChrome() {
@@ -3445,8 +3378,6 @@ const renderAppShellController = createRenderAppShellController({
     renderWritingPanel,
     applyFocusModeChrome,
     renderStatusMeta,
-    renderWorkspaceStatusHint,
-    renderSaveAiSuggestion,
     renderSystemMessages
   }))
 });
@@ -3856,6 +3787,7 @@ async function autoPrepareLocalAiOnStartup() {
 
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
+  let returningFromReading = false;
   if (state.module === "today" && normalizedModule !== "today") {
     state.todayNoticeMessage = "";
   }
@@ -3870,7 +3802,7 @@ function activateModule(moduleName) {
     return;
   }
   if (normalizedModule === "graph") {
-    const returningFromReading = restoreGraphReadingReturnContext(graphState, state, currentVaultPath());
+    returningFromReading = restoreGraphReadingReturnContext(graphState, state, currentVaultPath());
     state.browserRootId = "dir_original_default";
     if (!isDirectoryUnderOriginalRoot(state.selectedFolderId)) {
       state.selectedFolderId = "dir_original_default";
@@ -3884,7 +3816,7 @@ function activateModule(moduleName) {
   if (normalizedModule === "graph") expandGraphBrowserTree();
   syncRailSelectionState();
   renderAll();
-  if (normalizedModule === "graph") {
+  if (normalizedModule === "graph" && !returningFromReading) {
     window.requestAnimationFrame(() => {
       centerGraphViewportIfZoomed();
       window.setTimeout(() => centerGraphViewportIfZoomed(), 0);
@@ -4720,13 +4652,8 @@ async function scaffoldBundleForProject(projectLike = null) {
 }
 
 async function openScaffoldVersion(scaffoldId) {
-  const id = String(scaffoldId || "").trim();
-  if (!id) throw new Error("draftScaffoldId is required");
-  const scaffold = await fetchDraftScaffold(id);
-  writingState.scaffold = scaffold.item || null;
-  writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
-  renderWritingPanel();
-  return scaffold;
+  return openWritingScaffoldVersion({ $, state, writingState, getVaultPath: currentVaultPath,
+    fetchDraftScaffold, confirm: window.confirm.bind(window), renderWritingPanel, setStatus }, scaffoldId);
 }
 
 async function copyWritingScaffold(projectLike = null) {
@@ -5331,8 +5258,8 @@ async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelat
   });
   if (refreshed && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
     revealSavedGraphRelation(graphState, savedRelation, { setRelationTypeFilter: setGraphRelationTypeFilter, renderGraphPanel });
+    window.requestAnimationFrame(() => centerGraphViewportIfZoomed());
   }
-  window.requestAnimationFrame(() => centerGraphViewportIfZoomed());
   return refreshed;
 }
 
@@ -5736,7 +5663,7 @@ const permanentNoteDialog = new PermanentNoteDialog({
 const requestTextInput = createTextInputDialog({ documentRef: document });
 const writingManualThemeController = createWritingManualThemeController({
   state, writingState, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
-  writingNoteById, isWritingEligibleNote, requestTextInput, createIndexCard,
+  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard,
   upsertWritingThemeIndex, useThemeIndexAsWritingEntry,
   openTheme: () => {
     const root = $("writingPanel")?.querySelector?.(".writing-shell");
@@ -5837,7 +5764,6 @@ const editor = new EditorPane(createEditorPaneHostDeps({
   literatureTemplateSectionLabelCandidates,
   currentVaultPath,
   renderStatusMeta,
-  renderWorkspaceStatusHint,
   refreshDirectoryGraph,
   renderAll
 }));
@@ -5859,36 +5785,7 @@ installEditorShellEventBindings({
   $,
   state,
   editor,
-  getSaveAiSuggestion: () => saveAiSuggestion,
-  setEditorHelperDismissed: (value) => {
-    editorHelperDismissed = value;
-  },
-  setEditorHelperMuted: (value) => {
-    editorHelperMuted = value;
-  },
-  writeStoredBoolean,
-  editorHelperMuteKey: EDITOR_HELPER_MUTE_KEY,
-  hideEditorHelper,
-  openNoteById,
-  dismissSaveAiSuggestionForLater,
-  dismissedSaveAiSuggestionKeys,
-  clearSaveAiSuggestion,
-  renderWorkspaceStatusHint,
   applyFocusModeChrome,
-  setStatus
-});
-
-installSaveAiSuggestionRouteEventBindings({
-  $,
-  windowRef: window,
-  state,
-  editor,
-  getSaveAiSuggestion: () => saveAiSuggestion,
-  clearSaveAiSuggestion,
-  saveAiSuggestionPrimaryRoute,
-  activateModule,
-  openNoteById,
-  handleStateChange,
   setStatus
 });
 
@@ -6164,6 +6061,8 @@ installWritingDraftActionEventHandlers({
   depsProvider: () => ({
     $,
     state,
+    openScaffoldVersion,
+    listProjectScaffolds, fetchDraftScaffold, restoreDraftScaffold, downloadTextFile, writingScaffoldFileName,
     writingState,
     createWritingProjectFromCurrentBasket,
     createWritingProjectFromThemeIndex,
@@ -6202,6 +6101,8 @@ installWritingDraftActionEventHandlers({
     checkNoteSave,
     mapNoteItem,
     openWritingDraftNoteById,
+    openWritingSourceNote: createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNoteById, activateModule,
+      unavailableMessage: "来源笔记已不可用，请重新载入提纲后核对。" }),
     renderAll,
     setStatus
   })
@@ -6352,6 +6253,7 @@ bindGraphCanvasEvents($("graphPanel"), {
 installAppRailEventBindings({
   documentRef: document,
   state,
+  getStatusRevision: () => statusRevision,
   getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
   setGraphModuleActivationGuardUntil: (value) => {
     graphModuleActivationGuardUntil = value;
@@ -6466,6 +6368,9 @@ function appStartupDeps() {
     selectionSummary,
     rootBoxIdFromFolder,
     previewImport,
+    fetchImportRecord, getVaultPath: currentVaultPath,
+    checkpointImportWorkspace: () => importWorkspaceShellController.checkpoint(),
+    clearImportWorkspaceCache: () => importWorkspaceShellController.clearCache(),
     confirmImport,
     defaultSelectedCandidateIds,
     setImportRecordId,

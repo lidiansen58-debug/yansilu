@@ -34,7 +34,7 @@ export function sourceNotePromotionState({
   const guidance = hasGenerated
     ? "后续的关联、观点提纯和写作准备，都在生成出的永久笔记里继续。"
     : isLiterature
-      ? (literatureCompletion?.hint || "把文献中的出处、转述和判断种子补清楚，再沉淀成永久笔记。")
+      ? (literatureCompletion?.hint || "保留出处和原文，用自己的话说明意思，再创建永久笔记写出判断。")
       : "随笔只负责抓住还不稳定的想法；值得长期保留时，把它写成一条可以被关联的永久判断。";
 
   const primaryActionLabel = hasGenerated ? "打开永久笔记" : "生成永久笔记";

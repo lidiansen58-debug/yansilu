@@ -15,6 +15,21 @@ function targetFor(selector, attrs = {}) {
   };
 }
 
+test("pagination buttons and native page selector preserve the shared selection", () => {
+  const handlers = new Map();
+  const importState = { candidatePage: 1, selectedCandidateIds: new Set(["pn_25"]) };
+  let renders = 0;
+  bindImportWorkspaceEventsForRuntime({ $: id => id === "importPageMount" ? {
+    addEventListener: (name, handler) => handlers.set(name, handler)
+  } : null, importState, rerenderImportResult: () => renders++ });
+  handlers.get("click")({ target: targetFor("[data-candidate-page]", { "data-candidate-page": "next" }) });
+  assert.equal(importState.candidatePage, 2);
+  handlers.get("change")({ target: { closest: selector => selector === "[data-candidate-page-select]" ? { value: "5" } : null } });
+  assert.equal(importState.candidatePage, 5);
+  assert.equal(renders, 2);
+  assert.deepEqual([...importState.selectedCandidateIds], ["pn_25"]);
+});
+
 test("import actions survive settings replacing the mount and ignore outside clicks", () => {
   const handlers = new Map();
   const document = { addEventListener: (name, handler) => handlers.set(name, handler) };
@@ -54,7 +69,7 @@ test("import event bindings route tabs preview and writing actions", async () =>
     setStatus: (message, tone) => calls.push(["status", tone, message])
   });
 
-  assert.deepEqual(registrations.map((item) => item.eventName), ["click", "change"]);
+  assert.deepEqual(registrations.map((item) => item.eventName), ["click", "change", "input", "keydown"]);
 
   handlers.get("click")({
     target: targetFor(".import-workspace-tab[data-import-workspace-tab]", { "data-import-workspace-tab": "export" })
@@ -72,6 +87,7 @@ test("import event bindings route tabs preview and writing actions", async () =>
   handlers.get("click")({
     target: targetFor("[data-import-writing-action]", { "data-import-writing-action": "open-today" })
   });
+  handlers.get("click")({ target: targetFor("[data-import-dismiss]") });
   await Promise.resolve();
 
   assert.deepEqual(calls[0], ["tab", "export"]);
@@ -79,6 +95,7 @@ test("import event bindings route tabs preview and writing actions", async () =>
   assert.ok(calls.some((call) => call[0] === "createProject"));
   assert.ok(calls.some((call) => call[0] === "openFirst" && call[1] === "pn_1"));
   assert.ok(calls.some((call) => call[0] === "hideModal"));
+  assert.equal(calls.filter(call => call[0] === "hideModal").length, 2);
   assert.ok(calls.some((call) => call[0] === "module" && call[1] === "today"));
 });
 
@@ -122,9 +139,11 @@ test("import event bindings update candidate selection and export directory hint
   handlers.get("change")({
     target: targetFor("#exportTargetPath")
   });
+  handlers.get("input")({ target: { id: "exportTargetPath" } });
 
   assert.equal(selectedCandidateIds.has("c1"), true);
   assert.equal(importState.directoryId, "preferred:dir1");
   assert.ok(calls.some((call) => call[0] === "rerender"));
   assert.ok(calls.some((call) => call[0] === "hint"));
+  assert.equal(calls.filter(call => call[0] === "hint").length, 2);
 });

@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createPrototypeUpdateController, renderUpdateSettingsCard } from "../../apps/web/src/prototype-update-controller.js";
-import { createUpdateState } from "../../apps/web/src/update-state.js";
+import { createUpdateState, updateStateDownloaded } from "../../apps/web/src/update-state.js";
 import { LOCAL_RELEASE_NOTES } from "../../apps/web/src/local-release-notes.js";
 import { escapeHtml } from "../../apps/web/src/editor-render-utils.js";
 
 for (const status of ["idle", "up-to-date", "update-available", "failed"]) {
-  test(`local release notes remain visible with ${status} remote update state`, () => {
+  test(`local release notes remain available but collapsed with ${status} remote update state`, () => {
     const element = { innerHTML: "" };
     renderUpdateSettingsCard({
       $: id => id === "settingsUpdateChangelog" ? element : null,
@@ -15,6 +15,7 @@ for (const status of ["idle", "up-to-date", "update-available", "failed"]) {
       settingsState: { update: createUpdateState({ status, latestVersion: "0.2.0", changelog: status === "idle" ? [] : ["Remote <notes>"] }) }
     });
     assert.match(element.innerHTML, /本机版本说明/);
+    assert.match(element.innerHTML, /<details[^>]+id="settingsUpdateLocalNotes">/);
     for (const line of LOCAL_RELEASE_NOTES) assert.ok(element.innerHTML.includes(escapeHtml(line)));
     if (status !== "idle") {
       assert.match(element.innerHTML, /Remote &lt;notes&gt;/);
@@ -25,14 +26,67 @@ for (const status of ["idle", "up-to-date", "update-available", "failed"]) {
 }
 
 function createElement() {
+  const classes = new Set();
   return {
     disabled: false,
     textContent: "",
     innerHTML: "",
     checked: false,
-    classList: { toggle() {} }
+    hidden: false,
+    classes,
+    classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); } }
   };
 }
+
+for (const [label, desktop, update, expected] of [
+  ["browser idle", false, { status: "idle" }, { check: true, install: false, restart: false, download: false, primary: "settingsCheckUpdate" }],
+  ["browser available", false, { status: "update-available", downloadUrl: "https://example.test/download" }, { check: true, install: false, restart: false, download: true, primary: "settingsOpenUpdateDownload" }],
+  ["browser failed", false, { status: "failed", error: "network" }, { check: true, install: false, restart: false, download: false, primary: "settingsCheckUpdate" }],
+  ["desktop fallback", true, { status: "update-available", downloadUrl: "https://example.test/download" }, { check: true, install: false, restart: false, download: true, primary: "settingsOpenUpdateDownload" }],
+  ["desktop available", true, { status: "update-available", installable: true }, { check: true, install: true, restart: false, download: false, primary: "settingsInstallUpdate" }],
+  ["desktop retry", true, { status: "failed", installable: true, downloadUrl: "https://example.test/download", error: "download failed" }, { check: true, install: true, restart: false, download: true, primary: "settingsInstallUpdate" }],
+  ["desktop downloading", true, { status: "downloading", installable: true, installProgress: { percent: 42 } }, { check: false, install: true, restart: false, download: false, primary: "settingsInstallUpdate" }],
+  ["desktop downloaded", true, updateStateDownloaded({ installable: true }, { message: "更新已下载，重启后更新。" }), { check: false, install: false, restart: true, download: false, primary: "settingsRelaunchUpdate" }]
+]) {
+  test(`update actions focus the next available task: ${label}`, async () => {
+    await withWindow(desktop ? { __TAURI__: { updater: { async check() {} }, process: { async relaunch() {} } } } : {}, async () => {
+      const elements = new Map();
+      const $ = id => {
+        if (!elements.has(id)) {
+          const element = createElement();
+          if (["settingsCheckUpdate", "settingsInstallUpdate", "settingsRelaunchUpdate"].includes(id)) element.classes.add("primary");
+          elements.set(id, element);
+        }
+        return elements.get(id);
+      };
+      renderUpdateSettingsCard({ $, escapeHtml, settingsState: { update: createUpdateState(update) } });
+      const controls = { check: "settingsCheckUpdate", install: "settingsInstallUpdate", restart: "settingsRelaunchUpdate", download: "settingsOpenUpdateDownload" };
+      for (const [name, id] of Object.entries(controls)) assert.equal(!$(id).hidden, expected[name], id);
+      assert.deepEqual(Object.values(controls).filter(id => !$(id).hidden && $(id).classes.has("primary")), [expected.primary]);
+      if (update.status === "downloaded") {
+        assert.equal($("settingsUpdateError").textContent, "");
+        assert.ok($("settingsUpdateError").classes.has("hidden"));
+        assert.match($("settingsUpdateDownloadHint").textContent, /更新已下载/);
+      }
+      if (update.status === "downloading") {
+        assert.equal($("settingsInstallUpdate").disabled, true);
+        assert.match($("settingsUpdateInstallProgress").textContent, /42%/);
+      }
+      if (update.error && update.status === "failed") assert.match($("settingsUpdateError").textContent, /更新失败/);
+    });
+  });
+}
+
+test("update rerenders preserve expanded local and remote release notes", () => {
+  const element = { innerHTML: "", querySelector: () => ({ open: true }) };
+  renderUpdateSettingsCard({
+    $: id => id === "settingsUpdateChangelog" ? element : null,
+    escapeHtml,
+    settingsState: { update: createUpdateState({ changelog: ["Change"], latestVersion: "0.2.0" }) }
+  });
+  assert.match(element.innerHTML, /id="settingsUpdateLocalNotes" open/);
+  assert.match(element.innerHTML, /id="settingsUpdateRemoteNotes" open/);
+});
 
 function withWindow(windowValue, run) {
   const previousWindow = globalThis.window;
@@ -92,6 +146,16 @@ test("prototype update controller loads settings and persists manual update chec
   assert.equal(statuses[0].tone, "warn");
   assert.ok(rendered.includes("settings"));
   assert.ok(rendered.includes("messages"));
+});
+
+test("delayed automatic check does not erase a manual failure when automatic checks are disabled", async () => {
+  const settingsState = { update: createUpdateState({ status: "failed", autoCheckEnabled: false, error: "network", checkedAt: "2026-10-06T00:00:00Z" }) };
+  let checks = 0;
+  const controller = createPrototypeUpdateController({ settingsState, checkAppUpdate: async () => { checks += 1; } });
+  await controller.runAppUpdateCheck({ manual: false });
+  assert.equal(checks, 0);
+  assert.equal(settingsState.update.status, "failed");
+  assert.equal(settingsState.update.error, "network");
 });
 
 test("prototype update card disables in-app install when desktop check is not installable", async () => {

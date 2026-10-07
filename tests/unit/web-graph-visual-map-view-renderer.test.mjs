@@ -64,6 +64,12 @@ test("graph visual map view renderer builds node and edge contexts from runtime 
   assert.equal(edgeContext.layoutNodeMap.get("n2").clusterIndex, 1);
 });
 
+test("small graph visibility is supplied by the actual layout and never applied to dense galaxies", () => {
+  assert.equal(buildGraphVisualNodeViewContext({ layout: { smallGraph: true }, denseGalaxyMode: false }).smallGraph, true);
+  assert.equal(buildGraphVisualNodeViewContext({ layout: { smallGraph: true }, denseGalaxyMode: true }).smallGraph, false);
+  assert.equal(buildGraphVisualNodeViewContext({ layout: {} }).smallGraph, false);
+});
+
 test("graph visual map view renderer supplies graph-specific Chinese node and edge labels without a legend", () => {
   const deps = {
     graphNodeClass: () => "is-permanent",

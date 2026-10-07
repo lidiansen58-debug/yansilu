@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { distillationPanelHasFocus, syncDistillationEditorResult } from "./distillation-editor-result.js";
 import { PermanentNoteAssociationFollowup, renderPermanentNoteAssociationFollowup } from "./permanent-note-association-followup.js";
 import {
   applyPermanentNoteDistillationToNote,
@@ -187,6 +188,22 @@ export class PermanentNoteDistillationController {
     return changed;
   }
 
+  retainNewerDraft(note, previousDraft, message) {
+    const prefill = this.currentPrefill(note.id);
+    if (JSON.stringify(prefill.viewpointDraft) === previousDraft) return false;
+    if (prefill.viewpointDraft) {
+      const draft = { ...prefill.viewpointDraft, originalThesis: permanentNoteViewpointBaseline(note) };
+      this.viewpointDraftByNoteId.set(note.id, draft);
+      this.prefillState = { ...prefill, viewpointDraft: draft };
+      const form = this.host.els?.result?.querySelector?.("[data-note-distillation-form]");
+      const baseline = form?.querySelector?.('[name="originalThesis"]');
+      if (baseline) baseline.value = draft.originalThesis;
+      if (form) this.syncChangeReasonVisibility(form, draft);
+    }
+    this.host.onStatus(message, "warn");
+    return true;
+  }
+
   refreshQuality(form) {
     const values = permanentNoteDistillationFormValues(form);
     this.syncChangeReasonVisibility(form, values);
@@ -291,6 +308,11 @@ export class PermanentNoteDistillationController {
       return;
     }
     const values = permanentNoteDistillationFormValues(form);
+    if (values.title === "") {
+      host.onStatus("请填写笔记标题", "warn");
+      form.querySelector?.('[name="title"]')?.focus?.();
+      return;
+    }
     if (!values.thesis) {
       host.onStatus("先用一句自己的话写下当前观点", "warn");
       form.querySelector?.('[name="thesis"]')?.focus?.();
@@ -301,11 +323,16 @@ export class PermanentNoteDistillationController {
       form.querySelector?.('[name="thesisChangeReason"]')?.focus?.();
       return;
     }
+    const panelFocused = distillationPanelHasFocus(host);
+    const draftBeforeSave = JSON.stringify(this.currentPrefill(noteId).viewpointDraft);
     const savedEditor = await host.autoSaveActiveNote("distillation");
     if (savedEditor === false) return;
     if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
+    const editorBodyBeforeSave = host.getEditorValue?.();
     const saved = await host.onStateChange("save-note-distillation", {
       noteId,
+      ...(values.title !== undefined ? { title: values.title } : {}),
+      expectedRevision: host.activeTab?.()?.savedFileRevision,
       thesis: values.thesis,
       threeLineSummary: values.threeLineSummary,
       startingQuestion: values.startingQuestion,
@@ -314,10 +341,13 @@ export class PermanentNoteDistillationController {
       commitViewpointChange: true,
       boundaryOrCounterpoint: values.boundaryOrCounterpoint,
       distillationStatus: "confirmed",
-      authorship: values.distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: false } : undefined
+      authorship: values.distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: Boolean(note.authorship?.ai_assisted) } : undefined
     });
     if (!saved) return;
     if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
+    syncDistillationEditorResult(host, saved, editorBodyBeforeSave, { panelFocused });
+    if (saved.distillationSaveIncomplete) return;
+    if (this.retainNewerDraft(note, draftBeforeSave, "观点已保存；新输入的修改尚未保存。")) return;
     applyPermanentNoteDistillationToNote(note, values, {
       confirmAuthorship: values.distillationStatus === "confirmed"
     });
@@ -330,6 +360,7 @@ export class PermanentNoteDistillationController {
 
   async confirm() {
     const host = this.host;
+    const panelFocused = distillationPanelHasFocus(host);
     const note = host.activeNote();
     const noteId = String(note?.id || "").trim();
     const scope = this.draftScope();
@@ -342,6 +373,11 @@ export class PermanentNoteDistillationController {
     const form = host.els.result?.querySelector?.("[data-note-distillation-form]");
     if (form) {
       const values = permanentNoteDistillationFormValues(form);
+      if (values.title === "") {
+        host.onStatus("请填写笔记标题", "warn");
+        form.querySelector?.('[name="title"]')?.focus?.();
+        return;
+      }
       if (!values.thesis) {
         host.onStatus("先用一句自己的话写下当前观点", "warn");
         return;
@@ -351,11 +387,15 @@ export class PermanentNoteDistillationController {
         form.querySelector?.('[name="thesisChangeReason"]')?.focus?.();
         return;
       }
+      const draftBeforeSave = JSON.stringify(this.currentPrefill(noteId).viewpointDraft);
       const savedEditor = await host.autoSaveActiveNote("distillation-confirm");
       if (savedEditor === false) return;
       if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
+      const editorBodyBeforeSave = host.getEditorValue?.();
       const saved = await host.onStateChange("save-note-distillation", {
         noteId,
+        ...(values.title !== undefined ? { title: values.title } : {}),
+        expectedRevision: host.activeTab?.()?.savedFileRevision,
         thesis: values.thesis,
         threeLineSummary: values.threeLineSummary,
         startingQuestion: values.startingQuestion,
@@ -367,18 +407,22 @@ export class PermanentNoteDistillationController {
       });
       if (!saved) return;
       if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
+      syncDistillationEditorResult(host, saved, editorBodyBeforeSave, { panelFocused });
+      if (saved.distillationSaveIncomplete) return;
+      if (this.retainNewerDraft(note, draftBeforeSave, "观点草稿已保存；新输入的修改尚未保存。")) return;
       applyPermanentNoteDistillationToNote(note, {
         ...values,
         distillationStatus: ""
       });
       this.setPrefill(noteId, { boundaryDraft: "", viewpointDraft: null });
     }
+    const editorBodyBeforeConfirm = host.getEditorValue?.();
+    const draftBeforeConfirm = JSON.stringify(this.currentPrefill(noteId).viewpointDraft);
     const confirmed = await host.onStateChange("confirm-note-distillation", { noteId });
     if (!confirmed) return;
     if (!host.isActiveNoteId(noteId) || this.draftScope() !== scope) return;
-    if (confirmed && typeof confirmed === "object" && typeof confirmed.body === "string") {
-      host.fillEditorFromTab?.();
-    }
+    syncDistillationEditorResult(host, confirmed, editorBodyBeforeConfirm, { panelFocused });
+    if (this.retainNewerDraft(note, draftBeforeConfirm, "观点已保存；新输入的修改尚未保存。")) return;
     note.distillationStatus = "confirmed";
     note.authorship = { ...(note.authorship || {}), user_confirmed: true };
     host.renderThinkingStatus();

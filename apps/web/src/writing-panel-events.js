@@ -1,9 +1,18 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { syncWritingProjectForm } from "./writing-project-form-sync.js";
 import { recordWritableThemeDiscoveryInput } from "./writable-theme-discovery-draft.js";
 import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { selectWritingDraftTarget, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
 import { changeWritingBookDirectory } from "./writing-book-directory-controller.js";
+import { resizeWritingOutlineHeading } from "./writing-scaffold-preview-panel.js";
+import { handleWritingOutlineSourceClick } from "./writing-outline-source-notices.js";
+import { persistWritingOutline } from "./writing-outline-save.js";
+import { handleWritingReloadScaffoldClick } from "./writing-scaffold-open-controller.js";
+import { openWritingHistory } from "./writing-history-controller.js";
+import { runWritingScaffoldGeneration, captureWritingScaffoldContext } from "./writing-scaffold-generation.js";
+import { beginWritingOutlineEdit, checkpointWritingOutline } from "./writing-outline-recovery.js";
+export { persistWritingOutline };
 export { handleWritingSaveDraftClick, normalizeWritingDraftTitle } from "./writing-draft-save-controller.js";
 import { handleWritingSaveDraftClick } from "./writing-draft-save-controller.js";
 import {
@@ -241,6 +250,8 @@ export function installWritingDraftActionEventHandlers(options = {}) {
   add("btnWritingExportScaffold", "click", async () => {
     await handleWritingExportScaffoldClick(deps());
   });
+  add("btnWritingReloadScaffold", "click", async () => handleWritingReloadScaffoldClick(deps()));
+  add("btnWritingHistory", "click", async () => openWritingHistory(deps()));
   add("btnWritingSaveDraft", "click", async () => {
     await handleWritingSaveDraftClick(deps());
   });
@@ -270,6 +281,10 @@ export function installWritingDraftActionEventHandlers(options = {}) {
     handleWritingOutlineInput(event, deps());
   });
   add("writingScaffoldPreview", "click", async (event) => {
+    if (event?.target?.closest?.("[data-writing-outline-source-note]")) {
+      await handleWritingOutlineSourceClick(event, deps());
+      return;
+    }
     if (!handleWritingOutlineClick(event, deps())) return;
     await persistWritingOutline(deps());
   });
@@ -298,7 +313,13 @@ export function handleWritingOutlineInput(event, deps = {}) {
   if (!input) return false;
   const index = Number(input.getAttribute("data-writing-outline-index"));
   const field = String(input.getAttribute("data-writing-outline-field") || "");
+  beginWritingOutlineEdit(deps);
   const ok = updateWritingOutlineSection(deps.writingState || {}, index, field, input.value);
+  if (ok && field === "heading") resizeWritingOutlineHeading(input);
+  if (ok) {
+    try { checkpointWritingOutline(deps); }
+    catch (error) { deps.setStatus?.(`本机提纲恢复记录未保存：${String(error?.message || error)}`, "bad"); return true; }
+  }
   if (ok) deps.setStatus?.("提纲已更新，保存草稿时会使用当前结构。", "ok");
   return ok;
 }
@@ -308,12 +329,15 @@ export function handleWritingOutlineClick(event, deps = {}) {
   if (!button) return false;
   const action = String(button.getAttribute("data-writing-outline-action") || "");
   const index = Number(button.getAttribute("data-writing-outline-index"));
+  beginWritingOutlineEdit(deps);
   const ok = applyWritingOutlineAction(deps.writingState || {}, action, index);
   if (!ok) {
     deps.setStatus?.("提纲操作失败，请先生成提纲后再调整。", "warn");
     return false;
   }
   deps.renderWritingPanel?.();
+  try { checkpointWritingOutline(deps); }
+  catch (error) { deps.setStatus?.(`本机提纲恢复记录未保存：${String(error?.message || error)}`, "bad"); return true; }
   deps.setStatus?.("提纲已调整，保存草稿时会使用当前结构。", "ok");
   return true;
 }
@@ -355,62 +379,21 @@ export async function persistWritingProjectForm(deps = {}) {
   const {
     writingState = {},
     parseWritingBasketIds = () => [],
-    syncWritingProject = async () => null,
     renderWritingPanel = () => {},
     setStatus = () => {}
   } = deps;
   const projectId = String(writingState.project?.id || "").trim();
-  if (!projectId) return null;
+  if (!projectId || writingState.projectCreationPending) return null;
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) return null;
   try {
-    const project = await syncWritingProject(projectId, writingProjectSyncPayload(deps, basketNoteIds));
-    if (project) writingState.project = project;
+    const project = await syncWritingProjectForm(deps, { force: true });
     renderWritingPanel();
     setStatus("主题已保存", "ok");
     return project;
   } catch (error) {
+    if (error?.code === "WRITING_CONTEXT_CHANGED") return null;
     setStatus(`保存主题失败：${String(error?.message || error)}`, "bad");
-    return null;
-  }
-}
-
-export async function persistWritingOutline(deps = {}) {
-  const {
-    writingState = {},
-    updateDraftScaffold = async () => null,
-    renderWritingPanel = () => {},
-    setStatus = () => {}
-  } = deps;
-  const scaffold = writingState.scaffold;
-  if (!scaffold?.id) return null;
-  const scaffoldId = String(scaffold.id);
-  const sections = (Array.isArray(scaffold.sections) ? scaffold.sections : []).map((section) => ({
-    ...section,
-    evidence_note_ids: [...(section.evidence_note_ids || [])],
-    gaps: [...(section.gaps || [])],
-    counterpoints: [...(section.counterpoints || [])],
-    open_questions: [...(section.open_questions || [])]
-  }));
-  const openQuestions = [...(scaffold.open_questions || [])];
-  const previousSave = writingState.outlineSaveQueue || Promise.resolve();
-  const save = previousSave
-    .catch(() => null)
-    .then(() => updateDraftScaffold(scaffoldId, { sections, openQuestions }));
-  writingState.outlineSaveQueue = save;
-  try {
-    const updated = await save;
-    if (updated && writingState.outlineSaveQueue === save && String(writingState.scaffold?.id || "") === scaffoldId) {
-      writingState.scaffold = updated;
-      writingState.scaffoldMarkdown = updated.markdown || writingState.scaffoldMarkdown;
-      renderWritingPanel();
-      setStatus("提纲已保存", "ok");
-    }
-    return updated;
-  } catch (error) {
-    if (writingState.outlineSaveQueue === save) {
-      setStatus(`保存提纲失败：${String(error?.message || error)}`, "bad");
-    }
     return null;
   }
 }
@@ -504,7 +487,7 @@ export async function handleWritingScaffoldVersionsListClick(event, deps = {}) {
 
   if (action === "open") {
     try {
-      await openScaffoldVersion(scaffoldId);
+      if (await openScaffoldVersion(scaffoldId) === null) return;
       setStatus(`已切换到文章提纲版本：${scaffoldId}`, "ok");
     } catch (error) {
       setStatus(`打开文章提纲版本失败：${String(error?.message || error)}`, "bad");
@@ -719,9 +702,14 @@ function setButtonPending(button, pending = false, pendingText = "") {
 }
 
 export async function handleWritingCreateScaffoldClick(deps = {}) {
+  return runWritingScaffoldGeneration(deps, () => createWritingScaffold(deps));
+}
+
+async function createWritingScaffold(deps = {}) {
   const {
     $ = () => null,
     writingState = {},
+    getVaultPath = () => "",
     currentWritingContinuationEntry = () => null,
     continueWritingProjectEntry = async () => {},
     writingCenterContinuationStatusMessage = () => "",
@@ -768,13 +756,17 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
     return;
   }
   if (!writingProjectId) {
+    const preparationVault = getVaultPath(), preparationScope = deps.state?.noteMoveVaultScope;
     setWritingScaffoldPending($, true);
     setWritingActionFeedback($, "正在准备文章...", "");
     try {
-      if (writingState.selectedThemeIndexId) await createWritingProjectFromThemeIndex(writingState.selectedThemeIndexId);
-      else await createWritingProjectFromCurrentBasket();
-      writingProjectId = writingState.project?.id;
+      const prepared = writingState.selectedThemeIndexId
+        ? await createWritingProjectFromThemeIndex(writingState.selectedThemeIndexId)
+        : await createWritingProjectFromCurrentBasket();
+      if (getVaultPath() !== preparationVault || deps.state?.noteMoveVaultScope !== preparationScope || !prepared?.id || prepared.id !== writingState.project?.id) return;
+      writingProjectId = prepared.id;
     } catch (error) {
+      if (error?.code === "WRITING_CONTEXT_CHANGED" || getVaultPath() !== preparationVault || deps.state?.noteMoveVaultScope !== preparationScope) return;
       const message = `确定主题失败：${String(error?.message || error)}`;
       setWritingScaffoldPending($, false);
       setWritingActionFeedback($, message, "bad");
@@ -790,8 +782,12 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
   }
   setWritingScaffoldPending($, true);
   setWritingActionFeedback($, "正在生成提纲...", "");
+  const isCurrent = captureWritingScaffoldContext({ ...deps, writingState }, writingProjectId);
   try {
-    const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
+    await syncWritingProjectForm(deps);
+    if (!isCurrent()) return;
+    const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote(), { expectedVaultPath: getVaultPath() });
+    if (!isCurrent()) return;
     writingState.scaffold = result.item || null;
     writingState.scaffoldMarkdown = result.export?.markdown || "";
     if (writingState.project) {
@@ -813,12 +809,14 @@ export async function handleWritingCreateScaffoldClick(deps = {}) {
     await loadWritingProjectsList();
     await loadWritingScaffoldVersions();
     await loadWritingDraftVersions();
+    if (!isCurrent()) return;
     renderWritingPanel();
     applyWritingTab("outline");
     const message = "提纲已生成。现在可以编辑章节，或开始写草稿。";
     setWritingActionFeedback($, message, "ok");
     setStatus(message, "ok");
   } catch (error) {
+    if (!isCurrent()) return;
     showWritingResult({
       stage: "draft_scaffold_error",
       writingProjectId,
@@ -853,6 +851,9 @@ export async function handleWritingCopyScaffoldClick(deps = {}) {
       code: error?.code || null
     });
     setStatus(`复制文章提纲失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    const menu = deps.$?.("writingMoreMenu");
+    if (menu) menu.open = false;
   }
 }
 
@@ -875,6 +876,9 @@ export async function handleWritingExportScaffoldClick(deps = {}) {
       code: error?.code || null
     });
     setStatus(`导出文章提纲失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    const menu = deps.$?.("writingMoreMenu");
+    if (menu) menu.open = false;
   }
 }
 
@@ -1006,6 +1010,7 @@ export async function handleWritingThemeDetailClick(event, deps = {}) {
       setStatus(`已从主题移出笔记：${noteId}：${item.title || item.id}`, "ok");
     }
   } catch (error) {
+    if (error?.code === "WRITING_CONTEXT_CHANGED") return;
     if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
       setStatus(
         `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到文章提纲" : "从主题继续这个主题"}失败：${String(error?.message || error)}`,
@@ -1104,7 +1109,7 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
         "ok"
       );
     } catch (error) {
-      setStatus(`使用可写主题失败：${String(error?.message || error)}`, "bad");
+      if (error?.code !== "WRITING_CONTEXT_CHANGED") setStatus(`使用可写主题失败：${String(error?.message || error)}`, "bad");
     } finally {
       resetButton();
     }

@@ -27,25 +27,13 @@ export function renderSettingsAutomationWorkspace() {
             </div>
           </section>
 
-          <section class="settings-automation-section settings-automation-panel-rules" aria-labelledby="settingsAutomationTasksTitle">
-            <div class="settings-automation-section-head">
-              <div>
-                <div class="settings-automation-section-title" id="settingsAutomationTasksTitle">整理规则</div>
-                <div class="settings-automation-section-note">设置哪些内容需要自动整理，以及什么时候整理。</div>
-              </div>
-            </div>
+          <section class="settings-automation-section settings-automation-panel-rules" aria-label="整理规则">
             <div id="${SETTINGS_AUTOMATION_PANEL_IDS.scheduledTasks}">
               <div class="scheduled-task-empty">暂无整理规则。</div>
             </div>
           </section>
 
-          <section class="settings-automation-section settings-automation-panel-history" aria-labelledby="settingsAutomationRecentTitle">
-            <div class="settings-automation-section-head">
-              <div>
-                <div class="settings-automation-section-title" id="settingsAutomationRecentTitle">历史记录</div>
-                <div class="settings-automation-section-note">查看最近整理过什么；出问题时再展开细节。</div>
-              </div>
-            </div>
+          <section class="settings-automation-section settings-automation-panel-history" aria-label="历史记录">
             <div id="${SETTINGS_AUTOMATION_PANEL_IDS.recentRuns}">
               <div class="settings-canonical-empty">还没有整理记录。</div>
             </div>

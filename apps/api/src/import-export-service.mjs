@@ -15,7 +15,7 @@ import {
   syncMarkdownNoteCatalogRelations
 } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
-import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
+import { buildMarkdownCandidates, remapImportedViewpointReferences } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
 import { createImportWriteProgress } from "./import-write-progress.mjs";
 
@@ -271,7 +271,7 @@ async function collectObsidianAssetPlans(record, cwdResolver, candidates = {}) {
   const assetPathByTarget = new Map();
   const markdownBodies = [
     ...(Array.isArray(candidates?.literature) ? candidates.literature : []).map((note) => note?.quote_text),
-    ...(Array.isArray(candidates?.permanent) ? candidates.permanent : []).map((note) => note?.core_claim)
+    ...(Array.isArray(candidates?.permanent) ? candidates.permanent : []).map((note) => note?.body ?? note?.core_claim)
   ];
 
   for (const markdown of markdownBodies) {
@@ -608,9 +608,15 @@ export function createImportExportService({
 
     await initVault(targetVaultPath);
 
+    record.candidates = remapImportedViewpointReferences(record.candidates);
+    const referenceWarnings = record.candidates.warnings.filter(warning => warning.code === "IMPORT_VIEWPOINT_REFERENCE_AMBIGUOUS");
+    record.warnings = [...(record.warnings || []), ...referenceWarnings.filter(warning =>
+      !(record.warnings || []).some(existing => existing.code === warning.code && existing.noteId === warning.noteId && existing.referenceId === warning.referenceId))];
+    if (referenceWarnings.length) record.summary = { ...record.summary, warnings: record.warnings.reduce((sum, warning) => sum + Number(warning.count || 1), 0) };
     const selected = buildSelectedImportCandidates(record.candidates, body.selectedCandidateIds);
     const confirmPlan = normalizeOriginalityPlan(body.originalityPlan || record.originalityGuard?.plan || {});
-    const confirmGuard = originalityGuard(selected.candidates, confirmPlan);
+    // Selection controls writes, not the quotation evidence used by the check.
+    const confirmGuard = originalityGuard({ ...record.candidates, permanent: selected.candidates.permanent }, confirmPlan);
     const blocked = confirmGuard.evaluations.filter((item) => item.status === "blocked");
     const evaluationById = new Map(confirmGuard.evaluations.map((item) => [item.permanentId, item]));
     const allowOverride = body.overrideOriginality === true;
@@ -824,6 +830,7 @@ export function createImportExportService({
         createdFiles
       },
       originalityGuard: originalityGuardPayload(confirmGuard),
+      ...(referenceWarnings.length ? { warnings: referenceWarnings } : {}),
       finishedAt
     };
   }

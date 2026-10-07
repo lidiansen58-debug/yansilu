@@ -9,6 +9,7 @@ export function restoreImportWorkspace(storage, vault, state) {
   state.importRecordId = saved.values.importRecordId;
   state.directoryId = saved.values.directoryId || "dir_original_default";
   state.lastPreview = saved.preview;
+  state.previewRequest = saved.previewRequest || saved.values;
   state.lastResultPayload = { ...saved.preview, stage: "preview" };
   state.selectionImportRecordId = saved.values.importRecordId;
   state.selectedCandidateIds = new Set(saved.selectedIds.filter(id => typeof id === "string"));
@@ -17,7 +18,7 @@ export function restoreImportWorkspace(storage, vault, state) {
 
 export function persistImportWorkspace(storage, vault, state, values) {
   if (!values.importRecordId || state.lastPreview?.importRecordId !== values.importRecordId) return;
-  storage?.setItem(storageKey(vault), JSON.stringify({ values, preview: state.lastPreview,
+  storage?.setItem(storageKey(vault), JSON.stringify({ values, preview: state.lastPreview, previewRequest: state.previewRequest,
     selectedIds: [...(state.selectedCandidateIds || [])] }));
 }
 
@@ -30,6 +31,8 @@ export function createImportWorkspaceRecovery({ getVaultPath = () => "", getStor
     if (loadedVault) {
       importState.importRecordId = "";
       importState.lastPreview = null;
+      importState.previewRequest = null;
+      importState.previewResumeBusy = false;
       importState.lastResultPayload = null;
       importState.lastExportResultPayload = null;
       importState.operationResultVisible = false;
@@ -47,5 +50,9 @@ export function createImportWorkspaceRecovery({ getVaultPath = () => "", getStor
     try { persistImportWorkspace(getStorage(), vault, importState, values); }
     catch { setStatus("导入页面的本机恢复记录保存失败，请勿刷新页面。", "warn"); }
   }
-  return { restore, checkpoint };
+  function clear() {
+    try { getStorage()?.removeItem(storageKey(getVaultPath())); }
+    catch { setStatus("本机旧预览记录未能清除，下次继续时将重新核对导入状态。", "warn"); }
+  }
+  return { restore, checkpoint, clear };
 }

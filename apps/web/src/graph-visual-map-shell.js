@@ -136,6 +136,8 @@ export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, 
 
 export function renderGraphVisualMapShellView({
   expanded = false,
+  smallGraph = false,
+  viewBox = "",
   readingLensActive = false,
   readingLensKey = "",
   selectionKind = "",
@@ -164,10 +166,11 @@ export function renderGraphVisualMapShellView({
   const { escapeHtml, renderGraphIcon, labels } = graphVisualMapShellDeps(deps);
   const panelClasses = [
     "graph-map-panel",
+    smallGraph ? "is-small-graph" : "",
     expanded ? "is-expanded" : "",
     readingLensActive ? `has-reading-lens is-reading-lens-${escapeHtml(readingLensKey)}` : "",
     selectionKind === "node" ? "is-selecting-node" : "",
-    selectionKind === "theme" ? "is-selecting-theme" : "",
+    ["theme", "cluster"].includes(selectionKind) ? "is-selecting-theme" : "",
     selectionKind === "isolated" || selectionKind === "isolatedComplete" ? "is-selecting-isolated" : "",
     selectionKind === "bridge" ? "is-selecting-bridge" : ""
   ].filter(Boolean).join(" ");
@@ -198,7 +201,7 @@ export function renderGraphVisualMapShellView({
                       <span>${escapeHtml(labels.hoverDetail)}</span>
                     </div>
                     ${canvasHelpHintVisible ? `<div class="graph-canvas-help-hint" role="status">${escapeHtml(labels.canvasHelpHint)}</div>` : ""}
-                    <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoomKey)}" viewBox="0 0 ${layoutWidth} ${layoutHeight}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="${escapeHtml(labels.mapImage)}">
+                    <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoomKey)}" viewBox="${escapeHtml(viewBox || `0 0 ${layoutWidth} ${layoutHeight}`)}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="${escapeHtml(labels.mapImage)}">
                       <defs>${svgDefsMarkup}</defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layoutWidth}" height="${layoutHeight}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
                       <g class="graph-map-nebulae" filter="url(#graph-nebula-blur)">${nebulaMarkup}</g>

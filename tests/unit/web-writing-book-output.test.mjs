@@ -8,12 +8,13 @@ function setup() {
   ] }] } }, draftSaveState: "saved", draftMarkdown: "Article", bookChapter: { projectId: "book", id: "a", markdown: "Current chapter", saveState: "saved" } };
   const state = { module: "writing", noteMoveVaultScope: {} }, messages = [], requests = [];
   const button = { disabled: false, addEventListener() {} };
+  const menu = { open: true };
   const deps = { writingState, state, getVaultPath: () => "vault", renderWritingPanel: () => { button.disabled = false; },
     pickExportDirectory: async () => ({ path: "output" }),
     exportWritingBook: async payload => { requests.push(payload); return { status: "completed", bookPath: "output/Book.md", chapterCount: 2, assetCount: 1 }; },
     setStatus: message => messages.push(message) };
-  const controller = installWritingBookOutputEvents({ $: id => id === "btnWritingExportBook" ? button : null, depsProvider: () => deps });
-  return { controller, deps, writingState, state, messages, requests, button };
+  const controller = installWritingBookOutputEvents({ $: id => id === "btnWritingExportBook" ? button : id === "writingMoreMenu" ? menu : null, depsProvider: () => deps });
+  return { controller, deps, writingState, state, messages, requests, button, menu };
 }
 
 test("book command exports saved directory snapshot, never the current chapter or article editor text", async () => {
@@ -27,6 +28,7 @@ test("dirty, error, saving and directory pending block book export", async () =>
   for (const value of ["dirty", "error", "saving"]) {
     const s = setup(); s.writingState.bookChapter.saveState = value;
     await s.controller.export(); assert.equal(s.requests.length, 0);
+    assert.equal(s.menu.open, false);
     assert.match(s.messages.at(-1), /未保存|正在保存/);
   }
   const s = setup(); s.writingState.bookDirectoryPending = { projectId: "book" };

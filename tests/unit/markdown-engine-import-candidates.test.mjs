@@ -5,6 +5,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { buildMarkdownCandidates } from "../../packages/markdown-engine/src/index.mjs";
+import { originalityGuard } from "../../packages/originality-guard/src/index.mjs";
+import { serializeMarkdownWithFrontmatter } from "../../packages/domain/src/frontmatter.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -12,6 +14,91 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..");
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
+
+test("viewpoint migration maps real old evidence IDs without changing history or original files", async t => {
+  const sourceDir = await makeTempDir("yansilu-viewpoint-id-migration-");
+  t.after(() => fs.rm(sourceDir, { recursive: true, force: true }));
+  const revision = { previous_thesis: "A good explanation applies everywhere.", thesis: "An explanation needs explicit conditions.",
+    reason: "A counterexample exposed the missing condition.", changed_at: "2026-01-02T03:04:05Z",
+    source_note_ids: ["pn_old_evidence", "ln_old_material", "pn_missing"], custom: "pn_old_evidence" };
+  const pending = { previousThesis: revision.thesis, thesis: "Check each condition with a new case.", reason: "Another observation.",
+    changedAt: "2026-02-03T04:05:06Z", sourceNoteIds: ["pn_old_evidence"] };
+  const originals = new Map([
+    ["claim.md", serializeMarkdownWithFrontmatter({ id: "pn_old_claim", type: "permanent", title: "Explanation",
+      starting_question: "When does an explanation fail?", thesis: revision.thesis,
+      viewpoint_history: [JSON.stringify(revision)], pending_viewpoint_revision: pending }, "A judgment with [[pn_old_evidence]].")],
+    ["evidence.md", serializeMarkdownWithFrontmatter({ id: "pn_old_evidence", type: "permanent", title: "Counterexample" }, "The observed exception.")],
+    ["material.md", serializeMarkdownWithFrontmatter({ id: "ln_old_material", type: "literature", title: "Observation" }, "An earlier source observation.")]
+  ]);
+  for (const [file, raw] of originals) await fs.writeFile(path.join(sourceDir, file), raw, "utf8");
+  const result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  const claim = result.permanent.find(note => note.title === "Explanation");
+  const evidence = result.permanent.find(note => note.title === "Counterexample");
+  const material = result.literature.find(note => note.title === "Observation");
+  const history = JSON.parse(claim.viewpoint_history[0]);
+  assert.deepEqual(history, { ...revision, source_note_ids: [evidence.id, material.id, "pn_missing"] });
+  assert.deepEqual(claim.pending_viewpoint_revision, { ...pending, sourceNoteIds: [evidence.id] });
+  assert.equal(claim.starting_question, "When does an explanation fail?");
+  assert.equal(claim.body, "A judgment with [[pn_old_evidence]].");
+  assert.equal(claim.authorship.user_confirmed, false);
+  assert.deepEqual(JSON.parse(claim.original_frontmatter.viewpoint_history[0]), revision);
+  assert.deepEqual(result.warnings, []);
+  for (const [file, raw] of originals) assert.equal(await fs.readFile(path.join(sourceDir, file), "utf8"), raw);
+});
+
+test("existing permanent notes migrate as unconfirmed notes, not duplicate source excerpts", async t => {
+  const sourceDir = await makeTempDir("yansilu-own-note-migration-");
+  t.after(() => fs.rm(sourceDir, { recursive: true, force: true }));
+  const body = "# Explain the conditions\n\nAn explanation is useful when it names the conditions under which it fails.\n\n[[Evidence|My evidence]]\n\n![[assets/chart.png]]";
+  const original = `---\ntype: permanent\naliases: [Conditions]\nstatus: active\ndistillation_status: confirmed\nauthorship: {user_confirmed: true}\n---\n${body}\n`;
+  const file = path.join(sourceDir, "claim.md");
+  await fs.writeFile(file, original, "utf8");
+  const result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  assert.equal(result.literature.length, 0, "A migration copy is not external quotation evidence");
+  const note = result.permanent[0];
+  assert.equal(note.body, body.replace(/^# Explain the conditions\n\n/, ""));
+  assert.deepEqual(note.aliases, ["Conditions"]);
+  assert.deepEqual(note.wikilink_targets, ["Evidence", "assets/chart.png"]);
+  assert.equal(note.status, "draft");
+  assert.equal(note.authorship.user_confirmed, false);
+  assert.notEqual(note.distillation_status, "confirmed");
+  assert.deepEqual(note.from_literature_note_ids, []);
+  assert.equal(note.citations[0].locator, file);
+  assert.equal(originalityGuard(result).evaluations[0].status, "pass");
+  assert.equal(await fs.readFile(file, "utf8"), original);
+});
+
+test("structured imported claims compare against actual quotes rather than the whole migrated body", async t => {
+  const sourceDir = await makeTempDir("yansilu-import-actual-quote-");
+  t.after(() => fs.rm(sourceDir, { recursive: true, force: true }));
+  const quotation = "Retrieval practice strengthens long term retention more than passive rereading.";
+  const write = async claim => fs.writeFile(path.join(sourceDir, "quote.md"), `---\ntype: permanent\n---\n# Learning\n\n## 一句话论点\n${claim}\n\n## 原文\n${quotation}\n`, "utf8");
+  await write("Testing a learner should reveal what they cannot yet explain.");
+  let result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  assert.equal(result.literature[0].quote_text, quotation);
+  assert.equal(result.permanent[0].core_claim, "Testing a learner should reveal what they cannot yet explain.");
+  assert.equal(originalityGuard(result).evaluations[0].status, "pass");
+  await write(quotation);
+  result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  assert.equal(originalityGuard(result).evaluations[0].status, "blocked");
+  await fs.appendFile(path.join(sourceDir, "quote.md"), "\n## 引文\nA second quoted observation.\n", "utf8");
+  result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  assert.match(result.literature[0].quote_text, /A second quoted observation/);
+  assert.equal(originalityGuard(result).evaluations[0].status, "blocked");
+});
+
+test("migration retains AI attribution and ignores quotation headings inside code examples", async t => {
+  const sourceDir = await makeTempDir("yansilu-import-code-quote-");
+  t.after(() => fs.rm(sourceDir, { recursive: true, force: true }));
+  await fs.writeFile(path.join(sourceDir, "note.md"), '---\nnote_type: permanent\nid: pn_old\nauthorship: {"user_confirmed":true,"ai_assisted":true}\nsource_trace: A real earlier observation\n---\n# My note\n\n## 一句话论点\nAn independent judgment.\n\n```md\n## 原文\nAn independent judgment.\n```\n', "utf8");
+  const result = await buildMarkdownCandidates({ connector: "obsidian", payload: { path: sourceDir } });
+  assert.equal(result.literature.length, 0);
+  assert.equal(result.permanent[0].authorship.ai_assisted, true);
+  assert.equal(result.permanent[0].authorship.user_confirmed, false);
+  assert.equal(result.permanent[0].source_trace, "A real earlier observation");
+  assert.ok(result.permanent[0].yansilu_link_aliases.includes("pn_old"));
+  assert.equal(originalityGuard(result).evaluations[0].status, "pass");
+});
 
 test("buildMarkdownCandidates parses markdown/obsidian files into candidates", async () => {
   const sourceDir = await makeTempDir("yansilu-md-engine-");
@@ -37,14 +124,14 @@ test("buildMarkdownCandidates parses markdown/obsidian files into candidates", a
   });
 
   assert.equal(result.sources.length, 1);
-  assert.equal(result.literature.length, 1);
+  assert.equal(result.literature.length, 0);
   assert.equal(result.permanent.length, 1);
   assert.equal(result.sources[0].imported_from, "obsidian");
   assert.deepEqual(result.sources[0].aliases, ["Engine alias"]);
-  assert.deepEqual(result.literature[0].wikilinks, ["linked-note"]);
-  assert.deepEqual(result.literature[0].wikilink_targets, ["linked-note"]);
-  assert.ok(result.literature[0].tags.includes("method"));
-  assert.ok(result.literature[0].tags.includes("insight"));
+  assert.deepEqual(result.permanent[0].wikilinks, ["linked-note"]);
+  assert.deepEqual(result.permanent[0].wikilink_targets, ["linked-note"]);
+  assert.ok(result.permanent[0].tags.includes("method"));
+  assert.ok(result.permanent[0].tags.includes("insight"));
 });
 
 test("buildMarkdownCandidates extracts permanent distillation fields without saving incomplete summaries", async () => {
@@ -213,12 +300,12 @@ test("buildMarkdownCandidates parses the edge-case Obsidian fixture vault", asyn
   });
 
   assert.equal(result.sources.length, 5);
-  assert.equal(result.literature.length, 5);
+  assert.equal(result.literature.length, 4);
   assert.equal(result.permanent.length, 1);
   assert.equal(result.warnings.length, 1);
   assert.equal(result.warnings[0].code, "IMPORT_MALFORMED_FRONTMATTER");
 
-  const sourceNote = result.literature.find((note) => note.title === "Source Note");
+  const sourceNote = result.permanent.find((note) => note.title === "Source Note");
   assert.ok(sourceNote);
   assert.deepEqual(sourceNote.aliases, ["Source Alias", "Source Alt"]);
   assert.ok(sourceNote.tags.includes("edge"));
@@ -252,7 +339,7 @@ test("buildMarkdownCandidates parses realistic nested Obsidian vault with Chines
   });
 
   assert.equal(result.sources.length, 2);
-  assert.equal(result.literature.length, 2);
+  assert.equal(result.literature.length, 1);
   assert.equal(result.permanent.length, 1);
   assert.deepEqual(result.warnings, []);
 
@@ -271,7 +358,7 @@ test("buildMarkdownCandidates parses realistic nested Obsidian vault with Chines
   const permanent = result.permanent[0];
   assert.equal(permanent.title, "Spacing Note");
   assert.ok(permanent.tags.includes("学习/记忆"));
-  assert.ok(permanent.from_literature_note_ids[0].startsWith("ln_"));
+  assert.deepEqual(permanent.from_literature_note_ids, []);
 });
 
 test("buildMarkdownCandidates decodes GB18030 markdown and warns that non-UTF8 decoding was used", async () => {

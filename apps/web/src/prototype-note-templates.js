@@ -4,6 +4,8 @@ import {
   parsePermanentWorkspace,
   validateLiteratureTemplateSource
 } from "./components-editor-pane.js";
+import { defaultLiteratureTemplateSource, legacyLiteratureTemplateSource } from "./literature-note-template.js";
+export { defaultLiteratureTemplateSource };
 
 export const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
   { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
@@ -14,10 +16,10 @@ export const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
 ];
 
 export const LITERATURE_TEMPLATE_SETTINGS_FIELDS = [
-  { key: "citation", label: "引用信息", note: "记录来源元数据，便于追溯" },
+  { key: "citation", label: "出处", note: "标题及页码、章节或链接" },
   { key: "originalText", label: "原文", note: "保留可核对的摘录或原文片段" },
-  { key: "paraphrase", label: "转述", note: "先用自己的话完成理解" },
-  { key: "supportsJudgment", label: "判断种子", note: "可选增强字段" },
+  { key: "paraphrase", label: "我的理解", note: "用自己的话说明原文的意思" },
+  { key: "supportsJudgment", label: "我的想法", note: "可选字段，旧模板仍支持" },
   { key: "question", label: "追问", note: "可选增强字段" },
   { key: "boundary", label: "边界 / 反例", note: "可选增强字段" },
   { key: "whyKeep", label: "保留原因", note: "可选增强字段" }
@@ -40,48 +42,6 @@ export const PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS = {
 
 function normalizeTemplateKind(kind = "") {
   return String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-}
-
-export function defaultLiteratureTemplateSource(title = "{{title}}") {
-  return [
-    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
-    "",
-    "## 引用信息",
-    "",
-    "- 标题：",
-    "- 作者：",
-    "- 年份：",
-    "- 容器：",
-    "- 出版社 / 来源：",
-    "- 页码 / 定位：",
-    "- 版本：",
-    "- 译者 / 编者：",
-    "- DOI / ISBN / arXiv / URL / PDF：",
-    "",
-    "## 原文",
-    "",
-    "> 在这里放可核对的原文摘录、页码或关键句。",
-    "## 转述",
-    "",
-    "> 用你自己的话重写，不要贴原句。",
-    "## 判断种子",
-    "",
-    "- 这条材料最值得保留的判断是：",
-    "",
-    "## 追问",
-    "",
-    "- 它还没有解释清楚什么？",
-    "- 下一步应该去验证什么？",
-    "",
-    "## 边界 / 反例",
-    "",
-    "- 这条材料在什么条件下不成立，或不足以支撑判断？",
-    "",
-    "## 保留原因",
-    "",
-    "- 它为什么值得进入你的系统？",
-    ""
-  ].join("\n");
 }
 
 export function defaultPermanentTemplateSource(title = "{{title}}") {
@@ -148,7 +108,9 @@ export function normalizeNoteTemplateSource(text = "", kind = "") {
 export function normalizeStoredNoteTemplateSource(text = "", kind = "") {
   const cleanKind = normalizeTemplateKind(kind);
   const normalized = normalizeNoteTemplateSource(text, cleanKind);
-  if (cleanKind !== "permanent") return normalized;
+  if (cleanKind === "literature") {
+    return normalized === legacyLiteratureTemplateSource().trim() ? defaultLiteratureTemplateSource() : normalized;
+  }
   return normalized.replace(/\r\n/g, "\n").trim() === legacyPermanentTemplateSource().replace(/\r\n/g, "\n").trim()
     ? defaultTemplateSourceForKind(cleanKind)
     : normalized;

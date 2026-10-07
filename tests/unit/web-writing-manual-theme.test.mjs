@@ -13,7 +13,7 @@ function setup() {
     writingThemeIndexScopeDirectoryId: () => "original",
     async ensureNotesLoaded() {},
     writingNoteById: id => notes.find(note => note.id === id),
-    isWritingEligibleNote: note => Boolean(note?.eligible),
+    writingNoteEligibility: note => ({ ok: Boolean(note?.eligible), message: note?.eligibilityMessage || "这条永久笔记还没完成作者确认。" }),
     async requestTextInput(options) { calls.prompts.push(options); return answers.shift(); },
     async createIndexCard(payload) { calls.creates.push(payload); return { id: "theme-1", ...payload }; },
     upsertWritingThemeIndex(card) { calls.upserts.push(card); },
@@ -58,6 +58,31 @@ test("insufficient or ineligible notes do not start theme input", async () => {
   notes[1].eligible = false;
   await assert.rejects(controller.save(), /作者确认/);
   assert.equal(calls.prompts.length, 0);
+  assert.equal(calls.creates.length, 0);
+});
+
+test("a confirmed note failing originality reports its title and actual blocker", async () => {
+  const { controller, notes, calls } = setup();
+  notes[1].eligible = false;
+  notes[1].eligibilityMessage = "这条永久笔记还未通过原创性检查，请检查后再加入写作。";
+  await assert.rejects(controller.save(), error => {
+    assert.match(error.message, /Note b.*原创性检查/);
+    assert.match(error.message, /相关笔记/);
+    assert.doesNotMatch(error.message, /作者确认|draft/);
+    return true;
+  });
+  assert.equal(calls.prompts.length, 0);
+  assert.equal(calls.creates.length, 0);
+});
+
+test("eligibility changed during input reports the current blocker without creating a theme", async () => {
+  const { controller, deps, notes, calls } = setup();
+  deps.requestTextInput = async () => {
+    notes[2].eligible = false;
+    notes[2].eligibilityMessage = "这条永久笔记还未通过原创性检查，请检查后再加入写作。";
+    return "Article";
+  };
+  await assert.rejects(controller.save(), /Note c.*原创性检查/);
   assert.equal(calls.creates.length, 0);
 });
 

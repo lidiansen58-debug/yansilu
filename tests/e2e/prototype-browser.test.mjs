@@ -52,14 +52,6 @@ async function waitFor(assertFn, timeoutMs = 6000, intervalMs = 120) {
   throw lastError || new Error("waitFor timeout");
 }
 
-async function expandEditorHelper(page) {
-  await page.locator("#editorHelper").hover();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#btnEditorHelperAction").isVisible(), true);
-    assert.equal(await page.locator("#btnEditorHelperMute").isVisible(), true);
-  }, 4000);
-}
-
 async function openOriginalNoteBox(page) {
   await page.locator('[data-action="quick-original"]').click();
   await page.locator("#editorWorkspace").waitFor({ state: "visible", timeout: 3000 });
@@ -2981,7 +2973,7 @@ test("prototype wysiwyg supports inline [[ link picker and # tag picker", async 
   assert.equal(notes.status, 200);
 });
 
-test("prototype editor helper can dismiss once or mute future hints", async (t) => {
+test("prototype editor saves normally without floating helper panels", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -2994,60 +2986,17 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   if (!stack) return;
   const { page, webBase } = stack;
 
-  await page.addInitScript(() => {
-    window.__copiedTexts = [];
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (text) => {
-          window.__copiedTexts.push(String(text || ""));
-        }
-      }
-    });
-  });
-  const showEditorHelper = async () => {
-    const helper = page.locator("#editorHelper");
-    const hidden = await helper.evaluate((node) => node.classList.contains("hidden")).catch(() => true);
-    if (!hidden) return;
-    const activeTabClose = page.locator(".tab.active .tab-close");
-    if (await activeTabClose.isVisible().catch(() => false)) {
-      await activeTabClose.click();
-      if (await helper.waitFor({ state: "visible", timeout: 2000 }).then(() => true).catch(() => false)) return;
-    }
-    const focusButton = page.locator("#btnFocusMode");
-    if (await focusButton.isVisible().catch(() => false)) await focusButton.click();
-    await helper.waitFor({ state: "visible", timeout: 7000 });
-  };
-
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await showEditorHelper();
-  await expandEditorHelper(page);
-  await page.locator("#btnEditorHelperAction").click();
-  await waitFor(async () => {
-    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
-    assert.equal(hidden, true);
-  }, 4000);
-
+  assert.equal(await page.locator("#editorHelper, #saveAiSuggestion").count(), 0);
   await page.reload({ waitUntil: "networkidle" });
-  await showEditorHelper();
-  await expandEditorHelper(page);
-  await page.locator("#btnEditorHelperMute").click();
-  await waitFor(async () => {
-    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
-    assert.equal(hidden, true);
-  }, 4000);
+  assert.equal(await page.locator("#editorHelper, #saveAiSuggestion").count(), 0);
 
-  await page.reload({ waitUntil: "networkidle" });
-  await waitFor(async () => {
-    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
-    assert.equal(hidden, true);
-  }, 4000);
-
+  await openOriginalNoteBox(page);
   await createAndSaveNoteViaEditor(
     page,
-    "# Helper Mute Recovery\n辅助面板恢复后，应能继续保持笔记。",
+    "# 专注记录\n把观察写清楚，比重复提示下一步更重要。",
     {
-      authorshipClaim: "辅助面板恢复后，应能继续保持笔记。"
+      authorshipClaim: "把观察写清楚，比重复提示下一步更重要。"
     }
   );
 

@@ -11,19 +11,13 @@ function renderResultSection(result = {}) {
 function renderExportCard() {
   return `
     <section class="import-card export-card">
-      <div class="import-card-head">
-        <div>
-          <div class="import-card-kicker">导出</div>
-          <strong>导出 Markdown</strong>
-        </div>
-      </div>
       <div class="import-toolbar-layout">
         <section class="import-field-panel">
           <label class="import-field-label" for="exportDirectoryId">导出范围</label>
           <select id="exportDirectoryId">
             <option value="dir_original_default">永久笔记目录</option>
           </select>
-          <div class="import-field-help">当前只导出永久笔记目录。</div>
+          <div class="import-field-help">导出所选目录中的永久笔记。</div>
         </section>
         <section class="import-field-panel import-field-panel-wide">
           <label class="import-field-label" for="exportTargetPath">目标目录</label>
@@ -44,7 +38,6 @@ function renderExportCard() {
 function tabButtonMarkup(tab, activeTab) {
   const isActive = tab === activeTab;
   const label = tab === "export" ? "导出 Markdown" : "导入 Obsidian";
-  const detail = tab === "export" ? "写到目标目录" : "读取到笔记库";
   const panelId = tab === "export" ? "exportCardMount" : "importToolbarMount";
   const buttonId = tab === "export" ? "importWorkspaceTabExport" : "importWorkspaceTabImport";
   const icon = tab === "export"
@@ -64,7 +57,6 @@ function tabButtonMarkup(tab, activeTab) {
       ${icon}
       <span class="import-workspace-tab-copy">
         <span class="import-workspace-tab-label">${label}</span>
-        <span class="import-workspace-tab-detail">${detail}</span>
       </span>
     </button>
   `;
@@ -81,11 +73,6 @@ export function renderImportPageMount({
   const normalizedActiveTab = activeTab === "export" ? "export" : "import";
   return `
     <div class="import-page-shell" data-import-workspace-tab="${normalizedActiveTab}">
-      <section class="import-page-header">
-        <div>
-          <h2>导入导出</h2>
-        </div>
-      </section>
       <div class="import-workspace-tabs" role="tablist" aria-label="导入导出切换">
         ${tabButtonMarkup("import", normalizedActiveTab)}
         ${tabButtonMarkup("export", normalizedActiveTab)}
@@ -121,6 +108,10 @@ export function renderImportPageMount({
           <div class="modal-body import-result-dialog-body">
             <div class="import-result" id="importResult"${resultMode === "export" ? " hidden" : ""}>${renderResultSection(result)}</div>
             <div class="import-result" id="exportResult"${resultMode === "export" ? "" : " hidden"}>${renderResultSection(exportResult)}</div>
+          </div>
+          <div class="import-result-dialog-actions" id="importPreviewActions" hidden>
+            <button class="mini-btn" type="button" data-import-dismiss>暂不导入</button>
+            <button class="mini-btn primary" id="btnImportConfirm" type="button" disabled>确认导入</button>
           </div>
         </div>
       </div>

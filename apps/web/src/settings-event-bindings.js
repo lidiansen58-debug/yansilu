@@ -1,6 +1,7 @@
 import { installVaultBackupPanelEvents } from "./settings-vault-backup-panel.js";
 import { createSettingsVaultSwitcher } from "./settings-vault-switch.js";
 import { runSettingsDemoImport } from "./settings-demo-import-action.js";
+import { syncScheduledTaskScheduleFields } from "./scheduled-tasks-panel.js";
 export { describeSettingsDemoImportError } from "./settings-demo-import-action.js";
 
 export function installSettingsEventBindings(deps = {}) {
@@ -166,8 +167,8 @@ export function installSettingsEventBindings(deps = {}) {
       return;
     }
     if (action === "open-backup") {
-      activateModule("imports");
-      setStatus("已打开备份与恢复。优先创建加密备份，再考虑导入导出。", "ok");
+      activateModule("backup");
+      setStatus("已打开备份与恢复。", "ok");
       return;
     }
     if (action === "open-mobile-access") {
@@ -235,10 +236,14 @@ export function installSettingsEventBindings(deps = {}) {
 
   $("settingsBrowseVault")?.addEventListener("click", async () => {
     setSettingsSection("workspace", { render: false });
-    const picked = await desktopCommands.pickVaultDirectory?.({ defaultPath: $("settingsVaultPath")?.value || settingsState.vault?.vaultPath || "" });
-    if (picked?.path) {
-      $("settingsVaultPath").value = picked.path;
-      setStatus(`已选择笔记库路径（${picked.source}）`, "ok");
+    try {
+      const picked = await desktopCommands.pickVaultDirectory?.({ defaultPath: $("settingsVaultPath")?.value || settingsState.vault?.vaultPath || "" });
+      if (picked?.path) {
+        $("settingsVaultPath").value = picked.path;
+        setStatus("已选择笔记库目录", "ok");
+      }
+    } catch (error) {
+      setStatus(`选择笔记库目录失败：${String(error?.message || error)}`, "bad");
     }
   });
 
@@ -317,14 +322,12 @@ export function installSettingsEventBindings(deps = {}) {
 
     if (event.target.closest("#btnScheduledTasksApplyFilters")) {
       settingsState.ai.scheduledTaskFilters = scheduledTaskFiltersFromUi();
-      await refreshScheduledTasks();
-      setStatus("计划任务已刷新", "ok");
+      if (await refreshScheduledTasks()) setStatus("整理规则已刷新", "ok");
       return;
     }
 
     if (event.target.closest("#btnScheduledTasksRefresh")) {
-      await refreshScheduledTasks();
-      setStatus("计划任务已刷新", "ok");
+      if (await refreshScheduledTasks()) setStatus("整理规则已刷新", "ok");
       return;
     }
 
@@ -361,7 +364,7 @@ export function installSettingsEventBindings(deps = {}) {
 
     if (event.target.closest("#btnScheduledTaskClearForm")) {
       resetScheduledTaskForm();
-      setStatus("计划任务草稿已重置", "ok");
+      setStatus("规则草稿已重置", "ok");
       return;
     }
 
@@ -399,6 +402,9 @@ export function installSettingsEventBindings(deps = {}) {
     settingsState.ai.scheduledTaskFormOpen = true;
     if (event.target.closest("#scheduledTaskTemplateSelect")) {
       applyScheduledTaskTemplateToForm(event.target.value);
+    }
+    if (event.target.closest("#scheduledTaskScheduleTypeSelect")) {
+      syncScheduledTaskScheduleFields($("settingsScheduledTasksPanel"), event.target.value);
     }
   });
 }

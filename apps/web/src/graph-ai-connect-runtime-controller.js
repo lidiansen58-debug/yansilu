@@ -1,5 +1,5 @@
 import { graphAiConnectAnalysisOptions, graphAiConnectArtifactCount, graphAiConnectCandidateTitles, graphAiConnectPreviewTargetId } from "./graph-ai-connect-model.js";
-import { graphSelectionContextKey } from "./graph-selection-context.js";
+import { captureGraphRequestContext, graphSelectionContextKey } from "./graph-selection-context.js";
 import { graphCandidateEndpointIds } from "./graph-relation-state-query.js";
 export function createGraphAiConnectRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
@@ -11,21 +11,7 @@ export function createGraphAiConnectRuntimeController(depsProvider = () => ({}))
       request.controller.abort();
     }
   }
-  const contextGuard = ({ includeAnalysis = false } = {}) => {
-    const deps = runtimeDeps();
-    const item = deps.graphState?.item;
-    const analysis = deps.graphState?.aiAnalysis;
-    const selection = graphSelectionContextKey(deps.graphState?.selection);
-    const directory = deps.graphScopeDirectoryId?.();
-    const module = deps.state?.module;
-    return () => {
-      const current = runtimeDeps();
-      return current.graphState?.item === item &&
-        (!includeAnalysis || current.graphState?.aiAnalysis === analysis) &&
-        graphSelectionContextKey(current.graphState?.selection) === selection &&
-        current.graphScopeDirectoryId?.() === directory && current.state?.module === module;
-    };
-  };
+  const contextGuard = options => captureGraphRequestContext(runtimeDeps, options);
   const wait = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
   async function waitForGraphLoad(graphState = {}, { timeoutMs = 15000, intervalMs = 50 } = {}) {
     if (!graphState.loading) return true;

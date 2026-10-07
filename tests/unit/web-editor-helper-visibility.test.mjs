@@ -43,10 +43,8 @@ test("editor helper note-type matching prefers normalized folder root type", () 
   assert.equal(editorHelperNoteType(null), "");
 });
 
-test("editor helper markup is not globally hidden by CSS", async () => {
+test("editor helper is removed rather than visually hidden over the editor", async () => {
   const html = await readPrototypeHtmlSource();
-  const globallyHiddenEditorHelper = /(?:^|[}\r\n])\s*\.editor-helper\s*\{[^}]*display:\s*none\s*!important;?[^}]*\}/;
-
-  assert.match(html, /id="editorHelper"/);
-  assert.doesNotMatch(html, globallyHiddenEditorHelper);
+  assert.doesNotMatch(html, /id="(?:editorHelper|btnEditorHelperAction|btnEditorHelperMute)"/);
+  assert.match(html, /id="btnRecordPermanent"/);
 });

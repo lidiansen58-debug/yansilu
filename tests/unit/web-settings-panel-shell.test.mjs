@@ -130,6 +130,10 @@ test("settings panel shell focuses the selected detail cards", () => {
 
   assert.deepEqual(get("settingsFeedbackCard").toggles.at(-1), ["hidden", false]);
   assert.deepEqual(get("settingsCardAiSettings").toggles.at(-1), ["hidden", true]);
+  assert.deepEqual(get("settingsLocalRulesCard").toggles.at(-1), ["hidden", true]);
   assert.equal(paneTitle.textContent, "问题反馈");
-  assert.match(paneNote.textContent, /反馈/);
+  assert.equal(paneNote.textContent, "");
+  renderSettingsDetailFocusForRuntime({ $: get, settingsState: { activeItem: "desktop-help" } });
+  assert.deepEqual(get("settingsLocalRulesCard").toggles.at(-1), ["hidden", false]);
+  assert.deepEqual(get("settingsFeedbackCard").toggles.at(-1), ["hidden", true]);
 });

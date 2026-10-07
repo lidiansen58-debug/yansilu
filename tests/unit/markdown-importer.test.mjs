@@ -48,12 +48,15 @@ test("buildMarkdownCandidates preserves frontmatter, aliases, tags, and wikilink
   });
 
   assert.equal(result.sources.length, 1);
-  assert.equal(result.literature.length, 1);
+  assert.equal(result.literature.length, 0, "A migrated permanent note must not become its own quotation");
   assert.equal(result.permanent.length, 1);
   assert.deepEqual(result.sources[0].aliases, ["Claim A"]);
-  assert.deepEqual(result.literature[0].wikilinks, ["Source Note"]);
-  assert.deepEqual(result.literature[0].tags, ["permanent", "method", "zettel"]);
-  assert.equal(result.literature[0].original_frontmatter.custom_field, "kept");
+  assert.deepEqual(result.permanent[0].wikilinks, ["Source Note"]);
+  assert.deepEqual(result.permanent[0].tags, ["permanent", "method", "zettel"]);
+  assert.equal(result.permanent[0].original_frontmatter.custom_field, "kept");
+  assert.deepEqual(result.permanent[0].aliases, ["Claim A"]);
+  assert.deepEqual(result.permanent[0].from_literature_note_ids, []);
+  assert.equal(result.permanent[0].authorship.user_confirmed, false);
   assert.equal(result.permanent[0].candidate_only, true);
 });
 

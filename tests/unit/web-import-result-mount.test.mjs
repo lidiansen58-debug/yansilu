@@ -13,12 +13,14 @@ test("import result mount renders preview content through model and panel", () =
       warnings: [{ code: "IMPORT_MALFORMED_FRONTMATTER", message: "bad frontmatter" }]
     },
     candidatePreviewHtml: '<div class="result-candidates">candidate preview</div>',
-    raw: '{"stage":"preview"}'
+    raw: '{"stage":"preview","warnings":[{"code":"IMPORT_MALFORMED_FRONTMATTER"}]}'
   });
 
   assert.match(html, /result-card/);
   assert.match(html, /result-candidates/);
   assert.match(html, /IMPORT_MALFORMED_FRONTMATTER/);
+  assert.match(html, /有笔记的 frontmatter 格式不完整/);
+  assert.match(html, /详情：bad frontmatter/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
 });
 

@@ -61,7 +61,8 @@ export function buildGraphVisualMapSelectionState({
   const selectedNodeId = activeSelection?.kind === "node" && !selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
   const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
   const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
-  const selectedThemeNoteIds = graphVisualMapSelectionSet(activeSelection?.kind === "theme" ? activeSelection.noteIds || [] : []);
+  const selectedThemeNoteIds = graphVisualMapSelectionSet(activeSelection?.kind === "theme" ? activeSelection.noteIds || []
+    : activeSelection?.kind === "cluster" ? activeSelection.memberIds || [] : []);
   const selectedIsolatedNodeId =
     activeSelection?.kind === "isolated" ? activeSelection.noteId : selectionNodeNeedsRelationWorkflow ? activeSelection.nodeId : "";
   const selectedBridgeNoteIds = graphVisualMapSelectionSet(

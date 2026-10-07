@@ -19,9 +19,115 @@ async function importPrototypeApi(caseName, windowValue) {
   }
 }
 
+test("writing history requests older pages without changing existing default requests", async t => {
+  const api = await importPrototypeApi("outline-history-pages", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async url => { calls.push(String(url)); return Response.json({ items: [] }); });
+  await api.listProjectScaffolds("project /主题", 50);
+  await api.listProjectScaffolds("project /主题", 50, 50);
+  assert.deepEqual(calls, ["http://127.0.0.1:3999/api/v1/writing-projects/project%20%2F%E4%B8%BB%E9%A2%98/scaffolds?limit=50", "http://127.0.0.1:3999/api/v1/writing-projects/project%20%2F%E4%B8%BB%E9%A2%98/scaffolds?limit=50&offset=50"]);
+});
+
+test("scaffold generation carries the original Vault without changing legacy request defaults", async t => {
+  const api = await importPrototypeApi("scaffold-vault", { __API_BASE__: "http://127.0.0.1:3999" });
+  const payloads = [];
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    payloads.push(JSON.parse(options.body)); return Response.json({ item: { id: "scaffold" } });
+  });
+  await api.createDraftScaffold("project", "version", { expectedVaultPath: "E:/original-vault" });
+  await api.createDraftScaffold("project");
+  assert.deepEqual(payloads, [{ writingProjectId: "project", versionNote: "version", expectedVaultPath: "E:/original-vault" }, { writingProjectId: "project" }]);
+});
+
 test("prototype API falls back when packaged API placeholder is not replaced", async () => {
   const api = await importPrototypeApi("placeholder", { __API_BASE__: "__API_BASE__" });
   assert.equal(api.getApiBase(), "http://127.0.0.1:3000");
+});
+
+test('directory note reads preserve direct-only defaults and opt into subtree loading', async t => {
+  const api = await importPrototypeApi('note-subtree', { __API_BASE__: 'http://127.0.0.1:3999' });
+  const calls = [];
+  const controller = new AbortController();
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push(String(url));
+    assert.equal(options.signal, calls.length === 1 ? undefined : controller.signal);
+    return Response.json({ items: [{ id: 'real-note' }] });
+  });
+  assert.deepEqual(await api.fetchDirectoryNotes('root /目录'), [{ id: 'real-note' }]);
+  assert.deepEqual(await api.fetchDirectoryNotes('root /目录', { includeDescendants: true, signal: controller.signal }), [{ id: 'real-note' }]);
+  assert.deepEqual(calls, [
+    'http://127.0.0.1:3999/api/v1/directories/root%20%2F%E7%9B%AE%E5%BD%95/notes',
+    'http://127.0.0.1:3999/api/v1/directories/root%20%2F%E7%9B%AE%E5%BD%95/notes?includeDescendants=true'
+  ]);
+});
+
+test("asset upload has a bounded wait and retains the expected vault in its request", async t => {
+  const api = await importPrototypeApi("asset-timeout", { __API_BASE__: "http://127.0.0.1:3999" });
+  let expire, duration, entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  t.mock.method(globalThis, "setTimeout", (callback, milliseconds) => {
+    expire = callback; duration = milliseconds; return 123;
+  });
+  t.mock.method(globalThis, "clearTimeout", () => {});
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    assert.equal(String(url), "http://127.0.0.1:3999/api/v1/assets");
+    assert.equal(JSON.parse(options.body).expectedVaultPath, "E:/original-vault");
+    entered();
+    return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => {
+      reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+    }, { once: true }));
+  });
+  const pending = api.uploadNoteAsset("n", { fileName: "a.txt", expectedVaultPath: "E:/original-vault", contentBase64: "YQ==" });
+  pending.catch(() => {});
+  await started;
+  assert.equal(duration, 60000);
+  expire();
+  await assert.rejects(pending, { code: "request_timeout", timeoutMs: 60000 });
+});
+
+test("asset upload wait remains bounded after headers arrive but before the response body completes", async t => {
+  const api = await importPrototypeApi("asset-body-timeout", { __API_BASE__: "http://127.0.0.1:3999" });
+  let expire, entered, cleared = 0;
+  const started = new Promise(resolve => { entered = resolve; });
+  t.mock.method(globalThis, "setTimeout", callback => { expire = callback; return 123; });
+  t.mock.method(globalThis, "clearTimeout", () => { cleared++; });
+  t.mock.method(globalThis, "fetch", async (_url, options) => ({
+    ok: true,
+    json() {
+      entered();
+      return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => {
+        reject(Object.assign(new Error("aborted body"), { name: "AbortError" }));
+      }, { once: true }));
+    }
+  }));
+  const pending = api.uploadNoteAsset("n", { fileName: "a.txt", contentBase64: "YQ==" });
+  pending.catch(() => {});
+  await started;
+  assert.equal(cleared, 0, "The deadline must remain active during the JSON response read");
+  expire();
+  await assert.rejects(pending, { code: "request_timeout", timeoutMs: 60000 });
+  assert.equal(cleared, 1);
+});
+
+test("cancelling a response body is not mistaken for a successful empty JSON result", async t => {
+  const api = await importPrototypeApi("cancel-response-body", { __API_BASE__: "http://127.0.0.1:3999" });
+  const controller = new AbortController();
+  let entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  t.mock.method(globalThis, "fetch", async (_url, options) => ({
+    ok: true,
+    json() {
+      entered();
+      return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => {
+        reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+      }, { once: true }));
+    }
+  }));
+  const pending = api.fetchDirectories(false, { signal: controller.signal });
+  pending.catch(() => {});
+  await started;
+  controller.abort();
+  await assert.rejects(pending, { code: "request_cancelled" });
 });
 
 test("note update keeps the caller's operation ID and vault binding during readback", async t => {

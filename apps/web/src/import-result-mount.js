@@ -29,7 +29,7 @@ export function renderImportResultMount({
     subtitle: resultSubtitle(payload),
     brief: resultBrief(payload, tone),
     tone,
-    statusLabel: resultStatusLabel(tone),
+    statusLabel: resultStatusLabel(tone, payload),
     metrics: resultMetrics(payload),
     warnings,
     actions: actionItems(payload, warnings),

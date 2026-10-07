@@ -53,6 +53,7 @@ export function permanentNoteDistillationStatus(selectedStatus = "", values = {}
 }
 
 export function permanentNoteDistillationFormValues(form) {
+  const titleField = form?.querySelector?.('[name="title"]');
   const thesis = String(form?.querySelector?.('[name="thesis"]')?.value || "").trim();
   const originalThesis = String(form?.querySelector?.('[name="originalThesis"]')?.value || "").trim();
   const startingQuestion = String(form?.querySelector?.('[name="startingQuestion"]')?.value || "").trim();
@@ -67,6 +68,7 @@ export function permanentNoteDistillationFormValues(form) {
   ).map((item) => String(item.value || "").trim()).filter(Boolean);
 
   return {
+    ...(titleField ? { title: String(titleField.value || "").trim() } : {}),
     thesis,
     originalThesis,
     startingQuestion,

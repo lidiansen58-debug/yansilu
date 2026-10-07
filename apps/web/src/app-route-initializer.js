@@ -2,13 +2,12 @@ import {
   desktopServiceStatusMessage,
   readDesktopServiceStatus
 } from "./desktop-service-status.js";
+import { loadStartupVaultNotes } from "./startup-vault-notes.js";
 
 export async function initializeAppRouteForRuntime(deps = {}) {
   const {
     refreshVaultSettings = async () => {},
     syncDirectoriesFromApi = async () => {},
-    syncNotesForDirectoryTree = async () => {},
-    state = {},
     getApiBase = () => "",
     isApiConnectionError = () => false, apiConnectionErrorMessage = (error) => String(error?.message || error),
     setStatus = () => {},
@@ -18,7 +17,7 @@ export async function initializeAppRouteForRuntime(deps = {}) {
   try {
     await refreshVaultSettings();
     await syncDirectoriesFromApi();
-    await syncNotesForDirectoryTree(state.browserRootId);
+    await loadStartupVaultNotes(deps);
     setStatus(`已连接 API：${getApiBase()}`, "ok");
     return { connected: true, usingLocalFallbackData: false };
   } catch (error) {

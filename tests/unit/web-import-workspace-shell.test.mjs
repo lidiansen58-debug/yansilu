@@ -133,6 +133,39 @@ test("normalizeImportWorkspaceTab keeps import/export as the only tabs", () => {
   assert.equal(normalizeImportWorkspaceTab(""), "import");
 });
 
+test("background settings refresh preserves the mounted import form until the vault changes", () => {
+  let vault = "A";
+  let syncCount = 0;
+  const s = createHarness({ getVaultPath: () => vault, syncDirectoryOptions: () => { syncCount += 1; } });
+  s.elements.importPageMount.querySelector = () => s.elements.importToolbarMount;
+  assert.equal(s.controller.renderPage(), true);
+  s.elements.importPath.value = "NEW-PATH";
+  s.elements.importOptions.value = "UNSAVED-OPTIONS";
+  assert.equal(s.controller.renderPage({ preserveMounted: true }), false);
+  assert.equal(s.calls.page.length, 1);
+  assert.equal(s.elements.importPath.value, "NEW-PATH");
+  assert.equal(s.elements.importOptions.value, "UNSAVED-OPTIONS");
+  assert.equal(syncCount, 2);
+  vault = "B";
+  assert.equal(s.controller.renderPage({ preserveMounted: true }), true);
+  assert.equal(s.calls.page.length, 2);
+  assert.equal(s.calls.page.at(-1).toolbar.path, "");
+});
+
+test("explicit page refresh preserves export input only within the same vault", () => {
+  let vault = "A";
+  const s = createHarness({ getVaultPath: () => vault });
+  s.elements.exportTargetPath = element();
+  s.elements.exportDirectoryId = element({ value: "dir_original_default" });
+  s.controller.renderPage();
+  s.elements.exportTargetPath.value = "E:/export-here";
+  s.controller.renderPage();
+  assert.equal(s.elements.exportTargetPath.value, "E:/export-here");
+  vault = "B";
+  s.controller.renderPage();
+  assert.equal(s.elements.exportTargetPath.value, "");
+});
+
 test("page redraw preserves an open result but never reopens an explicitly closed result", () => {
   const s = createHarness();
   s.importState.operationResultVisible = true;

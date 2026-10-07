@@ -1,0 +1,12 @@
+{
+  "revision": "ffb0b66d17404c189b5d17d7953d28cd62905b3b",
+  "path": "tests/fixtures/demo-smart-notes-product-thinking/demo.json",
+  "gitBlob": "e3f1d272a5c160d50375f6767d37bd7fd620f2c3",
+  "sha256": "15737e8012405c97e54255fbbed3e5aab08a774483716220a440ce0bac8f376a",
+  "encoding": "UTF-8",
+  "compression": "gzip",
+  "bytes": 1307336,
+  "permanentNotes": 114,
+  "relations": 347,
+  "purpose": "Archived product demo for dense semantic graph acceptance, not the beginner default or a live user library. Preserve the exact historical JSON bytes; build graph nodes, edges and layout from saved notes with current code."
+}

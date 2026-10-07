@@ -73,6 +73,27 @@ test("graph isolated queue prioritizes candidates and keeps current item visible
   assert.equal(items[1].current, true);
 });
 
+test("isolated queue shares one feature snapshot without skipping low-ranked sources", () => {
+  const nodeMap = new Map(Array.from({ length: 12 }, (_, index) => [String(index), { id: String(index), title: `笔记 ${index}` }]));
+  const prepared = {};
+  let preparations = 0;
+  const visited = [];
+  const items = graphIsolatedQueueItemsForGraph({
+    isolatedNotes: [...nodeMap.keys()].map(noteId => ({ noteId })), nodeMap, limit: 2,
+    fullNoteById: (id, map) => map.get(id),
+    prepareLocalRelationCandidates: map => { assert.equal(map, nodeMap); preparations++; return prepared; },
+    localRelationCandidatesForNote: (id, options) => {
+      assert.equal(options.prepared, prepared);
+      visited.push(id);
+      return id === "11" ? [{ targetTitle: "真实目标" }] : [];
+    }
+  });
+  assert.equal(preparations, 1);
+  assert.equal(visited.length, 12);
+  assert.equal(items[0].noteId, "11");
+  assert.equal(items[0].localCount, 1);
+});
+
 test("graph isolated queue removes notes with saved dispositions", () => {
   const items = graphIsolatedQueueItemsForGraph({
     isolatedNotes: [{ noteId: "skip" }, { noteId: "keep" }],

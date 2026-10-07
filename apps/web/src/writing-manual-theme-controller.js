@@ -7,7 +7,7 @@ export function createWritingManualThemeController(deps) {
 
   async function performSave() {
     const { state, writingState = {}, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
-      writingNoteById, isWritingEligibleNote, requestTextInput, createIndexCard,
+      writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard,
       upsertWritingThemeIndex, useThemeIndexAsWritingEntry, openTheme } = deps;
     const scope = state.noteMoveVaultScope ||= {};
     const directoryId = writingThemeIndexScopeDirectoryId();
@@ -27,15 +27,22 @@ export function createWritingManualThemeController(deps) {
         throw new Error("请先回到草稿完成保存，再新建主题。");
       }
     };
+    const assertEligibleNotes = () => {
+      for (const id of noteIds) {
+        const note = writingNoteById(id);
+        const eligibility = writingNoteEligibility(note);
+        if (!eligibility.ok) {
+          throw new Error(`“${note?.title || "所选笔记"}”：${eligibility.message} 请在“相关笔记”中处理后再创建主题。`);
+        }
+      }
+    };
     assertCurrent();
     if (noteIds.length < THEME_INDEX_MIN_NOTE_COUNT) {
       throw new Error(`请先在“相关笔记”中选择至少 ${THEME_INDEX_MIN_NOTE_COUNT} 条永久笔记。`);
     }
     await ensureNotesLoaded(noteIds);
     assertCurrent();
-    if (noteIds.some(id => !isWritingEligibleNote(writingNoteById(id)))) {
-      throw new Error("部分笔记还未完成作者确认，请先在“相关笔记”中处理。");
-    }
+    assertEligibleNotes();
     if (!draft || draft.scope !== scope || draft.key !== key || draft.directoryId !== directoryId) {
       draft = { scope, key, directoryId, title: "", question: "", card: null };
     }
@@ -48,9 +55,7 @@ export function createWritingManualThemeController(deps) {
       assertCurrent();
       if (!String(question || "").trim()) return null;
       draft.question = String(question).trim();
-      if (noteIds.some(id => !isWritingEligibleNote(writingNoteById(id)))) {
-        throw new Error("相关笔记的状态已改变，请重新确认后再创建主题。");
-      }
+      assertEligibleNotes();
       const payload = buildThemeIndexCreatePayload({ directoryId, noteIds, title: draft.title, noteById: writingNoteById });
       draft.card = await createIndexCard({
         ...payload,

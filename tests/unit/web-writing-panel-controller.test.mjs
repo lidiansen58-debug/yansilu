@@ -201,7 +201,8 @@ test("writing panel controller keeps the choose-topic first screen until a theme
   assert.equal(nodes.get("writingThemeDetail").innerHTML, "");
 });
 
-test("writing panel controller shows selected theme notes in the related-note overlay", () => {
+for (const pending of [false, true]) {
+test(`writing panel controller retains selected theme notes and ${pending ? "pending" : "ready"} generation state`, () => {
   const shell = {
     dataset: {},
     counters: [{ textContent: "" }, { textContent: "" }, { textContent: "" }],
@@ -217,7 +218,8 @@ test("writing panel controller shows selected theme notes in the related-note ov
     ["writingBasketList", { innerHTML: "" }],
     ["writingThemeDetail", { innerHTML: "" }],
     ["writingThemeDetailHint", { textContent: "" }],
-    ["btnWritingStartDraft", { disabled: false }]
+    ["btnWritingStartDraft", { disabled: false }],
+    ["btnWritingCreateScaffold", { disabled: false, textContent: "" }]
   ]);
 
   renderWritingPanelDom({
@@ -226,6 +228,7 @@ test("writing panel controller shows selected theme notes in the related-note ov
     writingState: {
       themeIndexes: [],
       selectedThemeIndexId: "theme-1",
+      scaffoldGenerationPending: pending,
       sourceIndexIds: []
     },
     folderById: () => ({ name: "永久笔记" }),
@@ -272,7 +275,10 @@ test("writing panel controller shows selected theme notes in the related-note ov
   assert.match(nodes.get("writingBasketList").innerHTML, /Theme Note A/);
   assert.match(nodes.get("writingBasketList").innerHTML, /Theme Note B/);
   assert.equal(nodes.get("btnWritingStartDraft").disabled, true);
+  assert.equal(nodes.get("btnWritingCreateScaffold").disabled, pending);
+  assert.equal(nodes.get("btnWritingCreateScaffold").textContent, pending ? "正在生成..." : "生成提纲");
 });
+}
 
 test("writing panel controller keeps an empty outline focused on the next action", () => {
   const nodes = new Map([
@@ -334,7 +340,7 @@ test("writing panel controller renders editable outline sections without diagnos
 
   const html = nodes.get("writingScaffoldPreview").innerHTML;
   assert.match(html, /data-writing-outline-field="heading"/);
-  assert.match(html, /value="Opening &lt;claim&gt;"/);
+  assert.match(html, /<textarea[^>]*data-writing-outline-field="heading"[^>]*>Opening &lt;claim&gt;<\/textarea>/);
   assert.match(html, /data-writing-outline-action="add"/);
   assert.match(html, /Set direction/);
   assert.doesNotMatch(html, /larger question/);

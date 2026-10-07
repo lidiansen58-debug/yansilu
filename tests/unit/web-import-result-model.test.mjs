@@ -11,6 +11,14 @@ import {
   warningItems
 } from "../../apps/web/src/import-result-model.js";
 
+test("preview and in-progress receipts never claim the import is complete", () => {
+  assert.equal(resultStatusLabel("ok", { stage: "preview" }), "待确认");
+  assert.equal(resultStatusLabel("warn", { stage: "preview" }), "待确认");
+  assert.equal(resultStatusLabel("warn", { stage: "confirm_pending" }), "待核查");
+  assert.equal(resultStatusLabel("ok", { stage: "record", importRecord: { status: "confirming" } }), "正在导入");
+  assert.equal(resultStatusLabel("ok", { stage: "record", importRecord: { status: "completed" } }), "已导入");
+});
+
 test("interrupted imports show verified, changed, missing and unconfirmed items distinctly", () => {
   const payload = { stage: "record", importRecord: { status: "interrupted", recoveryResult: {
     checkpointAvailable: true, pending: { noteId: "pending-note" }, files: [
@@ -41,7 +49,7 @@ test("import result model derives simplified preview title tone metrics subtitle
   assert.equal(resultTone(payload), "warn");
   assert.equal(resultSubtitle(payload), "imp_1");
   assert.equal(resultStatusLabel("warn"), "注意");
-  assert.equal(resultBrief(payload, "warn"), "可以继续，但建议先处理警告。");
+  assert.equal(resultBrief(payload, "warn"), "已有永久笔记按草稿保留，导入后确认自己的观点。");
   assert.deepEqual(resultMetrics(payload), [
     { label: "来源", value: "Markdown" },
     { label: "状态", value: "待确认" },
@@ -54,6 +62,15 @@ test("import result model derives plain-language briefs", () => {
   assert.equal(resultBrief({ stage: "preview" }, "ok"), "检查可导入内容，确认后再导入。");
   assert.equal(resultBrief({ stage: "export_markdown" }, "ok"), "导出文件已经写到目标目录。");
   assert.equal(resultBrief({ stage: "preview_error" }, "bad"), "这一步没有完成，请先处理下面的问题。");
+});
+
+test("history retains source-file warnings and their correction action", () => {
+  const payload = { stage: "record", importRecord: { status: "preview", warnings: [{ code: "IMPORT_SOURCE_UNREADABLE", message: "EACCES" }] } };
+  const warnings = warningItems(payload);
+  assert.equal(resultTone(payload), "warn");
+  assert.equal(warnings[0].message, "导入路径无法读取。");
+  assert.equal(warnings[0].detail, "EACCES");
+  assert.ok(actionItems(payload, warnings).includes("检查导入路径是否可读。"));
 });
 
 test("unconfirmed import never suggests continuing or duplicates its error code", () => {
@@ -78,7 +95,7 @@ test("import result model derives warnings and actions from originality and skip
 
   const warnings = warningItems(payload);
   assert.deepEqual(warnings, [
-    { code: "ORIGINALITY_GUARD_BLOCKED", message: "有永久笔记被原创性检查阻止。", detail: "blocked" },
+    { code: "ORIGINALITY_GUARD_BLOCKED", message: "有永久笔记未通过原创性检查。", detail: "" },
     { code: "ORIGINALITY_WARNING", message: "pn_1：缺少引用定位" }
   ]);
   assert.deepEqual(actionItems(payload, warnings), [
@@ -86,6 +103,16 @@ test("import result model derives warnings and actions from originality and skip
     "补充引用定位或加强转述。",
     "补充页码、章节或时间定位。"
   ]);
+});
+
+test("originality preview warnings name the actual note and avoid repeated generic English", () => {
+  const items = warningItems({
+    warnings: [{ code: "ORIGINALITY_GUARD_BLOCKED", message: "Some permanent note candidates are blocked by originality rules." }],
+    candidatePreview: { permanentNotes: [{ id: "pn_1", title: "My clear viewpoint" }] },
+    originalityGuard: { evaluations: [{ permanentId: "pn_1", status: "blocked", reasons: ["similarity_above_block_threshold"] }] }
+  });
+  assert.equal(items[0].detail, "");
+  assert.equal(items[1].message, "My clear viewpoint：与原文高度重复");
 });
 
 test("import result model maps new import warning codes to concrete actions", () => {
@@ -245,4 +272,44 @@ test("import result model surfaces failed import records", () => {
 test("import result model does not treat preview placeholders without summary as zero-candidate previews", () => {
   assert.equal(resultBrief({ stage: "preview" }, "warn"), "可以继续，但建议先处理警告。");
   assert.deepEqual(actionItems({ stage: "preview" }, []), []);
+});
+
+test("default preview explains excluded permanent notes without requiring source edits first", () => {
+  const payload = { stage: "preview", candidatePreview: {
+    sources: [{ id: "s1" }], literatureNotes: [{ id: "l1" }],
+    permanentNotes: [{ id: "p1", originalityStatus: "blocked" }]
+  }, originalityGuard: { plan: { blockOnBlocked: true }, evaluations: [{ permanentId: "p1", status: "blocked", reasons: ["similarity_above_block_threshold"] }] },
+    warnings: [{ code: "ORIGINALITY_GUARD_BLOCKED" }] };
+  assert.equal(resultBrief(payload), "未通过检查的永久笔记暂不导入；仍可导入来源和文献笔记，之后再整理。");
+  assert.deepEqual(actionItems(payload, warningItems(payload)), ["先导入来源和文献笔记，再用自己的话整理成观点。"]);
+  const overridden = { ...payload, originalityGuard: { ...payload.originalityGuard, plan: { blockOnBlocked: false } } };
+  assert.doesNotMatch(resultBrief(overridden), /暂不导入/);
+  const onlyPermanent = { ...payload, candidatePreview: { permanentNotes: payload.candidatePreview.permanentNotes } };
+  assert.doesNotMatch(resultBrief(onlyPermanent), /仍可导入来源/);
+  const record = { stage: "record", importRecord: { status: "preview", candidatePreview: payload.candidatePreview, originalityGuard: payload.originalityGuard } };
+  assert.match(resultBrief(record), /暂不导入/);
+});
+
+test("partial completion states what was written and failures outrank warnings", () => {
+  assert.equal(resultBrief({ stage: "confirm", status: "completed", result: { selection: { selectedCandidates: 4, totalCandidates: 5 } } }), "已导入所选内容，未选择的笔记没有写入。");
+  assert.equal(resultTone({ stage: "confirm", status: "failed", warnings: [{ code: "WARNING" }] }), "bad");
+  assert.equal(resultTone({ stage: "preview", status: "blocked", warnings: [{ code: "WARNING" }] }), "bad");
+});
+
+test("history status never turns an interrupted or ongoing import into completion", () => {
+  for (const status of ["interrupted", "confirming"]) {
+    const payload = { stage: "record", importRecord: { status } };
+    assert.equal(resultTone(payload), "warn");
+    assert.match(resultBrief(payload), /不要重复/);
+    assert.doesNotMatch(resultBrief(payload), /可以继续确认|回滚/);
+  }
+  assert.equal(resultBrief({ stage: "record", importRecord: { status: "cancelled" } }), "这次导入已取消，没有新增笔记。");
+  assert.equal(resultBrief({ stage: "confirm", result: { skipped: { conflicted: 2 } } }), "有笔记未写入，请展开“跳过与保留”核对。");
+});
+
+test("preview history names guarded notes and retains their concrete reasons", () => {
+  const payload = { stage: "record", importRecord: { status: "preview", candidatePreview: { permanentNotes: [{ id: "p1", title: "我的观点" }] },
+    originalityGuard: { evaluations: [{ permanentId: "p1", status: "blocked", reasons: ["similarity_above_block_threshold"] }] } } };
+  assert.deepEqual(warningItems(payload), [{ code: "ORIGINALITY_BLOCKED", message: "我的观点：与原文高度重复" }]);
+  assert.deepEqual(actionItems(payload), ["重写这条永久笔记后再导入。"]);
 });

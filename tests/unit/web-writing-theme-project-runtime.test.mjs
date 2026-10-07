@@ -9,12 +9,14 @@ function harness(selectedThemeIndexId) {
   const payloads = [];
   const runtime = createWritingThemeProjectRuntime({
     $: (id) => fields[id], writingState, normalizeWritingProjectTitleSeed,
-    useThemeIndexAsWritingEntry: async (id) => {
+    useThemeIndexAsWritingEntry: async (id, options) => {
+      options.assertCurrent();
       fields.writingTitle.value = "新主题默认题目";
       fields.writingGoal.value = "新主题默认问题";
       fields.writingAudience.value = "默认读者";
       fields.writingTone.value = "默认语气";
       writingState.selectedThemeIndexId = id;
+      options.onEntryApplied();
       return { indexCard: { id, title: fields.writingTitle.value }, noteIds: ["note-1"] };
     },
     currentWritingBookStructure: () => { throw new Error("Theme articles must not adopt suggested book chapters"); }, writingKnownNoteById: () => ({ id: "note-1", title: "真实来源" }),
@@ -43,4 +45,18 @@ test("creating from a different theme never carries the previous theme's edited 
   assert.equal(payloads[0].title, "新主题默认题目");
   assert.equal(payloads[0].goal, "新主题默认问题");
   assert.equal(payloads[0].audience, "默认读者");
+});
+
+test("writing eligibility distinguishes author confirmation from an originality draft", () => {
+  const runtime = createWritingThemeProjectRuntime({
+    isDirectoryUnderOriginalRoot: () => false,
+    normalizeAuthorshipItem: value => value
+  });
+  const note = { noteType: "permanent", status: "draft", authorship: { user_confirmed: true } };
+  const draft = runtime.writingNoteEligibility(note);
+  assert.equal(draft.key, "draft");
+  assert.match(draft.message, /原创性检查/);
+  assert.doesNotMatch(draft.message, /作者确认|draft/);
+  assert.equal(runtime.writingNoteEligibility({ ...note, authorship: { user_confirmed: false } }).key, "authorship");
+  assert.equal(runtime.writingNoteEligibility({ ...note, status: "active" }).ok, true);
 });

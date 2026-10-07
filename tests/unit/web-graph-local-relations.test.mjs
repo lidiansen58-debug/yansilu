@@ -6,6 +6,7 @@ import {
   graphFullNoteByIdFromSources,
   graphIsolatedPreviewTargetForNote,
   graphLocalRelationCandidatesForNote,
+  prepareGraphLocalRelationCandidates,
   graphManualRelationTargetsForNote,
   graphNotePreviewTextForLocalRelation,
   graphNoteTagsForLocalRelation,
@@ -13,6 +14,45 @@ import {
 } from "../../apps/web/src/graph-local-relations.js";
 
 const countsNetworkEdge = (status = "") => ["suggested", "draft", "confirmed"].includes(String(status || "confirmed").trim().toLowerCase());
+
+test("one queue snapshot prepares tags once and preserves per-source candidates", () => {
+  const nodeMap = new Map(Array.from({ length: 20 }, (_, index) => [String(index), {
+    id: String(index), title: index % 2 ? `检索证据 ${index}` : `观点形成 ${index}`,
+    tags: ["永久笔记", index < 5 ? "反例" : "资料", ...(index % 3 ? [] : ["检索"])],
+    noteType: index === 19 ? "literature" : "permanent"
+  }]));
+  let tagReads = 0;
+  const noteTags = note => { tagReads++; return note.tags; };
+  const prepared = prepareGraphLocalRelationCandidates(nodeMap, { noteTags });
+  assert.equal(tagReads, 19);
+  const edges = [{ fromNoteId: "0", toNoteId: "3", status: "confirmed" },
+    { fromNoteId: "1", toNoteId: "4", status: "archived" }];
+  const actual = [...nodeMap.keys()].map(id => graphLocalRelationCandidatesForNote(id,
+    { nodeMap, edges, limit: 3, prepared }, { noteTags, relationStatusCountsAsNetworkEdge: countsNetworkEdge }));
+  assert.equal(tagReads, 19, "No whole-library tag parsing per source");
+  const expected = [...nodeMap.keys()].map(id => graphLocalRelationCandidatesForNote(id,
+    { nodeMap, edges, limit: 3 }, { relationStatusCountsAsNetworkEdge: countsNetworkEdge }));
+  assert.deepEqual(actual, expected);
+  assert.ok(actual[0].every(item => item.targetNoteId !== "3"));
+  assert.deepEqual(actual[19], []);
+});
+
+test("prepared features are local to a render and cannot supply another library", () => {
+  const nodeMap = new Map([
+    ["a", { id: "a", title: "甲乙", tags: ["主题"] }],
+    ["b", { id: "b", title: "丙丁", tags: ["主题"] }]
+  ]);
+  const prepared = prepareGraphLocalRelationCandidates(nodeMap);
+  assert.equal(graphLocalRelationCandidatesForNote("a", { nodeMap, prepared }).length, 1);
+  const otherMap = new Map([
+    ["a", { id: "a", title: "甲乙", tags: [] }],
+    ["b", { id: "b", title: "丙丁", tags: [] }]
+  ]);
+  assert.deepEqual(graphLocalRelationCandidatesForNote("a", { nodeMap: otherMap, prepared }), []);
+  nodeMap.get("b").tags = [];
+  const nextRender = prepareGraphLocalRelationCandidates(nodeMap);
+  assert.deepEqual(graphLocalRelationCandidatesForNote("a", { nodeMap, prepared: nextRender }), []);
+});
 
 test("graph local relations extract tags and title overlap", () => {
   assert.deepEqual(graphNoteTagsForLocalRelation({ tags: ["AI", "AI", "Graph"] }), ["AI", "Graph"]);

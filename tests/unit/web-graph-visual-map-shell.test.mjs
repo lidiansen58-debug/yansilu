@@ -106,3 +106,9 @@ test("graph visual map shell renders empty state through a slot", () => {
   assert.match(markup, /data-graph-task-view="themes"/);
   assert.doesNotMatch(markup, /data-graph-view-mode=/);
 });
+
+test("cluster selection uses the same visual focus as an explicit theme", () => {
+  const markup = renderGraphVisualMapShellView({ selectionKind: "cluster", readingLensActive: true, readingLensKey: "overview" });
+  assert.match(markup, /has-reading-lens is-reading-lens-overview is-selecting-theme/);
+  assert.doesNotMatch(renderGraphVisualMapShellView({ selectionKind: "" }), /is-selecting-theme/);
+});

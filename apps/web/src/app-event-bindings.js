@@ -1,3 +1,7 @@
+import { handleImportResultDialogKey } from "./import-result-focus.js";
+import { createImportMarkdownExportAction } from "./import-markdown-export-action.js";
+import { changeImportPreviewPage } from "./import-candidate-pagination.js";
+
 export function bindImportWorkspaceEventsForRuntime(deps = {}) {
   const {
     $ = () => null,
@@ -20,18 +24,17 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     preferredImportDirectoryId = (value) => value,
     directoryPathLabel = (value) => value,
     updateExportTargetHint = () => {},
-    exportMarkdown = async () => ({}),
-    showExportResult = () => {},
     setStatus = () => {}
   } = deps;
   const mount = $("importPageMount");
   if (!mount) return [];
   // Settings can replace the mount; keep delegation on its stable document.
   const eventRoot = mount.ownerDocument || mount;
+  const handleExportMarkdown = createImportMarkdownExportAction(deps);
 
   const clickHandler = (event) => {
     if (eventRoot !== mount && !event.target?.closest?.("#importPageMount")) return;
-    if (event.target?.closest?.("#btnCloseImportOperationResult") || event.target?.id === "importOperationResultModal") {
+    if (event.target?.closest?.("#btnCloseImportOperationResult") || event.target?.closest?.("[data-import-dismiss]") || event.target?.id === "importOperationResultModal") {
       hideImportOperationResultModal();
       return;
     }
@@ -77,9 +80,14 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     }
     const actionButton = event.target?.closest?.("[data-candidate-action]");
     if (actionButton) return applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
-    if (event.target?.closest?.("#btnImportPreview")) {
+    const pageButton = event.target?.closest?.("[data-candidate-page]");
+    if (pageButton && !pageButton.disabled) {
+      changeImportPreviewPage(importState, pageButton.getAttribute("data-candidate-page"));
+      return rerenderImportResult();
+    }
+    if (event.target?.closest?.("#btnImportPreview") || event.target?.closest?.("#btnImportRepreview")) {
       setImportWorkspaceTab("import");
-      void importToolbarActions.handlePreview?.();
+      void importToolbarActions.handlePreview?.({ restart: Boolean(event.target?.closest?.("#btnImportRepreview")) });
       return;
     }
     if (event.target?.closest?.("#btnBrowseImportPath")) {
@@ -87,6 +95,7 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
         const picked = await desktopCommands.browseDirectory?.({ defaultPath: $("importPath")?.value || "", purpose: "导入目录" });
         if (!picked?.path) return;
         $("importPath").value = picked.path;
+        deps.checkpointImportWorkspace?.();
         setStatus(`已选择导入目录：${picked.source || picked.path}`, "ok");
       })();
       return;
@@ -115,6 +124,11 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
 
   const changeHandler = (event) => {
     if (eventRoot !== mount && !event.target?.closest?.("#importPageMount")) return;
+    const pageSelect = event.target?.closest?.("[data-candidate-page-select]");
+    if (pageSelect) {
+      changeImportPreviewPage(importState, pageSelect.value);
+      return rerenderImportResult();
+    }
     const checkbox = event.target?.closest?.(".candidate-checkbox");
     if (checkbox) {
       const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
@@ -142,51 +156,17 @@ export function bindImportWorkspaceEventsForRuntime(deps = {}) {
     if (event.target?.closest?.("#exportDirectoryId") || event.target?.closest?.("#exportTargetPath")) updateExportTargetHint();
   };
 
-  async function handleExportMarkdown() {
-    const directoryId = String($("exportDirectoryId")?.value || "").trim();
-    if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
-    let targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) {
-      const picked = await desktopCommands.browseDirectory?.({ defaultPath: "", purpose: "导出目录" });
-      targetPath = String(picked?.path || "").trim();
-      if (targetPath) {
-        $("exportTargetPath").value = targetPath;
-        $("exportAdvanced")?.setAttribute("open", "open");
-        updateExportTargetHint();
-      }
-    }
-    if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
-    try {
-      const result = await exportMarkdown({ targetPath, directoryId });
-      showExportResult({
-        stage: "export_markdown",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        exportJobId: result.exportJobId,
-        status: result.status,
-        copied: result.copied,
-        copiedBreakdown: result.copiedBreakdown || null
-      });
-      setStatus(`已导出 ${result.copied} 个文件`, "ok");
-    } catch (error) {
-      showExportResult({
-        stage: "export_error",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`导出失败：${String(error?.message || error)}`, "bad");
-    }
-  }
-
   eventRoot.addEventListener("click", clickHandler);
   eventRoot.addEventListener("change", changeHandler);
+  eventRoot.addEventListener("input", event => {
+    if (event.target?.id === "exportTargetPath") updateExportTargetHint();
+    if (["importPath", "importPayload", "importOptions"].includes(event.target?.id)) deps.checkpointImportWorkspace?.();
+  });
+  eventRoot.addEventListener("keydown", event => handleImportResultDialogKey(event, $("importOperationResultModal"), hideImportOperationResultModal), true);
   return [
     { target: "importPageMount", eventName: "click", installed: true },
-    { target: "importPageMount", eventName: "change", installed: true }
+    { target: "importPageMount", eventName: "change", installed: true },
+    { target: "importPageMount", eventName: "input", installed: true },
+    { target: "importPageMount", eventName: "keydown", installed: true }
   ];
 }

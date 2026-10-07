@@ -27,6 +27,8 @@ for (const width of [1366, 390]) {
     await edge.focus();
     await edge.press("Enter");
     const panel = page.locator(".graph-selection-panel");
+    await panel.getByText('更多检查', { exact: true }).focus();
+    await panel.getByText('更多检查', { exact: true }).press('Enter');
     await panel.locator('[data-graph-relation-adjustment="change-type"]').click();
     assert.match(await panel.textContent(), /当前处理方向/);
     await panel.locator("[data-graph-open-relation-form]").click();

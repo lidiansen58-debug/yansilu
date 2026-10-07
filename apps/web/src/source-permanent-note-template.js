@@ -1,4 +1,4 @@
-import { parseLiteratureWorkspace } from "./editor-template-workspace.js";
+import { noteUsesPlaceholderTitle, parseLiteratureWorkspace } from "./editor-template-workspace.js";
 import { sourceNoteReference, stripGeneratedOriginalMarker } from "./note-persistence-policy.js";
 import { composePermanentTemplateDraft } from "./prototype-note-templates.js";
 
@@ -47,8 +47,9 @@ export function originalDraftBodyFromSource(payload = {}, deps = {}) {
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
   const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
   const excerpt = sourceBody.replace(/^#\s+[^\n]*\n?/m, "").trim();
+  const titledSource = sourceTitle !== "未命名随笔笔记" && !noteUsesPlaceholderTitle(sourceTitle);
   return compose({
-    title: titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle),
+    title: titleFromSeedText(titledSource ? sourceTitle : excerpt, "未命名永久笔记"),
     coreClaim: "用自己的话，把这个想法写成一个清楚的判断。",
     whyTrue: "写清理由，以及支持它的观察或经验。",
     boundary: "它在哪些条件下不成立？还有什么需要验证？",

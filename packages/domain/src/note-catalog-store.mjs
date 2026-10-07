@@ -14,6 +14,7 @@ import { parseWikilinks, wikilinkTargets } from "../../markdown-engine/src/markd
 import { prepareNoteMoveFiles } from "./note-move-files.mjs";
 import { withNoteSaveLock } from "./note-save-lock.mjs";
 import { findLinkAliasRows, linkAliasMatchesReference, readLinkAliases, renamedLinkAliases, syncLinkAliases } from "./note-link-aliases.mjs";
+import { upsertConfirmedDistillationMarkdown } from "./confirmed-distillation-markdown.mjs";
 
 const QUICK_WIKILINK_ASSOCIATION_MARKER = "__yansilu_quick_wikilink_association__";
 const fileRevision = markdown => createHash("sha256").update(markdown, "utf8").digest("hex");
@@ -166,7 +167,8 @@ function normalizeMarkdown(inputTitle, inputBody) {
 }
 
 function cleanDistillationBlockText(input) {
-  return String(input || "").replace(/\r\n/g, "\n").replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+  return String(input || "").replace(/\r\n/g, "\n").replace(/\n+/g, " ").replace(/\s+/g, " ").trim()
+    .replace(/^(?:`{3,}|~{3,}|#{1,6}(?=\s)|<!--)/, marker => `\\${marker}`);
 }
 
 function renderConfirmedDistillationSection(note = {}) {
@@ -187,42 +189,7 @@ function renderConfirmedDistillationSection(note = {}) {
 }
 
 function upsertConfirmedDistillationSection(markdownBody, note = {}) {
-  const section = renderConfirmedDistillationSection(note);
-  const source = String(markdownBody || "").replace(/\r\n/g, "\n").trim();
-  const lines = source ? source.split("\n") : [];
-  const existingStart = lines.findIndex((line) => /^##\s+提炼观点\s*$/.test(String(line || "").trim()));
-  if (existingStart >= 0) {
-    let existingEnd = lines.length;
-    for (let index = existingStart + 1; index < lines.length; index += 1) {
-      if (/^##\s+\S/.test(String(lines[index] || "").trim())) {
-        existingEnd = index;
-        break;
-      }
-    }
-    const nextLines = [
-      ...lines.slice(0, existingStart),
-      ...section.split("\n"),
-      "",
-      ...lines.slice(existingEnd).filter((line, index) => index > 0 || String(line || "").trim())
-    ];
-    return `${nextLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
-  }
-
-  const firstHeadingIndex = lines.findIndex((line) => /^#\s+\S/.test(String(line || "").trim()));
-  if (firstHeadingIndex >= 0) {
-    let insertIndex = firstHeadingIndex + 1;
-    while (insertIndex < lines.length && !String(lines[insertIndex] || "").trim()) insertIndex += 1;
-    const nextLines = [
-      ...lines.slice(0, firstHeadingIndex + 1),
-      "",
-      ...section.split("\n"),
-      "",
-      ...lines.slice(insertIndex)
-    ];
-    return `${nextLines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
-  }
-
-  return `${section}\n\n${source}`.trim() + "\n";
+  return upsertConfirmedDistillationMarkdown(markdownBody, renderConfirmedDistillationSection(note));
 }
 
 function extractLiteratureSection(markdownBody, sectionLabels = []) {
@@ -2859,7 +2826,15 @@ export async function updatePermanentNoteDistillation(vaultPath, noteId, input =
       noteType: note.noteType
     });
   }
+  const title = input.title === undefined ? undefined : toTitleLine(input.title);
+  if (title === "") throw noteValidationError("NOTE_TITLE_REQUIRED", "请填写笔记标题。");
+  const renamedBody = title !== undefined && title !== note.title
+    ? normalizeMarkdown(note.title, note.body).markdownBody.replace(/^#{1,6}[^\S\r\n]+[^\r\n]*/, () => `# ${title}`)
+    : undefined;
   return updateNoteContent(vaultPath, noteId, {
+    title,
+    body: renamedBody,
+    expectedRevision: input.expectedRevision ?? (renamedBody !== undefined ? note.fileRevision : undefined),
     thesis: input.thesis,
     threeLineSummary: input.threeLineSummary ?? input.three_line_summary,
     startingQuestion: input.startingQuestion ?? input.starting_question,
@@ -2895,6 +2870,7 @@ export async function confirmPermanentNoteDistillation(vaultPath, noteId, input 
   }
   return updateNoteContent(vaultPath, noteId, {
     body: upsertConfirmedDistillationSection(note.body, note),
+    expectedRevision: input.expectedRevision ?? note.fileRevision,
     thesis: note.thesis,
     threeLineSummary: note.threeLineSummary,
     startingQuestion: note.startingQuestion,

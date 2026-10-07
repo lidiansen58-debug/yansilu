@@ -15,7 +15,7 @@ export function setWritingRelatedPanelOpen(open = false, { root = null, document
 export function updateWritingRelatedNoteCounters(count = 0, { root = null, documentRef = typeof document !== "undefined" ? document : null } = {}) {
   const shell = root || documentRef?.querySelector?.(".writing-shell");
   if (!shell) return false;
-  shell.querySelectorAll?.("#writingRelatedNotesCount, #writingRelatedNotesCountOutline, #writingRelatedNotesCountDraft").forEach((node) => {
+  shell.querySelectorAll?.("#writingRelatedNotesCount").forEach((node) => {
     node.textContent = String(Number(count || 0));
   });
   const sidebarCounter = documentRef?.querySelector?.("#writingSidebarRelatedCount");

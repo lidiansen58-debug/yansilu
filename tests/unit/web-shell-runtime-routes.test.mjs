@@ -63,7 +63,7 @@ test("directory option runtime derives import, move, and export options from hos
   assert.match(elements.exportTargetHint.textContent, /path:dir_original_child/);
 });
 
-test("save AI suggestion workflow routes render only for the active explorer note", () => {
+test("save suggestions remain available for system messages without writing another UI", () => {
   const elements = {
     saveAiSuggestion: fakeElement(),
     saveAiSuggestionText: fakeElement(),
@@ -97,8 +97,8 @@ test("save AI suggestion workflow routes render only for the active explorer not
 
   assert.equal(suggestion?.noteId, "note-1");
   assert.equal(currentSuggestion?.noteId, "note-1");
-  assert.equal(elements.saveAiSuggestionText.textContent.length > 0, true);
-  assert.equal(elements.saveAiSuggestion.classList.contains("hidden"), false);
+  assert.equal(elements.saveAiSuggestionText.textContent, "");
+  assert.equal(routes.renderSaveAiSuggestion, undefined);
 });
 
 test("settings panel runtime routes update section and item state without prototype helpers", () => {

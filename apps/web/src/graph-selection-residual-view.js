@@ -179,15 +179,12 @@ function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [
 }
 
 function renderGraphClusterSelectionPanel({ selection = null, clusterMeta = [], nodeMap = new Map(), edges = [] } = {}) {
-  return renderGraphClusterSelectionPanelView({ selection, clusterMeta, nodeMap, edges }, {
+  return renderGraphClusterSelectionPanelView({ selection, clusterMeta, nodeMap, edges, disclosureState: graphState.sectionOpen || {} }, {
     normalizeGraphSelectionForVisibleItems,
     graphUniqueClusterMeta,
     graphClusterResearchMeta,
     escapeHtml,
-    renderGraphSelectionShell,
-    renderGraphSelectionMetrics,
-    renderGraphThemeIndexWorkspace: renderGraphThemeIndexWorkspaceMarkup,
-    renderGraphPromptDetails
+    renderGraphSelectionShell
   });
 }
 

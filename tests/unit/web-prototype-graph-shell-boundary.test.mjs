@@ -119,7 +119,7 @@ test("prototype graph shell delegates cluster selection body to a panel module",
   const residualSource = await readGraphResidualViewsSource();
 
   assert.match(source, /from "\.\/graph-cluster-selection-panel\.js"/);
-  assert.match(residualSource, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
+  assert.match(residualSource, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges, disclosureState: graphState\.sectionOpen \|\| \{\} \}/);
   assert.doesNotMatch(source, /renderGraphThemeIndexWorkspace\(meta\.memberIds/);
   assert.doesNotMatch(source, /className: "is-cluster"/);
 });

@@ -26,6 +26,20 @@ test("outline source titles never fall back to identifiers", () => {
   assert.doesNotMatch(output, /pn_internal/);
 });
 
+test("historical outline output uses actual evidence titles even after current material changes", () => {
+  const input = fixture();
+  input.project.basket_notes = [];
+  input.scaffold.evidence_notes = [{ id: "pn_internal", title: "现在仍存在的历史来源", status: "active" }];
+  const before = structuredClone(input);
+  assert.ok(buildWritingOutlineOutput(input).includes("[[现在仍存在的历史来源]]"));
+  assert.deepEqual(input, before);
+  input.scaffold.evidence_notes[0].status = "missing";
+  input.scaffold.evidence_notes[0].title = "缺失笔记";
+  const output = buildWritingOutlineOutput(input);
+  assert.match(output, /来源笔记暂不可用/);
+  assert.ok(!output.includes("[[缺失笔记]]"));
+});
+
 test("outline output preserves section order and does not mutate stored data", () => {
   const input = fixture();
   input.scaffold.sections.unshift({ order: 42, heading: "用户重排的章节", purpose: "保留 pn_internal 这段用户文字" });

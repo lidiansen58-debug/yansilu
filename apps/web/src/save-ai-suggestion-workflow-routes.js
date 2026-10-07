@@ -44,7 +44,6 @@ export function createSaveAiSuggestionWorkflowRoutes(depsProvider = () => ({})) 
 
   function clearSaveAiSuggestion() {
     deps().setSaveAiSuggestion(null);
-    renderSaveAiSuggestion();
   }
 
   function showSaveAiSuggestionForNote(note = null) {
@@ -55,38 +54,12 @@ export function createSaveAiSuggestionWorkflowRoutes(depsProvider = () => ({})) 
       return null;
     }
     current.setSaveAiSuggestion(suggestion);
-    renderSaveAiSuggestion();
     return suggestion;
-  }
-
-  function renderSaveAiSuggestion() {
-    const current = deps();
-    const root = current.$("saveAiSuggestion");
-    if (!root) return;
-    const text = current.$("saveAiSuggestionText");
-    const primary = current.$("btnSaveAiSuggestionPrimary");
-    const later = current.$("btnSaveAiSuggestionLater");
-    const saveAiSuggestion = current.getSaveAiSuggestion();
-    const activeNote = current.activeEditorNote();
-    const visible =
-      Boolean(saveAiSuggestion?.noteId) &&
-      current.state.module === "explorer" &&
-      activeNote?.id === saveAiSuggestion.noteId;
-
-    root.classList.toggle("hidden", !visible);
-    if (!visible) return;
-
-    if (text) text.textContent = saveAiSuggestion.text;
-    if (primary) primary.textContent = saveAiSuggestion.primaryLabel || "立即处理";
-    if (later) later.textContent = saveAiSuggestion.laterLabel || "稍后";
-    root.dataset.action = saveAiSuggestion.action || "";
-    root.dataset.noteId = saveAiSuggestion.noteId || "";
   }
 
   return {
     clearSaveAiSuggestion,
     relationNetworkWorkflowMessageForNote,
-    renderSaveAiSuggestion,
     saveAiSuggestionForNote,
     showSaveAiSuggestionForNote,
     sourcePromotionWorkflowMessageForNote,

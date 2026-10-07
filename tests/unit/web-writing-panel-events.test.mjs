@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   handleWritingAddVisible,
   handleWritingCreateScaffoldClick,
+  handleWritingCopyScaffoldClick,
+  handleWritingExportScaffoldClick,
   handleWritingDraftVersionsListClick,
   handleWritingOutlineClick,
   handleWritingOutlineInput,
@@ -637,6 +639,17 @@ test("writing theme index list handler uses index cards and continuation routes"
   assert.deepEqual(calls[2], ["continue", "p1", { openDraft: true, statusMessage: "resume" }]);
 });
 
+test("a superseded theme entry does not display its late failure in the new context", async () => {
+  const statuses = [];
+  await handleWritingThemeIndexListClick({ target: indexTarget("[data-writing-index-action]", {
+    "data-writing-index-action": "use", "data-writing-index-id": "theme-1"
+  }) }, {
+    useThemeIndexAsWritingEntry: async () => { throw Object.assign(new Error("Old context"), { code: "WRITING_CONTEXT_CHANGED" }); },
+    setStatus: text => statuses.push(text)
+  });
+  assert.deepEqual(statuses, []);
+});
+
 test("writing theme index actions show pending state and never fail silently", async () => {
   const calls = [];
   let resolveUse;
@@ -974,6 +987,32 @@ test("writing scaffold version handler routes open copy export and note edits", 
   assert.equal(writingState.scaffoldVersions[0].version_note, "new");
 });
 
+test("cancelled scaffold version load does not announce that a version was opened", async () => {
+  const messages = [];
+  await handleWritingScaffoldVersionsListClick({ target: indexTarget("[data-writing-scaffold-action]", {
+    "data-writing-scaffold-action": "open", "data-writing-scaffold-id": "s1"
+  }) }, { writingState: { project: { id: "p1" } }, openScaffoldVersion: async () => null,
+    setStatus: message => messages.push(message) });
+  assert.deepEqual(messages, []);
+});
+
+for (const action of ["copy", "export"]) for (const fail of [false, true]) {
+  test(`outline ${action} closes More after ${fail ? "failure" : "success"}`, async () => {
+    const menu = { open: true }, messages = [], results = [];
+    const deps = { $: id => id === "writingMoreMenu" ? menu : null, writingState: { project: { id: "p" }, scaffold: { id: "s" } },
+      showWritingResult: result => results.push(result), setStatus: (message, tone) => messages.push([message, tone]) };
+    deps[action === "copy" ? "copyWritingScaffold" : "exportWritingScaffold"] = async () => {
+      if (fail) throw new Error("Output unavailable");
+      return { fileName: "outline.md" };
+    };
+    await (action === "copy" ? handleWritingCopyScaffoldClick : handleWritingExportScaffoldClick)(deps);
+    assert.equal(menu.open, false);
+    assert.equal(messages.at(-1)[1], fail ? "bad" : "ok");
+    assert.equal(results.length, fail ? 1 : 0);
+    if (fail) assert.match(results[0].message, /Output unavailable/);
+  });
+}
+
 test("writing draft version handler updates current draft and opens unloaded notes", async () => {
   const calls = [];
   const state = { notes: [] };
@@ -1045,6 +1084,8 @@ test("writing draft action installer wires primary draft buttons through latest 
     ["btnWritingCreateScaffold", { textContent: "" }],
     ["btnWritingCopyScaffold", {}],
     ["btnWritingExportScaffold", {}],
+    ["btnWritingReloadScaffold", {}],
+    ["btnWritingHistory", {}],
     ["btnWritingSaveDraft", { textContent: "" }],
     ["btnWritingOpenDraft", {}],
     ["writingDraftEditor", {}],
@@ -1069,6 +1110,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     depsProvider: () => ({
       $: (id) => elements.get(id) || null,
       writingState,
+      openScaffoldVersion: async id => { calls.push(["reload", version, id]); return { item: { id } }; },
       createWritingProjectFromCurrentBasket: async () => calls.push(["createProject", version]),
       describeWritingProjectPreflight: () => ({ level: "ready" }),
       createDraftScaffold: async () => {
@@ -1094,7 +1136,8 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 20);
+  assert.equal(registrations.length, 22);
+  assert.equal(typeof handlers.get("btnWritingHistory:click"), "function");
   assert.equal(registrations.every((item) => item.installed), true);
 
   await handlers.get("btnWritingCreateProject:click")();
@@ -1102,6 +1145,7 @@ test("writing draft action installer wires primary draft buttons through latest 
   await handlers.get("btnWritingCreateScaffold:click")();
   await handlers.get("btnWritingCopyScaffold:click")();
   await handlers.get("btnWritingExportScaffold:click")();
+  await handlers.get("btnWritingReloadScaffold:click")();
   await handlers.get("btnWritingOpenDraft:click")();
   handlers.get("writingDraftEditor:input")({ target: { value: "edited draft" } });
   assert.equal(writingState.draftSaveState, "dirty");
@@ -1130,6 +1174,7 @@ test("writing draft action installer wires primary draft buttons through latest 
 
   assert.deepEqual(calls[0], ["createProject", "first"]);
   assert.ok(calls.some((call) => call[0] === "createScaffold" && call[1] === "second"));
+  assert.ok(calls.some((call) => call[0] === "reload" && call[1] === "second" && call[2] === "s1"));
   assert.ok(calls.some((call) => call[0] === "copy" && call[1] === "second"));
   assert.ok(calls.some((call) => call[0] === "export" && call[1] === "second"));
   assert.ok(calls.some((call) => call[0] === "openDraft" && call[1] === "second" && call[2] === "n1"));
@@ -1232,7 +1277,7 @@ test("writing outline saves changes in edit order and only applies the latest re
   };
 
   const firstSave = persistWritingOutline(deps);
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   writingState.scaffold.sections[0].heading = "第二节";
   const secondSave = persistWritingOutline(deps);
   await Promise.resolve();
@@ -1342,6 +1387,7 @@ test("writing create scaffold handler creates project from selected theme", asyn
     createWritingProjectFromThemeIndex: async (themeId) => {
       calls.push(["theme-project", themeId]);
       writingState.project = { id: "p-theme", preflight: {} };
+      return writingState.project;
     },
     createDraftScaffold: async (projectId) => {
       calls.push(["scaffold", projectId]);

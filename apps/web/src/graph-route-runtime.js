@@ -1,12 +1,11 @@
 import { THEME_INDEX_MIN_NOTE_COUNT } from "./theme-index-entry-model.js";
 import { buildGraphThemeConfirmedPayload } from "./graph-theme-confirmed-payload.js";
+import { createGraphAnalysisRuntimeController } from "./graph-analysis-runtime-controller.js";
 
 export function createGraphRouteRuntime(deps = {}) {
   const {
     addSystemMessage,
-    analyzeDirectoryGraph,
     createIndexCard,
-    graphAiConnectRuntimeController,
     graphDataList,
     graphFindPotentialRelationCandidate,
     graphRelationSaveController,
@@ -14,14 +13,9 @@ export function createGraphRouteRuntime(deps = {}) {
     graphState,
     requestGraphThemeConfirmation = async () => null,
     graphThemeContextKey = () => [],
-    ensureLocalAiReadyForFeature = async () => ({ ready: true }),
     isDirectoryUnderOriginalRoot,
     isWritingEligibleNote,
-    localAiPreviewOptionsForAction,
-    localOllamaSetupActive,
-    ollamaBootstrapStatusText,
     openWritingModule = async () => {},
-    previewOllamaLocalAiBootstrapFromUi,
     refineGraphPotentialRelationCandidate,
     renderGraphPanel,
     setStatus,
@@ -35,71 +29,7 @@ export function createGraphRouteRuntime(deps = {}) {
     useThemeIndexAsWritingEntry
   } = deps;
 
-  async function runGraphAiAnalysis() {
-    if (graphState.aiAnalysisLoading) return;
-    const directoryId = graphScopeDirectoryId();
-    graphState.aiAnalysisLoading = true;
-    graphState.aiAnalysisError = "";
-    renderGraphPanel();
-    try {
-      const localAiReady = await ensureGraphLocalAiReadyForAnalysis();
-      if (!localAiReady) return;
-      const result = await analyzeDirectoryGraph(directoryId, {
-        includeDescendants: true,
-        minScore: 0.05,
-        persistArtifacts: true
-      });
-      graphState.aiAnalysis = result;
-      const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
-      if (count > 0) {
-        graphState.aiReviewSystemMessageId = "";
-      } else {
-        graphState.aiReviewSystemMessageId = "";
-      }
-      graphState.thinkingPanelVisible = true;
-      graphState.thinkingPanelOpen = true;
-      graphState.thinkingFilter = "all";
-      graphState.workbenchPanelOpen = true;
-      if (graphState.workbenchPanelTab !== "clues") {
-        graphState.workbenchPanelTab = "questions";
-      }
-      setStatus(
-        count ? `已找到 ${count} 条建议，请逐条确认` : "当前没有新的建议",
-        count ? "ok" : ""
-      );
-    } catch (error) {
-      graphState.aiAnalysisError = String(error?.message || error);
-      setStatus(`找缺口失败：${graphState.aiAnalysisError}`, "warn");
-    } finally {
-      graphState.aiAnalysisLoading = false;
-      renderGraphPanel();
-    }
-  }
-
-  async function ensureGraphLocalAiReadyForAnalysis() {
-    const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_analysis",
-      openSettings: false
-    });
-    if (readiness?.ready === true) {
-      renderGraphPanel();
-      return true;
-    }
-    if (readiness?.skipped === true && !localOllamaSetupActive()) return true;
-    const bootstrapResult = readiness?.result || null;
-    graphState.aiAnalysisError = String(readiness?.message || `${ollamaBootstrapStatusText(bootstrapResult)}。AI 不可用不影响继续手工整理关系。`).trim();
-    if (!readiness?.message) setStatus(graphState.aiAnalysisError, "warn");
-    return false;
-  }
-
-  async function runGraphAiConnectForNote(noteId = "") {
-    const readiness = await ensureLocalAiReadyForFeature({
-      feature: "graph_connect",
-      openSettings: false
-    });
-    if (readiness?.ready === false) return false;
-    return graphAiConnectRuntimeController.runGraphAiConnectForNote(noteId);
-  }
+  const analysis = createGraphAnalysisRuntimeController(deps);
 
   async function saveGraphCandidateRelation(button = null) {
     return graphRelationSaveController.saveCandidateRelation(button);
@@ -294,9 +224,7 @@ export function createGraphRouteRuntime(deps = {}) {
   }
 
   return {
-    runGraphAiAnalysis,
-    ensureGraphLocalAiReadyForAnalysis,
-    runGraphAiConnectForNote,
+    ...analysis,
     saveGraphCandidateRelation,
     saveGraphAiCandidateRelation,
     triggerGraphPotentialRelationRefine,

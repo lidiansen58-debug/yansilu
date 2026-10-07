@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+const repositoryVersion = JSON.parse(await fs.readFile(path.join(REPO_ROOT, "package.json"), "utf8")).version;
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -110,7 +111,7 @@ test("app update API checks configured manifest and ignores client URL overrides
 
   const version = await getJson(baseUrl, "/api/v1/app/version");
   assert.equal(version.status, 200, JSON.stringify(version.json));
-  assert.equal(version.json.item.version, "0.1.1-beta.1");
+  assert.equal(version.json.item.version, repositoryVersion);
   assert.equal(version.json.item.manifestUrl, manifestServer.url);
 
   const checked = await postJson(baseUrl, "/api/v1/app/updates/check", {});

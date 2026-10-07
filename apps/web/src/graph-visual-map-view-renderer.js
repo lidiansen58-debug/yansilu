@@ -36,6 +36,7 @@ export function buildGraphVisualNodeViewContext(runtimeState = {}) {
     filterActive,
     denseGalaxyMode,
     denseDirectoryMode,
+    layout = {},
     zoom = {}
   } = runtimeState;
 
@@ -51,6 +52,8 @@ export function buildGraphVisualNodeViewContext(runtimeState = {}) {
     filterActive,
     denseGalaxyMode,
     denseDirectoryMode,
+    smallGraph: Boolean(layout.smallGraph && !denseGalaxyMode),
+    layoutNodeMap: layout.nodeMap,
     zoomKey: zoom.key
   };
 }

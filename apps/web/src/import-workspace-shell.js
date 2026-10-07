@@ -1,4 +1,6 @@
 import { createImportWorkspaceRecovery } from "./import-workspace-recovery.js";
+import { readImportToolbarValues, syncImportWorkspaceTabs } from "./import-workspace-form-state.js";
+import { syncImportPreviewEntry } from "./import-preview-resume-model.js";
 
 export function normalizeImportWorkspaceTab(tab = "import") {
   return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
@@ -18,18 +20,13 @@ export function createImportWorkspaceShellController({
   importConfirmButtonState = () => ({ disabled: false, label: "确认导入" }),
   importTargetDirectories = () => [],
   directoryPathLabel = (directoryId) => directoryId,
-  mountExportCardIntoImportShell = () => {}
+  mountExportCardIntoImportShell = () => {},
+  syncDirectoryOptions = () => {}
 } = {}) {
   const recovery = createImportWorkspaceRecovery({ getVaultPath, getStorage, importState, setStatus });
+  let mountedVault = null;
   function currentToolbarValues() {
-    return {
-      connector: String(getElement("importConnector")?.value || "obsidian").trim(),
-      directoryId: String(getElement("importDirectoryId")?.value || importState.directoryId || "").trim(),
-      path: String(getElement("importPath")?.value || "").trim(),
-      payload: String(getElement("importPayload")?.value || ""),
-      options: String(getElement("importOptions")?.value || ""),
-      importRecordId: String(getElement("importRecordId")?.value || importState.importRecordId || "").trim()
-    };
+    return readImportToolbarValues(getElement, importState);
   }
 
   function renderToolbar() {
@@ -58,29 +55,26 @@ export function createImportWorkspaceShellController({
       confirmButton
     });
     recovery.checkpoint(values);
+    syncImportPreviewEntry(getElement, importState, values);
   }
 
   function syncTabs() {
-    const mount = getElement("importPageMount");
-    if (!mount) return;
-    const activeTab = normalizeImportWorkspaceTab(importState.activeTab);
-    mount.setAttribute("data-import-workspace-tab", activeTab);
-    mount.querySelectorAll("[data-import-workspace-tab]").forEach((button) => {
-      const buttonTab = normalizeImportWorkspaceTab(button.getAttribute("data-import-workspace-tab"));
-      const isActive = buttonTab === activeTab;
-      button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-selected", isActive ? "true" : "false");
-      button.setAttribute("tabindex", isActive ? "0" : "-1");
-    });
-    const importPanel = getElement("importToolbarMount");
-    const exportPanel = getElement("exportCardMount");
-    if (importPanel) importPanel.hidden = activeTab !== "import";
-    if (exportPanel) exportPanel.hidden = activeTab !== "export";
+    syncImportWorkspaceTabs(getElement, importState.activeTab, normalizeImportWorkspaceTab);
   }
 
-  function renderPage() {
+  function renderPage({ preserveMounted = false } = {}) {
     const el = getElement("importPageMount");
-    if (!el) return;
+    if (!el) return false;
+    const vault = getVaultPath();
+    // Background settings updates must not remount a live form or preview.
+    if (preserveMounted && mountedVault === vault && el.querySelector?.("#importToolbarMount")) {
+      syncDirectoryOptions();
+      return false;
+    }
+    const exportValues = mountedVault === vault ? {
+      directoryId: getElement("exportDirectoryId")?.value,
+      targetPath: getElement("exportTargetPath")?.value
+    } : null;
     const toolbar = recovery.restore() || currentToolbarValues();
     el.innerHTML = renderImportPageMount({
       toolbar,
@@ -98,7 +92,12 @@ export function createImportWorkspaceShellController({
     });
     renderToolbar();
     mountExportCardIntoImportShell();
+    const exportTarget = getElement("exportTargetPath");
+    if (exportTarget) exportTarget.value = exportValues?.targetPath || "";
+    syncDirectoryOptions({ exportDirectoryId: exportValues?.directoryId || "" });
     syncTabs();
+    mountedVault = vault;
+    return true;
   }
 
   function setTab(tab = "import") {
@@ -107,7 +106,8 @@ export function createImportWorkspaceShellController({
   }
 
   return {
-    checkpoint: () => recovery.checkpoint(currentToolbarValues()),
+    checkpoint: () => { const values = currentToolbarValues(); recovery.checkpoint(values); syncImportPreviewEntry(getElement, importState, values); },
+    clearCache: recovery.clear,
     currentToolbarValues,
     normalizeTab: normalizeImportWorkspaceTab,
     renderPage,
