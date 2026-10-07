@@ -16,9 +16,26 @@ import { createNoteCreationController } from "../../apps/web/src/note-creation-c
 import { createWritingNoteWithRecovery } from "../../apps/web/src/writing-note-creation-recovery.js";
 import { saveEditorNoteWithRecovery } from "../../apps/web/src/editor-save-recovery.js";
 import { randomUUID } from "node:crypto";
+import { renderWritingScaffoldPreviewDom } from "../../apps/web/src/writing-scaffold-preview-panel.js";
+import { escapeHtml } from "../../apps/web/src/editor-render-utils.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+function assertRestoredSourceNotice(scaffold, project, checkId, noteId) {
+  const check = scaffold.preflight?.checks.find(item => item.id === checkId);
+  assert.equal(check?.status, "warning");
+  assert.ok(check.targetNoteIds.includes(noteId));
+  const preview = { innerHTML: "" };
+  renderWritingScaffoldPreviewDom({ $: () => preview, writingState: { project, scaffold }, escapeHtml });
+  assert.ok(preview.innerHTML.includes(escapeHtml(check.message)));
+  if (checkId === "source_note_types") {
+    assert.ok(preview.innerHTML.includes(`data-writing-outline-source-note="${escapeHtml(noteId)}"`));
+  } else {
+    assert.match(preview.innerHTML, /来源文件缺失/);
+    assert.doesNotMatch(preview.innerHTML, /data-writing-outline-source-note/);
+  }
+}
 
 test("historical restore preserves the outline when an evidence file is missing", async t => {
   const vaultPath = await makeTempDir("yansilu-history-missing-evidence-");
@@ -45,6 +62,7 @@ test("historical restore preserves the outline when an evidence file is missing"
   const route = `/api/v1/writing-projects/${projectId}/scaffold-restore`;
   const restored = await postJson(baseUrl, route, payload);
   assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assertRestoredSourceNotice(restored.json.item, project, "source_files", note.id);
   assert.deepEqual(restored.json.item.sections, source.sections);
   assert.deepEqual(restored.json.item.open_questions, source.open_questions);
   assert.match(restored.json.item.markdown, /缺失笔记/);
@@ -52,12 +70,15 @@ test("historical restore preserves the outline when an evidence file is missing"
   assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, payload.restorationId);
   const readback = (await getJson(baseUrl, `/api/v1/draft-scaffolds/${payload.restorationId}`)).json.item;
   assert.deepEqual(readback.sections, source.sections);
+  assert.deepEqual(restored.json.item.preflight, readback.preflight);
   assert.ok(readback.preflight.checks.some(check => check.id === "source_files" && check.status !== "pass"));
   assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item.sections, source.sections);
   assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`)).json.item.sections, current.sections);
   const retried = await postJson(baseUrl, route, payload);
   assert.equal(retried.status, 201);
   assert.equal(retried.json.item.id, payload.restorationId);
+  assertRestoredSourceNotice(retried.json.item, project, "source_files", note.id);
+  assert.deepEqual(retried.json.item.preflight, readback.preflight);
   assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffolds?limit=50`)).json.items.length, 3);
   const sections = structuredClone(readback.sections);
   sections[0].heading = "Edited after restoring missing evidence";
@@ -111,12 +132,22 @@ test("restored outline edits retain historical evidence outside the current bask
   const rejectedBasket = await postJson(baseUrl, "/api/v1/writing-projects", { title: "Invalid new basket", basketNoteIds: [evidence.id] });
   assert.equal(rejectedBasket.status, 400);
   const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
-  const restored = await postJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffold-restore`, {
+  const restorePayload = {
     sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`, expectedVaultPath: vaultPath,
     expectedScaffoldId: current.id, expectedScaffoldUpdatedAt: current.updated_at,
     expectedProjectUpdatedAt: project.updated_at, expectedSourceUpdatedAt: source.updated_at
-  });
+  };
+  const restoreRoute = `/api/v1/writing-projects/${projectId}/scaffold-restore`;
+  const restored = await postJson(baseUrl, restoreRoute, restorePayload);
   assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assertRestoredSourceNotice(restored.json.item, project, "source_note_types", evidence.id);
+  const restoredReadback = (await getJson(baseUrl, `/api/v1/draft-scaffolds/${restored.json.item.id}`)).json.item;
+  assert.deepEqual(restored.json.item.preflight, restoredReadback.preflight);
+  const retried = await postJson(baseUrl, restoreRoute, restorePayload);
+  assert.equal(retried.status, 201, JSON.stringify(retried.json));
+  assertRestoredSourceNotice(retried.json.item, project, "source_note_types", evidence.id);
+  assert.deepEqual(retried.json.item.preflight, restoredReadback.preflight);
+  assert.equal(retried.json.item.markdown, restored.json.item.markdown);
   let outline = restored.json.item;
   const edit = async heading => {
     const sections = structuredClone(outline.sections);
@@ -150,6 +181,12 @@ test("restored outline edits retain historical evidence outside the current bask
   await edit("Edit with missing historical source");
   assert.match(outline.markdown, /缺失笔记/);
   assert.ok(outline.markdown.includes(evidence.id));
+  const retryAfterEdit = await postJson(baseUrl, restoreRoute, restorePayload);
+  assert.equal(retryAfterEdit.status, 201, JSON.stringify(retryAfterEdit.json));
+  assertRestoredSourceNotice(retryAfterEdit.json.item, project, "source_files", evidence.id);
+  assert.deepEqual(retryAfterEdit.json.item.preflight, outline.preflight);
+  assert.deepEqual(retryAfterEdit.json.item.sections, outline.sections);
+  assert.equal(retryAfterEdit.json.item.markdown, outline.markdown);
   assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item.sections, source.sections);
 });
 

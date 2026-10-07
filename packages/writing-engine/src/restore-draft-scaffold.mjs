@@ -30,17 +30,20 @@ export async function restoreDraftScaffoldRecord(vaultPath, projectId, input, de
       const now = new Date().toISOString();
       const source = mapScaffoldRow(sourceRow);
       scaffold = { ...source, id, generated_by: `restored:${sourceId}`, version_note: "恢复历史提纲", created_at: now, updated_at: now };
-      const noteIds = [...new Set([...project.basket_note_ids, ...source.sections.flatMap(section => section.evidence_note_ids || [])])];
-      const notes = await loadBasketNotes(vaultPath, noteIds, { tolerateMissing: true, tolerateTypeChanges: true });
+    }
+    const noteIds = [...new Set([...project.basket_note_ids, ...scaffold.sections.flatMap(section => section.evidence_note_ids || [])])];
+    const notes = await loadBasketNotes(vaultPath, noteIds, { tolerateMissing: true, tolerateTypeChanges: true });
+    scaffold.preflight = buildScaffoldPreflight(project, notes);
+    if (!existing) {
       const indexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
-      scaffold.markdown = renderMarkdown(project, scaffold, notes, { preflight: buildScaffoldPreflight(project, notes), indexCards });
+      scaffold.markdown = renderMarkdown(project, scaffold, notes, { preflight: scaffold.preflight, indexCards });
       db.prepare(`INSERT INTO draft_scaffolds
         (id, writing_project_id, sections_json, open_questions_json, generated_by, version_note, markdown, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(id, projectId, sourceRow.sections_json, sourceRow.open_questions_json, scaffold.generated_by, scaffold.version_note, scaffold.markdown, now, now);
-      db.prepare("UPDATE writing_projects SET scaffold_id = ?, updated_at = ? WHERE id = ?").run(id, now, projectId);
+        .run(id, projectId, sourceRow.sections_json, sourceRow.open_questions_json, scaffold.generated_by, scaffold.version_note, scaffold.markdown, scaffold.created_at, scaffold.updated_at);
+      db.prepare("UPDATE writing_projects SET scaffold_id = ?, updated_at = ? WHERE id = ?").run(id, scaffold.updated_at, projectId);
       project.scaffold_id = id;
-      project.updated_at = now;
+      project.updated_at = scaffold.updated_at;
       project.thinkingStatus = deriveWritingProjectThinkingStatus(project);
     }
     scaffold.evidence_notes = await loadBasketNoteSummaries(vaultPath, [...new Set(scaffold.sections.flatMap(section => section.evidence_note_ids || []))]);
