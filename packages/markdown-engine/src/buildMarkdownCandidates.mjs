@@ -3,6 +3,8 @@ import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { listMarkdownFiles, parseMarkdownWithFrontmatter } from "../../domain/src/index.mjs";
 import { extractTags, parseWikilinks } from "./markdown-importer.mjs";
+import { markdownCodeRanges } from "./markdown-code-context.mjs";
+import { remapImportedViewpointReferences } from "./import-viewpoint-references.mjs";
 
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 const GB18030_DECODER = new TextDecoder("gb18030");
@@ -51,9 +53,14 @@ function stripListMarker(value = "") {
 
 function splitMarkdownSections(markdown = "") {
   const sections = [];
+  const text = String(markdown || "").replace(/\r\n/g, "\n");
+  const codeRanges = markdownCodeRanges(text);
+  let offset = 0;
   let current = { heading: "", content: [] };
-  for (const line of String(markdown || "").replace(/\r\n/g, "\n").split("\n")) {
-    const heading = line.match(/^#{2,4}\s+(.+?)\s*$/);
+  for (const line of text.split("\n")) {
+    const inCode = codeRanges.some(([start, end]) => offset >= start && offset < end);
+    offset += line.length + 1;
+    const heading = inCode ? null : line.match(/^#{2,4}\s+(.+?)\s*$/);
     if (heading) {
       if (current.heading || current.content.length) sections.push(current);
       current = { heading: heading[1].trim(), content: [] };
@@ -94,11 +101,9 @@ function parsePermanentDistillationFields(markdown = "", frontmatter = {}) {
     : sectionLines(summarySection, 3);
   const threeLineSummary = summaryLines.length === 3 ? summaryLines : [];
   const boundaryOrCounterpoint = String(frontmatter.boundary_or_counterpoint || firstContentLine(boundarySection) || "").trim();
-  const sourceTrace = normalizeSectionText(sourceSection ? sourceSection.content.join("\n") : "");
+  const sourceTrace = normalizeSectionText(frontmatter.source_trace || (sourceSection ? sourceSection.content.join("\n") : ""));
   const explicitStatus = String(frontmatter.distillation_status || "").trim().toLowerCase();
-  const distillationStatus = explicitStatus === "confirmed"
-    ? "confirmed"
-    : thesis || summaryLines.length || boundaryOrCounterpoint || sourceTrace
+  const distillationStatus = thesis || summaryLines.length || boundaryOrCounterpoint || sourceTrace || explicitStatus === "confirmed"
       ? "draft"
       : "missing";
   return {
@@ -108,6 +113,14 @@ function parsePermanentDistillationFields(markdown = "", frontmatter = {}) {
     sourceTrace,
     distillationStatus
   };
+}
+
+function importedAiAssisted(frontmatter) {
+  let authorship = frontmatter.authorship;
+  if (typeof authorship === "string") {
+    try { authorship = JSON.parse(authorship); } catch { authorship = null; }
+  }
+  return authorship?.ai_assisted === true || frontmatter.ai_assisted === true;
 }
 
 function extractRawFrontmatter(markdown) {
@@ -352,6 +365,13 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
     const permanentId = stableId("pn", `${connector}:${file}`);
     const tags = normalizeTags([...toArray(frontmatter.tags), ...extractTags(body)]);
     const aliases = extractAliases(frontmatter, rawFrontmatter);
+    const importRoot = path.isAbsolute(inputPath) ? inputPath : path.resolve(cwd, inputPath);
+    const originalRelativePath = (path.relative(importRoot, file) || path.basename(file)).replaceAll("\\", "/");
+    const linkAliases = unique([
+      ...toArray(frontmatter.yansilu_link_aliases), ...aliases, String(frontmatter.id || ""),
+      originalRelativePath, originalRelativePath.replace(/\.md$/i, ""),
+      path.basename(file), path.basename(file, ".md"), `${title}.md`
+    ]);
     const parsedWikilinks = options.detectWikilinks === false ? [] : parseWikilinks(body);
     const wikilinkTargets = unique(parsedWikilinks.map((link) => link.target));
     const now = new Date().toISOString();
@@ -371,11 +391,15 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
       original_frontmatter: frontmatter
     });
 
-    literature.push({
+    const isPermanent = [frontmatter.type, frontmatter.note_type, frontmatter.yansilu_note_type].some(value => String(value || "").toLowerCase() === "permanent") || tags.includes("permanent");
+    const quotation = isPermanent ? splitMarkdownSections(body)
+      .filter(section => /^(原文|引文|引用|摘录|original text|quotation|quote)$/i.test(section.heading))
+      .map(section => section.content.join("\n").trim()).filter(Boolean).join("\n\n") : "";
+    const literatureCandidate = {
       id: literatureId,
       source_id: sourceId,
       title,
-      quote_text: body.trim(),
+      quote_text: isPermanent ? quotation : body.trim(),
       paraphrase_text: "",
       status: "draft",
       tags,
@@ -385,26 +409,43 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
       connector,
       aliases,
       wikilinks: parsedWikilinks.map((link) => link.raw),
+      yansilu_link_aliases: linkAliases,
       parsed_wikilinks: parsedWikilinks,
       wikilink_targets: wikilinkTargets,
       original_frontmatter: frontmatter
-    });
+    };
+    // Existing permanent notes are not their own quotation evidence.
+    if (!isPermanent || quotation) literature.push(literatureCandidate);
 
-    const isPermanent = String(frontmatter.type || "").toLowerCase() === "permanent" || tags.includes("permanent");
     if (isPermanent) {
       const distillation = parsePermanentDistillationFields(body, frontmatter);
       const sourceTrace = distillation.sourceTrace || file;
+      const trimmedBody = body.trim();
+      const leadingHeading = trimmedBody.match(/^#\s+(.+?)\s*(?:\n|$)/);
+      const migratedBody = leadingHeading?.[1] === title
+        ? trimmedBody.slice(leadingHeading[0].length).replace(/^\n+/, "")
+        : trimmedBody;
       permanent.push({
         id: permanentId,
         title,
-        core_claim: body.trim(),
-        rationale: "",
-        from_literature_note_ids: [literatureId],
-        authorship: { user_confirmed: false, ai_assisted: false },
+        body: migratedBody,
+        core_claim: distillation.thesis || String(frontmatter.core_claim || "").trim() || migratedBody,
+        rationale: String(frontmatter.rationale || ""),
+        from_literature_note_ids: quotation ? [literatureId] : [],
+        authorship: { user_confirmed: false, ai_assisted: importedAiAssisted(frontmatter) },
         originality_status: "warning",
         status: "draft",
         tags,
-        citations: [{ source_id: sourceId }],
+        citations: [{ source_id: sourceId, locator: file }],
+        imported_from: connector === "obsidian" ? "obsidian" : "local",
+        aliases,
+        yansilu_link_aliases: linkAliases,
+        wikilinks: parsedWikilinks.map(link => link.raw),
+        parsed_wikilinks: parsedWikilinks,
+        wikilink_targets: wikilinkTargets,
+        original_frontmatter: frontmatter,
+        ...Object.fromEntries(["starting_question", "startingQuestion", "viewpoint_history", "viewpointHistory", "pending_viewpoint_revision", "pendingViewpointRevision"]
+          .filter(key => frontmatter[key] !== undefined).map(key => [key, frontmatter[key]])),
         ...(distillation.thesis ? { thesis: distillation.thesis } : {}),
         ...(distillation.threeLineSummary.length ? { three_line_summary: distillation.threeLineSummary } : {}),
         ...(distillation.boundaryOrCounterpoint ? { boundary_or_counterpoint: distillation.boundaryOrCounterpoint } : {}),
@@ -421,5 +462,5 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
   if (!files.length) {
     warnings.push({ code: "IMPORT_NO_MARKDOWN_FILE", message: "No markdown files found", count: 1 });
   }
-  return { sources, literature, permanent, warnings };
+  return remapImportedViewpointReferences({ sources, literature, permanent, warnings });
 }

@@ -1,0 +1,782 @@
+.app.settings-desktop-lock {
+  grid-template-columns: 56px 260px minmax(0, 1fr);
+}
+
+.app.settings-desktop-lock .vault-head-main {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.settings-desktop-lock .settings-sidebar-shell,
+.app.settings-desktop-lock .settings-sidebar-menu {
+  gap: 12px;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-group {
+  gap: 4px;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-heading {
+  color: #64748b;
+  letter-spacing: 0;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-item {
+  min-height: 40px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-icon,
+.app.settings-desktop-lock .settings-sidebar-menu-item.is-active .settings-sidebar-menu-icon {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-title {
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.app.settings-desktop-lock .settings-sidebar-menu-item:focus-visible,
+#settingsPanel summary:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+#moduleWorkspace.settings-mode {
+  background: #fff;
+}
+
+#moduleWorkspace.settings-mode .module-header {
+  margin: 0;
+  padding: 24px 28px 16px;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+#moduleWorkspace.settings-mode .module-header h1 {
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+#moduleWorkspace.settings-mode .module-header p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#moduleWorkspace.settings-mode .module-stage {
+  padding: 24px 28px;
+}
+
+#settingsPanel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#importResult .result-brief,
+#importResult .result-file-inventory,
+#importResult .result-warnings {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#importResult .result-file-types span {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+}
+
+#settingsPanel .settings-detail-column {
+  max-width: 820px;
+}
+
+#settingsPanel .settings-pane-stack {
+  gap: 0;
+}
+
+#settingsPanel .settings-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 16px;
+}
+
+#settingsPanel .settings-card-title {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+#settingsPanel .settings-card-note,
+#settingsPanel .settings-support-safe-note {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #475569;
+}
+
+#settingsPanel .settings-support-safe-note {
+  border-radius: 0;
+  padding: 12px 0;
+  background: transparent;
+}
+
+#settingsPanel .settings-help-task-list {
+  gap: 0;
+}
+
+#settingsPanel .settings-help-task {
+  display: block;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+#settingsPanel .settings-help-task > summary {
+  padding: 15px 2px;
+  color: #1e293b;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+#settingsPanel .settings-help-task > summary:hover {
+  color: #0f766e;
+}
+
+#settingsPanel .settings-help-task-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 2px 18px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #475569;
+}
+
+#settingsPanel .settings-help-task-body p {
+  margin: 0;
+}
+
+#settingsPanel .settings-help-task-body > .mini-btn {
+  justify-self: start;
+  min-height: 36px;
+}
+
+#settingsPanel .settings-help-task-body .settings-inline-actions {
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+#settingsPanel .settings-demo-import-status {
+  font-size: 13px;
+}
+
+#settingsUpdateCard [hidden] {
+  display: none !important;
+}
+
+#settingsUpdateCard .settings-stat-badge {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#settingsUpdateCard .settings-update-meta {
+  gap: 8px;
+}
+
+#settingsUpdateCard .settings-update-actions,
+#settingsUpdateCard .settings-inline-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#settingsUpdateCard .mini-btn {
+  min-height: 36px;
+}
+
+#settingsUpdateCard .settings-update-notes {
+  display: grid;
+}
+
+#settingsUpdateCard .settings-update-disclosure {
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+#settingsUpdateCard .settings-update-disclosure > summary {
+  cursor: pointer;
+  padding: 12px 0;
+  color: #334155;
+  font-weight: 600;
+}
+
+#settingsUpdateCard .settings-update-disclosure-body {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 16px;
+  overflow-wrap: anywhere;
+  color: #475569;
+}
+
+#settingsUpdateCard #settingsUpdateError {
+  color: #b42318;
+}
+
+#settingsCardImportExport .import-page-shell {
+  margin: 0;
+  gap: 20px;
+}
+
+#settingsCardImportExport .import-workspace-tabs {
+  padding: 0;
+  gap: 16px;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#settingsCardImportExport .import-workspace-tab {
+  min-height: 44px;
+  padding: 8px 0;
+  gap: 8px;
+  justify-content: center;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  transform: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+#settingsCardImportExport .import-workspace-tab.is-active {
+  border-bottom-color: #0f766e;
+  color: #0f766e;
+}
+
+#settingsCardImportExport .import-workspace-tab-icon {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+
+#settingsCardImportExport .import-workspace-tab-label {
+  line-height: 1.5;
+}
+
+#settingsCardImportExport .import-card,
+#settingsCardImportExport .import-field-panel {
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#settingsCardImportExport .import-toolbar-layout {
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  gap: 20px;
+}
+
+#settingsCardImportExport .import-field-panel {
+  gap: 8px;
+}
+
+#settingsCardImportExport .import-field-label,
+#settingsCardImportExport .import-field-help {
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+#settingsCardImportExport input:not([type="hidden"]),
+#settingsCardImportExport select:not([hidden]),
+#settingsCardImportExport textarea {
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+#settingsCardImportExport .path-picker {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+#settingsCardImportExport .import-actions {
+  justify-content: flex-start;
+  margin-top: 20px;
+}
+
+#settingsCardImportExport #btnImportRepreview {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  flex: 0 0 44px;
+  padding: 0;
+  font-size: 22px;
+}
+
+#btnImportRepreview[hidden] {
+  display: none;
+}
+
+#settingsCardImportExport .import-compat-details {
+  margin-top: 20px;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsCardImportExport .import-compat-details summary {
+  padding: 14px 0;
+  font-size: 14px;
+}
+
+#settingsCardImportExport .import-compat-body {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 0 16px;
+}
+
+#importPreviewActions[hidden] {
+  display: none;
+}
+
+#importOperationResultModal .import-result-dialog {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-radius: 8px;
+}
+
+#importOperationResultModal .import-result-dialog-body {
+  min-height: 0;
+  max-height: none;
+}
+
+#importOperationResultModal .import-result-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+#importOperationResultModal .import-result-dialog-actions[hidden] {
+  display: none;
+}
+
+#importOperationResultModal .result-candidates {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+#importOperationResultModal .import-result {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  font-size: 14px;
+}
+
+#importOperationResultModal .candidate-excerpt {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+#importOperationResultModal .result-detail-section > summary,
+#importOperationResultModal .candidate-selection-options > summary {
+  cursor: pointer;
+  list-style: revert;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 8px 0;
+  color: #334155;
+}
+
+#importOperationResultModal .result-detail-section > summary::-webkit-details-marker {
+  display: inline;
+}
+
+#importOperationResultModal .candidate-selection-options {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+#importOperationResultModal .candidate-selection-options .result-candidates-toolbar {
+  margin-bottom: 10px;
+}
+
+#importOperationResultModal .result-detail-body {
+  margin-top: 4px;
+}
+
+#importOperationResultModal .candidate-item {
+  border-radius: 6px;
+}
+
+#importOperationResultModal .candidate-title,
+#importOperationResultModal .candidate-inline-note {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#importOperationResultModal .candidate-meta {
+  overflow-wrap: anywhere;
+}
+
+#importOperationResultModal summary:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+#settingsPanel .settings-automation-tab-input {
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+#settingsPanel .settings-template-editor-shell {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+#moduleWorkspace.settings-mode .module-template-actions .mini-btn {
+  min-height: 36px;
+  border-radius: 6px;
+  font-size: 14px;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+#settingsPanel .scheduled-task-toolbar {
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsPanel .scheduled-task-toolbar label,
+#settingsPanel .scheduled-task-meta,
+#settingsPanel .scheduled-task-main p,
+#settingsPanel .scheduled-task-actions .mini-btn {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+#settingsPanel .settings-template-editor textarea {
+  min-height: 300px;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#settingsPanel .settings-template-footer {
+  display: block;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsPanel .settings-template-footer .settings-template-actions {
+  display: none;
+}
+
+#settingsPanel .settings-template-feedback {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+#settingsPanel .settings-template-feedback.warn {
+  color: #92400e;
+}
+
+.settings-template-preview-modal {
+  z-index: 1800;
+  padding: 16px;
+  backdrop-filter: none;
+}
+
+.settings-template-preview-modal .settings-template-preview-dialog {
+  width: min(860px, 100%);
+  max-height: calc(100dvh - 32px);
+  border-radius: 8px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.settings-template-preview-dialog .settings-template-preview-dialog-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: #fff;
+}
+
+.settings-template-preview-dialog .settings-template-preview-paper {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.settings-template-preview-dialog .markdown-preview h1,
+.settings-template-preview-dialog .markdown-preview h2,
+.settings-template-preview-dialog .markdown-preview p,
+.settings-template-preview-dialog .markdown-preview blockquote,
+.settings-template-preview-dialog .markdown-preview li {
+  font-family: inherit;
+  letter-spacing: 0;
+}
+
+.settings-template-preview-dialog .markdown-preview h1 {
+  font-size: 24px;
+  line-height: 1.4;
+}
+
+.settings-template-preview-dialog .markdown-preview h2 {
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.settings-template-preview-dialog .markdown-preview p,
+.settings-template-preview-dialog .markdown-preview blockquote,
+.settings-template-preview-dialog .markdown-preview li {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.settings-template-preview-dialog [hidden] {
+  display: none;
+}
+
+#settingsPanel .settings-automation-tab-list {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsPanel .settings-automation-tab {
+  flex: 1 1 0;
+  padding: 10px 4px;
+  border-radius: 0;
+  font-size: 14px;
+}
+
+#settingsAutomationTabPending:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabPending"],
+#settingsAutomationTabRules:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabRules"],
+#settingsAutomationTabHistory:checked ~ .settings-automation-tab-list label[for="settingsAutomationTabHistory"] {
+  background: transparent;
+  border-color: transparent;
+  border-bottom-color: #0f766e;
+  color: #0f766e;
+  box-shadow: none;
+}
+
+#settingsPanel .settings-automation-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsPanel .settings-automation-section .scheduled-task-empty,
+#settingsPanel .settings-automation-section .settings-canonical-empty {
+  min-height: 64px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 14px;
+}
+
+#settingsPanel .scheduled-task-form-details,
+#settingsPanel .scheduled-task-form-details .scheduled-task-form {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsPanel .scheduled-task-form-details > summary {
+  padding: 10px 0;
+  font-size: 14px;
+}
+
+#settingsPanel .scheduled-task-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#settingsPanel .scheduled-task-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#settingsPanel .scheduled-task-form-grid label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+#settingsPanel .scheduled-task-form-grid [hidden] {
+  display: none;
+}
+
+#settingsPanel .scheduled-task-form-grid input,
+#settingsPanel .scheduled-task-form-grid select {
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+#settingsPanel .scheduled-task-feedback {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+#settingsPanel .scheduled-task-feedback.is-bad {
+  color: #b91c1c;
+}
+
+@media (max-width: 600px) {
+  #settingsPanel .scheduled-task-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #settingsPanel .scheduled-task-form-actions .mini-btn,
+  .settings-template-preview-dialog .mini-btn {
+    min-height: 44px;
+  }
+}
+
+#settingsAutomationTabPending:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabPending"],
+#settingsAutomationTabRules:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabRules"],
+#settingsAutomationTabHistory:focus-visible ~ .settings-automation-tab-list label[for="settingsAutomationTabHistory"] {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+@media (max-width: 920px) {
+  #settingsCardImportExport .path-picker {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  #settingsCardImportExport .mini-btn,
+  #importOperationResultModal .mini-btn {
+    min-height: 44px;
+  }
+
+  #settingsUpdateCard .mini-btn {
+    min-height: 44px;
+  }
+
+  .app.settings-desktop-lock {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .app.settings-desktop-lock .sidebar {
+    display: none;
+  }
+
+  .app.settings-desktop-lock .main,
+  .app.settings-desktop-lock #moduleWorkspace.settings-mode .module-stage,
+  .app.settings-desktop-lock #settingsPanel {
+    min-width: 0;
+    width: auto;
+  }
+
+  .app.settings-desktop-lock .main {
+    overflow: hidden;
+  }
+
+  .app.settings-desktop-lock #moduleWorkspace.settings-mode .module-stage {
+    overflow: auto;
+    padding: 16px;
+  }
+
+  #moduleWorkspace.settings-mode .module-header {
+    padding: 18px 16px;
+  }
+
+  #settingsPanel .settings-mobile-item-switcher {
+    display: grid;
+    padding: 0 0 18px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #settingsPanel .settings-mobile-item-switcher select {
+    border-radius: 6px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .app.settings-desktop-lock #settingsPanel .settings-grid,
+  .app.settings-desktop-lock #settingsPanel .settings-canonical-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,33 @@
+.writing-history-dialog {
+  box-sizing: border-box;
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel, #fff);
+  color: var(--ink);
+  font: inherit;
+  overflow: auto;
+}
+.writing-history-dialog::backdrop { background: rgb(0 0 0 / 36%); }
+.writing-history-dialog header, .writing-history-dialog footer { display: flex; align-items: center; gap: 8px; }
+.writing-history-dialog header { justify-content: space-between; margin-bottom: 16px; }
+.writing-history-dialog h2 { margin: 0; font-size: 20px; line-height: 1.4; }
+.writing-history-dialog label { display: block; font-size: 14px; margin-bottom: 8px; }
+.writing-history-dialog select { box-sizing: border-box; width: 100%; min-height: 44px; font: inherit; }
+.writing-history-selection { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+.writing-history-selection select { min-width: 0; }
+.writing-history-dialog [role="status"] { min-height: 20px; margin: 12px 0; font-size: 14px; line-height: 1.5; }
+.writing-history-preview { max-height: 42dvh; overflow: auto; overflow-wrap: anywhere; }
+.writing-history-preview ol { margin: 0; padding-left: 24px; }
+.writing-history-preview li { margin-bottom: 16px; font-size: 16px; line-height: 1.6; }
+.writing-history-preview p { margin: 4px 0; font-size: 14px; }
+.writing-history-dialog footer { justify-content: flex-end; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--line-strong); }
+.writing-history-dialog button { min-height: 44px; }
+@media (max-width: 480px) {
+  .writing-history-dialog { padding: 16px; }
+  .writing-history-selection { grid-template-columns: 1fr 1fr; }
+  .writing-history-selection select { grid-column: 1 / -1; }
+}

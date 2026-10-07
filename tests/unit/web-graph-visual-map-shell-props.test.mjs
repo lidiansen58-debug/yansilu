@@ -52,6 +52,20 @@ test("graph visual shell props carry interaction and layout state", () => {
   assert.match(props.edgeMarkup, /edge/);
 });
 
+test("small-map overview frames actual coordinates but read zoom and dense maps keep the full layout", () => {
+  const nodes = [{ id: "a", x: 450, y: 100 }, { id: "b", x: 500, y: 300 }];
+  const layout = { nodes, width: 1080, height: 560, smallGraph: true };
+  const before = structuredClone(nodes);
+  const props = buildGraphVisualMapShellProps({ runtimeState: runtime({ layout, zoom: { key: "fit" } }) });
+  const [x, y, width, height] = props.viewBox.split(" ").map(Number);
+  assert.equal(props.smallGraph, true);
+  assert.ok(width < layout.width);
+  assert.ok(nodes.every(node => node.x > x && node.x < x + width && node.y > y && node.y < y + height));
+  assert.deepEqual(nodes, before);
+  assert.equal(buildGraphVisualMapShellProps({ runtimeState: runtime({ layout, zoom: { key: "read" } }) }).viewBox, "0 0 1080 560");
+  assert.equal(buildGraphVisualMapShellProps({ runtimeState: runtime({ layout, zoom: { key: "fit" }, denseGalaxyMode: true }) }).viewBox, "0 0 1080 560");
+});
+
 test("graph visual shell props route isolated selections into overlay", () => {
   const props = buildGraphVisualMapShellProps({
     runtimeState: runtime({ activeSelection: { kind: "isolated", noteId: "n1" } }),

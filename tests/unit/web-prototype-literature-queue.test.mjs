@@ -26,6 +26,8 @@ test("prototype literature queue helper validates required citation fields", () 
     identifier: "doi"
   }, { normalizeFieldText }), true);
   assert.equal(hasRequiredLiteratureCitation({ sourceTitle: "Title" }, { normalizeFieldText }), false);
+  assert.equal(hasRequiredLiteratureCitation({ sourceTitle: "Title", locator: "第二章" }, { normalizeFieldText }), true);
+  assert.equal(hasRequiredLiteratureCitation({ sourceTitle: "Title", identifier: "https://example.test/book" }, { normalizeFieldText }), true);
 });
 
 test("prototype literature queue helper classifies note lanes", () => {
@@ -38,7 +40,7 @@ test("prototype literature queue helper classifies note lanes", () => {
     originalText: "quote",
     paraphrase: "para",
     citation: { sourceTitle: "T", authors: "A", year: "Y", locator: "L", identifier: "I" }
-  })), "refine");
+  })), "ready");
   assert.equal(literatureQueueLaneForNote({}, depsFor({
     originalText: "quote",
     paraphrase: "para",

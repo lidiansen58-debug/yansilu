@@ -387,6 +387,7 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   const installProgress = $("settingsUpdateInstallProgress");
   const remindLaterButton = $("settingsRemindUpdateLater");
   const ignoreButton = $("settingsIgnoreUpdateVersion");
+  const deferActions = $("settingsUpdateDeferActions");
   const autoEnabled = $("settingsAutoUpdateEnabled");
   const tone = updateStatusTone(update);
   const latestLabel = update.latestVersion || update.manifest?.version || "";
@@ -397,16 +398,25 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   const installed = update.status === UPDATE_STATUS.DOWNLOADED || update.installReadyForRestart === true;
   const desktopUpdaterAvailable = isDesktopUpdaterAvailable();
   const canInstallInApp = desktopUpdaterAvailable && update.installable === true;
+  const canDownload = (hasUpdate || failed) && hasDownload;
+  const showInstall = !installed && canInstallInApp && (hasUpdate || failed || installing);
+  const showRelaunch = installed && desktopUpdaterAvailable;
+  const hasPrimaryUpdateAction = showInstall || showRelaunch || canDownload;
 
   if (statusBadge) {
-    statusBadge.textContent = updateStatusLabel(update.status);
+    statusBadge.textContent = update.status === UPDATE_STATUS.DISABLED
+      ? (update.autoCheckEnabled === false ? "自动检查已关闭" : "未配置更新来源")
+      : updateStatusLabel(update.status);
     statusBadge.classList.toggle("ok", tone === "ok");
     statusBadge.classList.toggle("warn", tone === "warn");
     statusBadge.classList.toggle("bad", tone === "bad");
     statusBadge.classList.toggle("muted", tone === "muted");
   }
   if (currentVersion) currentVersion.textContent = `当前版本：${update.currentVersion || appVersion}`;
-  if (latestVersion) latestVersion.textContent = `最新版本：${latestLabel || "--"}`;
+  if (latestVersion) {
+    latestVersion.textContent = `最新版本：${latestLabel || "--"}`;
+    latestVersion.hidden = !latestLabel;
+  }
   if (checkedAt) {
     checkedAt.textContent = update.checkedAt
       ? `上次检查：${formatUpdateDateTime(update.checkedAt)}`
@@ -416,12 +426,13 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
     manifestUrl.textContent = update.manifestUrl ? `更新清单：${update.manifestUrl}` : "更新清单：未配置";
   }
   if (errorEl) {
-    errorEl.textContent = update.error ? `检查失败：${update.error}` : "";
-    errorEl.classList.toggle("hidden", !update.error);
+    const hasError = Boolean(update.error) && !installed;
+    errorEl.textContent = hasError ? `更新失败：${update.error}` : "";
+    errorEl.classList.toggle("hidden", !hasError);
   }
   if (criticalEl) {
     const text = update.critical && hasUpdate
-      ? "重要更新：请查看更新说明并在保存当前工作后手动下载安装。"
+      ? "重要更新：请先查看版本说明，保存工作后再更新。"
       : update.minimumSupported === false
         ? "当前版本低于最低支持版本，请尽快升级。"
         : "";
@@ -430,35 +441,48 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   }
   if (changelogEl) {
     const changelog = Array.isArray(update.changelog) ? update.changelog : [];
+    const localOpen = changelogEl.querySelector?.("#settingsUpdateLocalNotes")?.open === true;
+    const remoteOpen = changelogEl.querySelector?.("#settingsUpdateRemoteNotes")?.open === true;
     changelogEl.innerHTML = `
-        <div class="settings-help-topic">
-          <strong>本机版本说明</strong>
-          <span>${LOCAL_RELEASE_NOTES.map(escapeHtml).join("<br>")}</span>
-        </div>
+        <details class="settings-update-disclosure" id="settingsUpdateLocalNotes"${localOpen ? " open" : ""}>
+          <summary>本机版本说明</summary>
+          <p class="settings-update-disclosure-body">${LOCAL_RELEASE_NOTES.map(escapeHtml).join("<br>")}</p>
+        </details>
       ` + (changelog.length ? `
-        <details class="settings-help-topic">
+        <details class="settings-update-disclosure" id="settingsUpdateRemoteNotes"${remoteOpen ? " open" : ""}>
           <summary>远端版本说明${latestLabel ? ` (${escapeHtml(latestLabel)})` : ""}</summary>
-          <p>${changelog.map(escapeHtml).join("<br>")}</p>
+          <p class="settings-update-disclosure-body">${changelog.map(escapeHtml).join("<br>")}</p>
         </details>
       ` : "");
   }
   if (checkButton) {
-    checkButton.disabled = update.status === UPDATE_STATUS.CHECKING;
+    checkButton.disabled = update.status === UPDATE_STATUS.CHECKING || installing || showRelaunch;
     checkButton.textContent = update.status === UPDATE_STATUS.CHECKING ? "检查中..." : "检查更新";
+    checkButton.hidden = installing || showRelaunch;
+    checkButton.classList.toggle("primary", !hasPrimaryUpdateAction);
   }
-  if (downloadButton) downloadButton.disabled = !(hasUpdate || failed) || !hasDownload;
+  if (downloadButton) {
+    downloadButton.disabled = !canDownload;
+    downloadButton.hidden = !canDownload;
+    downloadButton.classList.toggle("primary", canDownload && !showInstall && !showRelaunch);
+  }
   if (installButton) {
+    installButton.hidden = !showInstall;
     installButton.disabled = installing || installed || (!hasUpdate && !failed) || !canInstallInApp;
     installButton.textContent = installing
       ? "后台下载中..."
       : installed
         ? "已下载"
         : canInstallInApp
-          ? "后台下载更新"
-          : "桌面版可用";
+          ? (failed ? "重试下载" : "下载更新")
+          : "下载更新";
   }
-  if (relaunchButton) relaunchButton.disabled = !installed || !desktopUpdaterAvailable;
+  if (relaunchButton) {
+    relaunchButton.disabled = !showRelaunch;
+    relaunchButton.hidden = !showRelaunch;
+  }
   if (downloadHint) {
+    downloadHint.hidden = !(installed || installing || hasUpdate || (failed && hasDownload));
     downloadHint.textContent = installed
       ? "更新已下载，重启应用后完成安装。"
       : installing
@@ -466,8 +490,8 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
         : hasUpdate
           ? canInstallInApp
             ? "桌面版会后台下载并校验更新；下载完成后再由你决定何时重启。"
-            : (hasDownload ? "当前环境不支持应用内安装，可打开下载页手动安装。" : "检测到新版本，但 manifest 没有提供下载链接。")
-          : "有新版本时会显示下载入口。";
+            : (hasDownload ? "打开下载页，保存工作后手动安装。" : "检测到新版本，但更新来源未提供下载链接。")
+          : (failed && hasDownload ? "可以重试检查，或打开下载页手动安装。" : "");
   }
   if (installProgress) {
     const progress = update.installProgress || {};
@@ -484,5 +508,6 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
   }
   if (remindLaterButton) remindLaterButton.disabled = update.status === UPDATE_STATUS.CHECKING;
   if (ignoreButton) ignoreButton.disabled = !hasUpdate || !latestLabel;
+  if (deferActions) deferActions.hidden = !hasUpdate;
   if (autoEnabled) autoEnabled.checked = update.autoCheckEnabled !== false;
 }

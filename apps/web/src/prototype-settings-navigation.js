@@ -42,19 +42,19 @@ export const SETTINGS_SECTIONS = Object.freeze([
 ]);
 
 export const SETTINGS_DETAIL_ITEMS = Object.freeze([
-  { id: "mobile-access", label: "手机访问", group: "手机访问", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
   { id: "current-vault", label: "本地笔记库", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
   { id: "import-export", label: "导入导出", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardImportExport"] },
+  { id: "mobile-access", label: "手机访问", group: "工作区与数据", sectionId: "workspace", cardIds: ["settingsCardMobileAccess"] },
   { id: "permanent-template", label: "永久笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "笔记模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
   { id: "ai-settings", label: "AI 设置", group: "AI", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
   { id: "automation", label: "自动整理", group: "自动整理", sectionId: "automation", cardIds: ["settingsCardAutomation"] },
-  { id: "desktop-help", label: "本地使用说明", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "desktop-help", label: "使用帮助", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsDesktopHelpCard", "settingsLocalRulesCard"] },
   { id: "feedback", label: "问题反馈", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsFeedbackCard"] },
   { id: "version-update", label: "关于与更新", group: "帮助与反馈", sectionId: "support", cardIds: ["settingsUpdateCard"] }
 ]);
 
-const SETTINGS_DETAIL_GROUPS = ["手机访问", "工作区与数据", "笔记模板", "AI", "自动整理", "帮助与反馈"];
+const SETTINGS_DETAIL_GROUPS = ["工作区与数据", "笔记模板", "AI", "自动整理", "帮助与反馈"];
 
 function escapeHtmlValue(value) {
   return String(value ?? "")
@@ -124,7 +124,7 @@ export function settingsSectionChromeMap({
     },
     support: {
       badge: "问题反馈",
-      meta: "遇到问题先看这里、Demo、任务帮助"
+      meta: "使用帮助、问题反馈与版本更新"
     }
   };
 }
@@ -281,16 +281,16 @@ export function settingsItemSidebarIconSvg(itemId = "") {
 
 export function settingsItemSummary(itemId = "") {
   const summaries = {
-    "current-vault": "在这里直接选择并切换笔记库路径。",
+    "current-vault": "笔记和附件保存在这个文件夹中。",
     "import-export": "导入外部资料或导出永久笔记；日常保护数据请优先使用左侧的备份与恢复。",
     "mobile-access": "扫码连接手机。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
     "ai-settings": "",
     automation: "先看待处理内容；需要调整时再看整理规则和历史记录。",
-    "version-update": "检查新版本，必要时打开下载页。",
-    "desktop-help": "说明笔记文件、数据库和笔记库切换规则。",
-    feedback: "反馈问题或复制排查信息。"
+    "version-update": "检查新版本，保存工作后再重启更新。",
+    "desktop-help": "",
+    feedback: ""
   };
   const key = normalizeSettingsItem(itemId);
   return Object.prototype.hasOwnProperty.call(summaries, key)
@@ -368,7 +368,8 @@ export function settingsSidebarNavigationHtml({
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   const groupHtml = SETTINGS_DETAIL_GROUPS.map((group) => {
     const items = SETTINGS_DETAIL_ITEMS.filter((item) => item.group === group).map((item) => {
-      const chrome = chromeMap[item.sectionId] || {};
+      const templateKind = item.id === "permanent-template" ? "permanent" : item.id === "literature-template" ? "literature" : "";
+      const hasDraft = templateKind && settingsState.noteTemplates?.[templateKind]?.draftActive;
       const isActive = item.id === activeItem.id;
       return `
         <button
@@ -380,7 +381,7 @@ export function settingsSidebarNavigationHtml({
           <span class="settings-sidebar-menu-icon">${settingsItemSidebarIconSvg(item.id)}</span>
           <span class="settings-sidebar-menu-copy">
             <span class="settings-sidebar-menu-title">${escapeHtml(item.label)}</span>
-            <span class="settings-sidebar-menu-meta">${escapeHtml(chrome.meta || settingsSectionConfig(item.sectionId).label)}</span>
+            ${hasDraft ? '<span class="settings-sidebar-menu-meta">未保存</span>' : ""}
           </span>
         </button>
       `;

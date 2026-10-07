@@ -126,6 +126,45 @@ test("expired snapshot cannot commit after retry and a later vault switch", asyn
   assert.deepEqual(state.folders, ["C"]);
 });
 
+test("snapshot includes material and nested directories rather than only permanent notes", async () => {
+  const state = { folders: ["old"], notes: ["old note"] };
+  const reads = [];
+  const folders = [{ id: "permanent" }, { id: "fleeting" }, { id: "literature" }, { id: "nested", parentId: "literature" }];
+  const result = await loadSettingsVaultSnapshot(state, {
+    fetchDirectories: async () => folders,
+    fetchDirectoryNotes: async (id, options) => {
+      reads.push(id);
+      assert.equal(options.includeDescendants, true);
+      return id === "permanent" ? [] : id === "literature"
+        ? [{ id: "note-literature", directoryId: id }, { id: "note-nested", directoryId: "nested" }]
+        : [{ id: `note-${id}`, directoryId: id }];
+    },
+    mapDirectoryItem: item => item,
+    mapNoteItem: (item, { mappingState }) => { assert.deepEqual(mappingState.folders, folders); return item; }
+  }, { isCurrent: () => true });
+  assert.deepEqual(reads, ["permanent", "fleeting", "literature"]);
+  assert.deepEqual(result.notes.map(item => item.id), ["note-fleeting", "note-literature", "note-nested"]);
+  assert.deepEqual(state, { folders: ["old"], notes: ["old note"] });
+});
+
+test('root snapshot requests start together, preserve orphan directories and commit nothing until complete', async () => {
+  const state = { folders: ['old'], notes: ['old'] };
+  const folders = [{ id: 'root' }, { id: 'nested', parentId: 'root' }, { id: 'orphan', parentId: 'missing' }];
+  const releases = new Map();
+  const pending = loadSettingsVaultSnapshot(state, {
+    fetchDirectories: async () => folders,
+    fetchDirectoryNotes: id => new Promise(resolve => releases.set(id, resolve)),
+    mapDirectoryItem: item => item, mapNoteItem: item => item
+  }, { isCurrent: () => true });
+  await Promise.resolve();
+  assert.deepEqual([...releases.keys()], ['root', 'orphan']);
+  assert.deepEqual(state, { folders: ['old'], notes: ['old'] });
+  releases.get('orphan')([{ id: 'orphan-note' }]);
+  releases.get('root')([{ id: 'nested-note' }]);
+  assert.deepEqual((await pending).notes.map(note => note.id), ['nested-note', 'orphan-note']);
+  assert.deepEqual(state, { folders: ['old'], notes: ['old'] });
+});
+
 for (const delayedPart of ["directories", "notes"]) {
   test(`snapshot loader rejects stale ${delayedPart} without mutating shared state`, async () => {
     const state = { folders: ["A"], notes: ["old note"] };

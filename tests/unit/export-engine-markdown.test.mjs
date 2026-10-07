@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import { exportMarkdown } from "../../packages/export-engine/src/index.mjs";
 import { createDirectory, createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
+import { parseMarkdownWithFrontmatter } from "../../packages/domain/src/frontmatter.mjs";
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -49,7 +50,10 @@ test("exportMarkdown copies vault notes markdown files and writes an export reco
 
   const copied = await fs.readFile(path.join(targetPath, "literature", "Body.md"), "utf8");
   const copiedAsset = await fs.readFile(path.join(targetPath, "assets", "images", "chart.txt"), "utf8");
-  assert.equal(copied, "Body");
+  const parsed = parseMarkdownWithFrontmatter(copied);
+  assert.equal(parsed.body, "Body");
+  assert.equal(parsed.frontmatter.id, undefined);
+  assert.deepEqual(parsed.frontmatter.yansilu_link_aliases, ["ln_1"]);
   assert.equal(copiedAsset, "asset-body");
 
   const record = JSON.parse(await fs.readFile(result.recordPath, "utf8"));

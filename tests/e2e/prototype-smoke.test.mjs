@@ -109,7 +109,7 @@ test("prototype web server loads against a real API service", async (t) => {
   assert.match(html, /id="btnFocusMode"/);
   assert.match(html, /id="editorIntentNote"/);
   assert.match(html, /id="originalityNotice"/);
-  assert.match(html, /id="editorHelper"/);
+  assert.doesNotMatch(html, /id="(?:editorHelper|saveAiSuggestion)"/);
 
   const createdDirectory = await postJson(apiBase, "/api/v1/directories", {
     title: "e2e-directory",

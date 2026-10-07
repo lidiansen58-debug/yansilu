@@ -33,6 +33,7 @@ export function createImportToolbarActions({
   getActivePreview,
   selectionSummary,
   previewImport,
+  resumeImportPreview,
   confirmImport,
   onPreviewSuccess,
   onConfirmSuccess,
@@ -41,7 +42,7 @@ export function createImportToolbarActions({
   refreshImportedNotesView,
   setStatus
 } = {}) {
-  async function handlePreview() {
+  async function handlePreview({ restart = false } = {}) {
     const values = getToolbarValues();
     const connector = String(values.connector || "obsidian").trim() || "obsidian";
     try {
@@ -51,8 +52,10 @@ export function createImportToolbarActions({
         payloadText: values.payload
       });
       const options = parseJsonOrEmpty(values.options, "Options");
+      const resumed = await resumeImportPreview?.(values, { connector, payload, options }, { restart });
+      if (resumed?.handled) return resumed.record || null;
       const preview = await previewImport({ connector, payload, options });
-      await onPreviewSuccess?.(preview);
+      await onPreviewSuccess?.(preview, { values });
       await refreshImportHistory?.({ silent: true });
       setStatus?.(`导入预览已生成：${preview.importRecordId}`, "ok");
       return preview;

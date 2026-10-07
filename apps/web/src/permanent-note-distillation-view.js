@@ -39,12 +39,18 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
   );
   const viewpointSourceCandidates = (Array.isArray(options.viewpointSourceCandidates) ? options.viewpointSourceCandidates : [])
     .map((item) => ({ ...item, selected: viewpointDraft ? draftSourceIds.has(String(item.id || "").trim()) : item.selected }));
-  const thesisChangeReason = String(viewpointDraft?.thesisChangeReason || "").trim();
+  const thesisChangeReason = String(viewpointDraft
+    ? viewpointDraft.thesisChangeReason ?? ""
+    : note.pendingViewpointRevision?.reason ?? "").trim();
 
   return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
         <form class="semantic-relation-form" data-note-distillation-form>
           ${options.relationNetworkPromptHtml || ""}
+          <label>
+            笔记标题
+            <input name="title" type="text" value="${escapeHtml(viewpointDraft?.title ?? note.title ?? "")}" required />
+          </label>
           <label>
             你现在认为是什么？
             <textarea name="thesis" rows="3" placeholder="用一句自己的话，写下你愿意保留的判断。" required>${escapeHtml(thesis)}</textarea>

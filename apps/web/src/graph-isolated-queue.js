@@ -1,4 +1,5 @@
 import { graphIsolatedNodeIdsForGraph } from "./graph-relation-state-query.js";
+import { prepareGraphLocalRelationCandidates } from "./graph-local-relations.js";
 
 export function graphIsolatedSelectionKeyForItem(note = {}, index = 0) {
   const raw = String(note?.noteId || note?.id || note?.title || index).trim();
@@ -83,10 +84,13 @@ export function graphIsolatedQueueItemsForGraph({
   decisionMeta = () => ({ tone: "" }),
   aiRelationCandidatesForNote = () => [],
   localRelationCandidatesForNote = () => [],
+  prepareLocalRelationCandidates = prepareGraphLocalRelationCandidates,
   selectionKey = graphIsolatedSelectionKeyForItem
 } = {}) {
   const cleanCurrentNoteId = String(currentNoteId || "").trim();
   const limitCount = Math.max(1, Number(limit) || 8);
+  // One immutable render snapshot supplies features for every source in this queue.
+  const prepared = Array.isArray(isolatedNotes) && isolatedNotes.length ? prepareLocalRelationCandidates(nodeMap) : null;
   const items = (Array.isArray(isolatedNotes) ? isolatedNotes : [])
     .map((item, index) => {
       const noteId = graphNoteIdFromIsolatedItem(item);
@@ -95,7 +99,7 @@ export function graphIsolatedQueueItemsForGraph({
       if (noteHasSavedIsolationDisposition(note)) return null;
       const decision = decisionMeta(item, note) || {};
       const aiCandidates = aiRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
-      const localCandidates = localRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3 });
+      const localCandidates = localRelationCandidatesForNote(noteId, { nodeMap, edges, limit: 3, prepared });
       const candidateCount = aiCandidates.length + localCandidates.length;
       const firstCandidate = aiCandidates[0] || localCandidates[0] || null;
       const title = String(item?.title || note?.title || noteId).trim() || noteId;

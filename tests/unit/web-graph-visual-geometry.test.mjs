@@ -55,7 +55,7 @@ test("graph visual geometry reports attention reasons without duplicates", () =>
       { isFocused: true, isAnchor: true, degree: 5 },
       { selected: true, inSelectedTheme: true }
     ),
-    ["当前选中", "当前焦点", "可写主题成员", "可写主题核心", "连接较多"]
+    ["当前选中", "当前焦点", "所选笔记群成员", "笔记群中心", "连接较多"]
   );
 });
 
@@ -72,7 +72,8 @@ test("graph visual geometry applies fit visibility from relation group and node 
     ["c", { starTier: "minor" }]
   ]);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "c", relationType: "indexes" }, nodeMap, {}, { graphRelationVisual: relationVisual }), true);
-  assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "b", toNoteId: "c", relationType: "bridges" }, nodeMap, {}, { graphRelationVisual: relationVisual }), false);
+  assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "b", toNoteId: "c", relationType: "bridges" }, nodeMap, {}, { graphRelationVisual: relationVisual }), true);
+  assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "b", toNoteId: "c", relationType: "bridges" }, nodeMap, { denseMode: true }, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "supports" }, nodeMap, { denseMode: true }, { graphRelationVisual: relationVisual }), false);
   assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "flows" }, nodeMap, { denseMode: true, intercluster: true }, { graphRelationVisual: relationVisual }), true);
 });
@@ -109,6 +110,10 @@ test("graph visual geometry decides edge render visibility from zoom and density
 });
 
 test("small graphs retain every body and manual edge at overview zoom", () => {
+  const nodes = new Map([["a", { starTier: "minor" }], ["b", { starTier: "dust" }]]);
+  for (const createdBy of ["markdown_wikilink", "manual"]) {
+    assert.equal(graphEdgeVisibleAtFit({ fromNoteId: "a", toNoteId: "b", relationType: "associated_with", createdBy }, nodes, { denseMode: false }, { graphRelationVisual: relationVisual }), true);
+  }
   for (const visualKey of ["neutral", "support", "conflict", "index"]) {
     assert.equal(graphEdgeShouldRender({ zoomKey: "fit", visualKey, fitVisible: false, denseMode: false }), true);
   }

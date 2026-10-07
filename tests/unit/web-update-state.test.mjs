@@ -24,6 +24,20 @@ test("web update state lets users disable automatic checks", () => {
   assert.equal(shouldAutoCheckForUpdates(state, { nowMs: Date.parse("2026-06-20T00:00:00.000Z") }), false);
 });
 
+for (const status of ["checking", "failed", "up-to-date", "update-available", "downloading", "downloaded"]) {
+  test(`automatic check preference preserves the current ${status} result`, () => {
+    const initial = createUpdateState({ status, error: status === "failed" ? "network" : "", installProgress: { percent: 42 }, installReadyForRestart: status === "downloaded" });
+    for (const enabled of [false, true]) {
+      const result = updateStateAutoCheckEnabled(initial, enabled);
+      assert.equal(result.status, status);
+      assert.equal(result.autoCheckEnabled, enabled);
+      assert.equal(result.error, initial.error);
+      assert.deepEqual(result.installProgress, initial.installProgress);
+      assert.equal(result.installReadyForRestart, initial.installReadyForRestart);
+    }
+  });
+}
+
 test("web update state clears restart prompt after the new version is running", () => {
   const state = updateStateFromVersionInfo(createUpdateState({
     status: "downloaded",

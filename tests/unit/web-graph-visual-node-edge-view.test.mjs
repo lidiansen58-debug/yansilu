@@ -10,6 +10,8 @@ import {
   renderGraphVisualEdgeView,
   renderGraphVisualEdgeViews
 } from "../../apps/web/src/graph-visual-edge-view.js";
+import { buildGraphVisualMapSelectionState } from "../../apps/web/src/graph-visual-map-selection-state.js";
+import { graphEdgeShouldRender } from "../../apps/web/src/graph-visual-geometry.js";
 
 const nodeDeps = {
   graphNodeClass: (type) => `is-${type || "unknown"}`,
@@ -85,6 +87,47 @@ test("graph visual node view keeps dense low-rank nodes point-like", () => {
   assert.match(markup, /--graph-node-core-alpha:0\.70/);
 });
 
+test("selected dense group reveals ordinary member titles and real internal edges only", () => {
+  const selection = buildGraphVisualMapSelectionState({ graphSelection: { kind: "cluster", memberIds: ["a", "b"] } });
+  const context = { ...selection, denseGalaxyMode: true, zoomKey: "fit" };
+  const node = { id: "a", title: "A real low-degree note", starTier: "dust", x: 40, y: 50, radius: 2 };
+  assert.equal(graphVisualNodeViewState(node, 90, context, nodeDeps).showLabel, true);
+  assert.equal(graphVisualNodeViewState({ ...node, id: "outside" }, 90, context, nodeDeps).showLabel, false);
+  const edges = { ...edgeDeps, graphEdgeVisibleAtFit: () => false, graphEdgeShouldRender };
+  const item = { edge: { fromNoteId: "a", toNoteId: "b", relationType: "supports" }, path: { d: "M 0 0 L 10 10" }, visual: { key: "support" } };
+  const inside = graphVisualEdgeViewState(item, context, edges);
+  const outside = graphVisualEdgeViewState({ ...item, edge: { ...item.edge, toNoteId: "outside" } }, context, edges);
+  assert.equal(inside.inSelectedTheme, true);
+  assert.equal(inside.renderEdge, true);
+  assert.equal(outside.inSelectedTheme, false);
+  assert.equal(outside.renderEdge, false);
+});
+
+test("small real maps label every note at fit zoom without a user selection", () => {
+  const node = { id: "ordinary", title: "反例帮助检验判断", starTier: "dust", x: 20, y: 30, radius: 8 };
+  const state = graphVisualNodeViewState(node, 11, { zoomKey: "fit", smallGraph: true, denseDirectoryMode: true,
+    readingLensState: { active: true, priorityNodeIds: new Set() } }, nodeDeps);
+  assert.equal(state.showLabel, true);
+  assert.equal(state.label, node.title);
+  assert.equal(state.lensSecondary, true);
+  assert.ok(state.hitRadius >= 44);
+  assert.match(state.typeClass, /is-small-graph-node/);
+  const ordinary = graphVisualNodeViewState(node, 11, { zoomKey: "fit", denseDirectoryMode: true }, nodeDeps);
+  assert.equal(ordinary.showLabel, false);
+  assert.doesNotMatch(ordinary.typeClass, /is-small-graph-node/);
+});
+
+test("small endpoint labels sit away from their actual downward relation", () => {
+  const node = { id: "upper", title: "Upper", x: 20, y: 30, radius: 8 };
+  const context = { smallGraph: true, adjacencyMap: new Map([["upper", new Set(["lower"])]]),
+    layoutNodeMap: new Map([["lower", { y: 150 }]]) };
+  const state = graphVisualNodeViewState(node, 0, context, nodeDeps);
+  assert.equal(state.labelAbove, true);
+  assert.ok(state.labelY < node.y - node.radius);
+  assert.match(renderGraphVisualNodeView(node, 0, context, nodeDeps), /graph-map-node-label is-above/);
+  assert.equal(graphVisualNodeViewState(node, 0, { ...context, smallGraph: false }, nodeDeps).labelAbove, false);
+});
+
 test("graph visual node view renders batches without prototype helpers", () => {
   const markup = renderGraphVisualNodeViews(
     [
@@ -127,6 +170,8 @@ test("graph visual edge view exposes fit, dense, selection, and lens state", () 
   const markup = renderGraphVisualEdgeView(item, context, edgeDeps);
 
   assert.equal(state.fitVisible, true);
+  assert.equal(state.sparse, false);
+  assert.doesNotMatch(markup, /is-sparse-edge/);
   assert.equal(state.intercluster, true);
   assert.equal(state.selected, true);
   assert.equal(state.lensPriority, true);
@@ -136,6 +181,12 @@ test("graph visual edge view exposes fit, dense, selection, and lens state", () 
   assert.match(markup, /is-theme-selected/);
   assert.match(markup, /is-bridge-selected/);
   assert.doesNotMatch(markup, /graph-map-edge-pin/);
+});
+
+test("sparse edge markup exposes readable overview styling without changing dense maps", () => {
+  const item = { edge: { fromNoteId: "a", toNoteId: "b", relationType: "associated_with", createdBy: "markdown_wikilink" }, path: { d: "M 0 0 L 10 10" }, visual: { key: "neutral", className: "is-neutral" } };
+  assert.match(renderGraphVisualEdgeView(item, { denseGalaxyMode: false }, edgeDeps), /is-sparse-edge/);
+  assert.doesNotMatch(renderGraphVisualEdgeView(item, { denseGalaxyMode: true }, { ...edgeDeps, graphEdgeShouldRender: () => true }), /is-sparse-edge/);
 });
 
 test("graph visual edge view can hide fit edges unless selected or lens-priority", () => {

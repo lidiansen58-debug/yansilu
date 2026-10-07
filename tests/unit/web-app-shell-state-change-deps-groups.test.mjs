@@ -46,6 +46,7 @@ test("app shell graph state-change deps keeps graph and navigation actions toget
 test("app shell note state-change deps keeps note creation distillation and save actions together", () => {
   const host = {
     state: { notes: [] },
+    getVaultPath: () => "current-vault",
     editor: { id: "editor" },
     createPrimaryOriginalNote: async () => ({}),
     createNoteInSelectedFolder: async () => ({}),
@@ -65,7 +66,9 @@ test("app shell note state-change deps keeps note creation distillation and save
   assert.equal(deps.createNoteInSelectedFolder.editor, host.editor);
   assert.equal(deps.recordOriginalFromNote.createNote, host.createNote);
   assert.equal(deps.saveNoteDistillation.updatePermanentNoteDistillation, host.updatePermanentNoteDistillation);
+  assert.equal(deps.saveNoteDistillation.getVaultPath, host.getVaultPath);
   assert.equal(deps.confirmNoteDistillation.confirmPermanentNoteDistillation, host.confirmPermanentNoteDistillation);
+  assert.equal(deps.confirmNoteDistillation.getVaultPath, host.getVaultPath);
   assert.equal(deps.saveNote.updateNote, host.updateNote);
   assert.equal("directoryMove" in deps, false);
 });

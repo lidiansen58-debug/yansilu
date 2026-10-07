@@ -13,9 +13,9 @@ test("import toolbar defaults to the beginner Obsidian import path", () => {
   });
 
   assert.match(html, /来源仓库/);
-  assert.match(html, /先预览确认：默认不修改原 Vault；导入后的笔记可随时导回 Markdown/);
-  assert.match(html, /第 2 步：生成预览/);
-  assert.match(html, /确认导入/);
+  assert.match(html, /先预览确认，默认不修改原 Vault；导入后可导回 Markdown/);
+  assert.match(html, /预览笔记/);
+  assert.doesNotMatch(html, /id="btnImportConfirm"/);
   assert.match(html, /<details class="import-compat-details">/);
   assert.match(html, /<summary>高级导入设置<\/summary>/);
   assert.doesNotMatch(html, /<details class="import-compat-details" open>/);

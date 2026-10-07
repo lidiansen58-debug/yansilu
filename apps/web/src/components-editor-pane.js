@@ -9,6 +9,8 @@ import { recordEditorSourceAsPermanent } from "./source-note-editor-promotion.js
 import { beginSourceDistillRequest, cancelSourceDistillRequest } from "./source-distill-request.js";
 import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
 import { markdownCharacterIsEscaped, selectionTouchesMarkdownCode } from "./markdown-code-context.js";
+import { literatureSourceCompletion } from "./literature-source-readiness.js";
+import { distillationPanelHasFocus } from "./distillation-editor-result.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -38,8 +40,6 @@ import {
   composePermanentWorkspace,
   deriveLiteratureSectionLabelsFromTemplate,
   distillationDraftFromForm,
-  literatureCitationState,
-  literatureTemplateBody,
   normalizeLiteratureSectionLabelCandidates,
   normalizedLiteratureSectionLabels,
   normalizeFieldText,
@@ -80,6 +80,8 @@ import {
 } from "./editor-markdown-commands.js";
 import { renderMarkdownPreview } from "./editor-preview-renderer.js";
 import { renderImageAssetPreview } from "./image-asset-preview.js";
+import { createAssetPreviewFocus } from "./asset-preview-focus.js";
+import { captureAssetInsertionContext } from "./editor-asset-insertion-context.js";
 import { applyEditorPaneStateMethods } from "./editor-dirty-state.js";
 import {
   highlightMatch,
@@ -642,53 +644,7 @@ export class EditorPane {
 
   literatureCompletionState(note = this.activeNote()) {
     const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : this.parseLiteratureBody(note?.body || "");
-    const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
-    const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
-    const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
-    const hasQuestion = Boolean(normalizeFieldText(fields.question));
-    const readyForOriginal = hasOriginalText && hasParaphrase && (hasJudgmentSeed || hasQuestion);
-    const generatedOriginal = this.hasGeneratedOriginal(note);
-    const citation = literatureCitationState(fields.citation);
-    const ready = hasOriginalText && hasParaphrase && citation.complete;
-    const status = ready && String(note?.status || "").trim() === "active" ? "active" : "draft";
-    const missingCitationText = citation.missingLabels.length ? `缺少引用信息：${citation.missingLabels.join("、")}` : "";
-    let label = "待转述";
-    let tone = "draft";
-    let hint = "先写出你自己的转述，再提炼它可能长出的原创判断。";
-    if (generatedOriginal) {
-      label = "已转永久笔记";
-      tone = "active";
-      hint = "这条文献已经作为证据长出永久笔记，可以回到永久笔记继续建立关联。";
-    } else if (!citation.complete || !hasOriginalText) {
-      label = "待补来源";
-      tone = "draft";
-      hint = missingCitationText || "先补齐来源信息和原文摘录，避免材料脱离证据链。";
-    } else if (!hasParaphrase) {
-      label = "待转述";
-      tone = "draft";
-      hint = "先用自己的话说明这段材料真正表达了什么。";
-    } else if (!readyForOriginal) {
-      label = "待提炼判断";
-      tone = "refine";
-      hint = "已经有转述，下一步写出判断种子或追问，让材料能进入永久笔记。";
-    } else {
-      label = "可转永久笔记";
-      tone = "active";
-      hint = "这条材料已经具备转为永久笔记的条件。";
-    }
-    return {
-      status,
-      hasParaphrase,
-      hasOriginalText,
-      hasJudgmentSeed,
-      hasQuestion,
-      readyForOriginal,
-      hasCitationMetadata: citation.complete,
-      missingCitationFields: citation.missingLabels,
-      label,
-      tone,
-      hint
-    };
+    return literatureSourceCompletion(fields, { generatedOriginal: this.hasGeneratedOriginal(note), status: note?.status });
   }
 
   literatureQueueScopeDirectoryIds(note = this.activeNote()) {
@@ -709,40 +665,7 @@ export class EditorPane {
 
   literatureQueueRecord(note) {
     const fields = this.parseLiteratureBody(note?.body || "");
-    const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
-    const citation = literatureCitationState(fields.citation);
-    const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
-    const hasWhyKeep = Boolean(normalizeFieldText(fields.whyKeep));
-    const hasSupportsJudgment = Boolean(normalizeFieldText(fields.supportsJudgment));
-    const hasQuestion = Boolean(normalizeFieldText(fields.question));
-    const hasGenerated = this.hasGeneratedOriginal(note);
-    let lane = "ready";
-    let label = "可转永久笔记";
-    let tone = "active";
-    let noteText = "转述和判断种子已经具备，可以继续转为永久笔记。";
-    if (hasGenerated) {
-      lane = "ready";
-      label = "已转永久笔记";
-      tone = "active";
-      noteText = "这条文献已经长出永久笔记，现在作为证据保留。";
-    } else if (!citation.complete || !hasOriginalText) {
-      lane = "refine";
-      label = "待补来源";
-      tone = "draft";
-      noteText = "先补齐来源信息和原文摘录，后续永久笔记才能保留证据链。";
-    } else if (!hasParaphrase) {
-      lane = "pending";
-      label = "待转述";
-      tone = "draft";
-      noteText = "先把原文改写成你自己的判断表达，再决定它是否值得留下。";
-    } else if (!hasSupportsJudgment && !hasQuestion) {
-      lane = "refine";
-      label = "待提炼判断";
-      tone = "refine";
-      noteText = "已经有转述，下一步写出判断种子或追问，让它能转为永久笔记。";
-    } else if (!hasWhyKeep) {
-      noteText = "已经可转永久笔记；补一句保留原因能帮助以后判断这条证据为什么重要。";
-    }
+    const { lane, label, tone, hint: noteText } = literatureSourceCompletion(fields, { generatedOriginal: this.hasGeneratedOriginal(note) });
     const excerpt = normalizeFieldText(fields.paraphrase || fields.originalText || "");
     return {
       note,
@@ -1193,6 +1116,7 @@ export class EditorPane {
     if (this.els.assetPreviewBody) this.els.assetPreviewBody.innerHTML = "";
     if (this.els.assetPreviewTitle) this.els.assetPreviewTitle.textContent = "附件预览";
     if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = "#";
+    this.assetPreviewFocus?.close();
   }
 
   closeTokenPreview() {
@@ -1292,6 +1216,7 @@ export class EditorPane {
       `;
     }
     this.els.assetPreviewMask.classList.remove("hidden");
+    this.assetPreviewFocus?.open();
   }
 
   async copyText(text = "", successMessage = "已复制") {
@@ -1465,6 +1390,7 @@ export class EditorPane {
   }
 
   renderPreviewVisibility() {
+    const panelFocused = distillationPanelHasFocus(this);
     const mode = String(this.state.previewMode || "wysiwyg");
     const pendingSelection = this.pendingEditorSelection;
     this.pendingEditorSelection = null;
@@ -1515,7 +1441,7 @@ export class EditorPane {
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
       if (this.isWysiwygMode()) this.refreshRichAssetBindings();
-      if (!this.isStructuredWorkspaceActive()) {
+      if (!this.isStructuredWorkspaceActive() && !panelFocused) {
         if (this.isSourceMode()) this.clearMarkdownSelectionOverride();
         else if (normalizedPendingSelection) this.setMarkdownSelectionOverride(normalizedPendingSelection.from, normalizedPendingSelection.to);
         if (this.isSourceMode()) this.markdownEditor.focus();
@@ -2517,6 +2443,10 @@ export class EditorPane {
   }
 
   async insertAssetFiles(filesLike, { sourceLabel = "插入" } = {}) {
+    if (this.assetUploadPending) {
+      this.onStatus("附件正在处理中，请稍候再插入。", "warn");
+      return;
+    }
     const note = this.activeNote();
     if (!note) {
       this.onStatus("请先打开一个笔记", "warn");
@@ -2531,12 +2461,20 @@ export class EditorPane {
       return;
     }
     const insertion = this.stableEditorSelectionForAsyncInsert();
+    const context = captureAssetInsertionContext(this, insertion.value);
+    const uploaded = [];
+    const cancelInsertion = () => this.onStatus(uploaded.length
+      ? "文件已保存，但笔记或正文已变化，未插入链接。请在需要的位置重新插入。"
+      : "笔记或正文已变化，未上传附件。请在需要的位置重新插入。", "warn");
+    this.assetUploadPending = true;
     this.onStatus(`${sourceLabel}文件处理中...`, "ok");
     try {
-      const uploaded = [];
       for (const file of files) {
+        if (!context.isCurrent()) { cancelInsertion(); return; }
         const contentBase64 = await this.fileToBase64(file);
+        if (!context.isCurrent()) { cancelInsertion(); return; }
         const item = await uploadNoteAsset(note.id, {
+          expectedVaultPath: context.vaultPath || undefined,
           fileName: file.name,
           mimeType: file.type || "",
           contentBase64,
@@ -2545,6 +2483,7 @@ export class EditorPane {
         if (item) uploaded.push(item);
       }
       if (!uploaded.length) throw new Error("未能写入任何附件");
+      if (!context.isCurrent()) { cancelInsertion(); return; }
       const currentValue = this.getEditorValue();
       const from = Math.max(0, Math.min(currentValue.length, insertion.selection.from));
       const to = Math.max(from, Math.min(currentValue.length, insertion.selection.to));
@@ -2582,8 +2521,13 @@ export class EditorPane {
       if (fileCount) detail.push(`${fileCount} 个附件`);
       this.onStatus(`已插入${detail.join("、")}${skipped ? `，已跳过 ${skipped} 个不支持的文件` : ""}`, skipped ? "warn" : "ok");
     } catch (error) {
-      this.onStatus(`插入附件失败：${String(error?.message || error)}`, "bad");
+      const uncertain = error?.code === "request_timeout" || error?.code === "api_unavailable";
+      const message = uncertain
+        ? "未确认附件上传结果，文件可能已保存。请检查笔记库中的附件后重试。"
+        : `插入附件失败：${String(error?.message || error)}`;
+      this.onStatus(`${message}${uploaded.length ? `；已保存 ${uploaded.length} 个文件，但未插入链接` : ""}`, uncertain ? "warn" : "bad");
     } finally {
+      this.assetUploadPending = false;
       if (this.els.assetImageInput?.value) this.els.assetImageInput.value = "";
       if (this.els.assetFileInput?.value) this.els.assetFileInput.value = "";
       this.els.editorHost?.classList.remove("dragover");
@@ -4018,7 +3962,7 @@ export class EditorPane {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
         const localStatusChanged = this.applyRelationNetworkStatusFromLocalSignals(note, { forward, backward, tagRelated });
         const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" });
-        this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
+        this.refreshPermanentWorkspaceSnapshot(note, tab, overview, { preserveViewpoint: true });
         this.notifyWorkflowReminder({ kind: "relation-network", note, overview });
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
@@ -4056,7 +4000,7 @@ export class EditorPane {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
         const localStatusChanged = this.applyRelationNetworkStatusFromLocalSignals(note, { forward, backward, tagRelated });
         const overview = this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "error" });
-        this.refreshPermanentWorkspaceSnapshot(note, tab, overview);
+        this.refreshPermanentWorkspaceSnapshot(note, tab, overview, { preserveViewpoint: true });
         this.refreshInspectorStatusSummary(note, tab);
         this.refreshInspectorLinkSummaryNote();
         this.syncPermanentRelationWorkspaceOverlay();
@@ -5344,8 +5288,8 @@ export class EditorPane {
     return Boolean(active.closest?.("input, textarea, select, [contenteditable='true']"));
   }
 
-  refreshPermanentWorkspaceSnapshot(note, tab = this.activeTab(), overview = null) {
-    return this.permanentNoteWorkspace().refreshSnapshot(note, tab, overview);
+  refreshPermanentWorkspaceSnapshot(note, tab = this.activeTab(), overview = null, options = {}) {
+    return this.permanentNoteWorkspace().refreshSnapshot(note, tab, overview, options);
   }
 
   renderDeferredNoteWorkspace(note, tab) {
@@ -6206,6 +6150,7 @@ export class EditorPane {
   }
 
   originalityPayloadFromLiterature(note, currentBody, linkedLiterature = []) {
+    const plan = this.resolvePlanFromWindow();
     const dedupLiterature = this.dedupeLinkedLiterature(linkedLiterature);
     const literature = dedupLiterature.map((ln) => ({
       source_id: `src_from_${ln.id}`,
@@ -6217,7 +6162,8 @@ export class EditorPane {
     }));
 
     return {
-      originalityPlan: this.resolvePlanFromWindow(),
+      // Persisted notes use the same locator policy as the catalog and writing entry.
+      originalityPlan: { ...plan, requireCitationLocator: plan.requireCitationLocator === true },
       literature,
       permanent: [
         {
@@ -6331,6 +6277,14 @@ export class EditorPane {
     this.hideBottomNotice();
   }
   bind() {
+    this.assetPreviewFocus = createAssetPreviewFocus({
+      getModal: () => this.els.assetPreviewMask,
+      getCloseButton: () => this.els.closeAssetPreview,
+      getReturnFocus: () => [...(this.isWysiwygMode()
+        ? this.els.wysiwygHost?.querySelectorAll('[contenteditable="true"]') || []
+        : this.els.editorHost?.querySelectorAll(".cm-content") || [])].find(node => node.getClientRects().length),
+      close: () => this.closeAssetPreview()
+    });
     this.els.tabs.addEventListener("click", async (e) => {
       const closeBtn = e.target.closest("button[data-close-tab]");
       if (closeBtn) {
@@ -7075,7 +7029,7 @@ export class EditorPane {
           return;
         }
         if (record.lane !== "ready") {
-          this.onStatus("这条文献笔记还没准备好进入永久笔记，请先补齐来源、转述、判断种子或追问", "warn");
+          this.onStatus(record.noteText, "warn");
           return;
         }
         const directoryId = await this.pickPermanentDirectoryForNote(record.note);

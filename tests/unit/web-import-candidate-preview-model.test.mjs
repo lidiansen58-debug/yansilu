@@ -51,13 +51,21 @@ test("candidate preview model derives confirm skipped ids and reason map", () =>
     conflicted: []
   });
   assert.deepEqual(confirmSkipReasonMap(payload, preview), {
-    src_1: { reason: "unselected", tone: "neutral", message: "未写入原因：确认前取消勾选。" },
+    src_1: { reason: "unselected", tone: "neutral", message: "未写入原因：确认时未勾选。" },
     pn_warn: {
       reason: "invalid",
       tone: "warning",
       message: "未写入原因：原创性为警告，当前未允许按草稿写入。 缺少引用定位。"
     }
   });
+});
+
+test("unselected blocked candidates are not misreported as user cancellations", () => {
+  const map = confirmSkipReasonMap({ stage: "confirm", result: { selection: { candidateIds: [] } } }, {
+    permanentNotes: [{ id: "pn_blocked", originalityStatus: "blocked" }]
+  });
+  assert.match(map.pn_blocked.message, /原创性检查未通过/);
+  assert.doesNotMatch(map.pn_blocked.message, /取消/);
 });
 
 test("candidate preview model extracts created literature and permanent note ids", () => {

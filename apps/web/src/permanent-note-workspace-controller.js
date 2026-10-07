@@ -128,15 +128,28 @@ export class PermanentNoteWorkspaceController {
     });
   }
 
-  refreshSnapshot(note, tab = this.host.activeTab?.(), overview = null) {
+  refreshSnapshot(note, tab = this.host.activeTab?.(), overview = null, { preserveViewpoint = false } = {}) {
     if (!note?.id || !tab || !this.workspaceMatchesNote(note.id)) return false;
     const workspace = this.workspaceElement();
-    if (workspace) this.replaceWorkspace(workspace, note, tab);
+    if (workspace) this.replaceWorkspace(workspace, note, tab, { preserveViewpoint });
     return true;
   }
 
-  replaceWorkspace(workspace, note, tab) {
+  replaceWorkspace(workspace, note, tab, { preserveViewpoint = false } = {}) {
     const focused = captureWorkspaceFocus(workspace);
+    if (preserveViewpoint && workspace.querySelector('[data-permanent-workspace-pane="viewpoint"]')) {
+      // Keep the live input node: replacing it interrupts IME composition.
+      const template = workspace.ownerDocument.createElement("template");
+      template.innerHTML = this.renderDeferredWorkspace(note, tab);
+      for (const name of ["relations", "history"]) {
+        const selector = `[data-permanent-workspace-pane="${name}"]`;
+        const current = workspace.querySelector(selector);
+        const next = template.content.querySelector(selector);
+        if (current && next) current.replaceWith(next);
+      }
+      if (!workspace.contains(workspace.ownerDocument.activeElement)) restoreWorkspaceFocus(workspace, focused);
+      return;
+    }
     const optionalDetailsOpen = workspace.querySelector?.(".viewpoint-optional-details")?.open === true;
     workspace.outerHTML = this.renderDeferredWorkspace(note, tab);
     if (optionalDetailsOpen) {
@@ -155,6 +168,8 @@ export class PermanentNoteWorkspaceController {
     if (note?.id && activeEditorTab && this.workspaceMatchesNote(note.id)) {
       const workspace = this.workspaceElement();
       // Switch the mounted panes so unsaved fields, selection and open details survive.
+      const context = workspace.querySelector("[data-permanent-workspace-context]");
+      if (context) context.hidden = nextTab === "viewpoint" && Boolean(workspace.querySelector('[data-note-distillation-form] [name="title"]'));
       for (const button of workspace.querySelectorAll("[data-permanent-workspace-tab]")) {
         const selected = button.getAttribute("data-permanent-workspace-tab") === nextTab;
         button.classList.toggle("is-active", selected);

@@ -6,9 +6,17 @@ import { fileURLToPath } from "node:url";
 import { sourceNotePromotionState } from "../../apps/web/src/source-note-promotion-panel.js";
 import { renderWritingThemeIndexCardDom } from "../../apps/web/src/writing-theme-card-panel.js";
 import { allowedNextSuggestionStatuses } from "../../packages/ai-orchestrator/src/suggestions.mjs";
+import { renderTodayOrganizingPanel } from "../../apps/web/src/today-organizing-panel.js";
 
 const help = await readFile(new URL("../../apps/web/src/help/quick-start.html", import.meta.url), "utf8");
 const writing = await readFile(new URL("../../apps/web/src/prototype.html", import.meta.url), "utf8");
+
+test("local help names the actual empty-library primary action", () => {
+  const home = renderTodayOrganizingPanel({ isEmptyLibrary: true });
+  const label = home.match(/data-today-action="start-first-note"[^>]*>\s*([^<]+)<\/button>/)[1].trim();
+  const firstStep = help.slice(help.indexOf("<ol>"), help.indexOf("</li>", help.indexOf("<ol>")));
+  assert.ok(firstStep.includes(`“${label}”`));
+});
 
 test("local help uses the actual writing output labels", () => {
   for (const label of ["复制正文", "导出文章 .md", "导出整稿 .md"]) {

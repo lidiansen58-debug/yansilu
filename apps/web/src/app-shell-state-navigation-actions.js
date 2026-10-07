@@ -32,6 +32,10 @@ export async function handleSelectFolderStateChange(payload = {}, deps = {}) {
     });
   }
 
+  const moduleAtStart = state.module;
+  const folderId = state.selectedFolderId;
+  const vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => state.module === moduleAtStart && state.selectedFolderId === folderId && state.noteMoveVaultScope === vaultScope;
   try {
     if (state.module === "graph") {
       applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
@@ -39,14 +43,15 @@ export async function handleSelectFolderStateChange(payload = {}, deps = {}) {
       expandGraphBrowserTree();
       explorer?.render?.();
     }
-    await syncNotesForDirectory(state.selectedFolderId);
+    await syncNotesForDirectory(folderId);
+    if (!isCurrent()) return true;
     if (state.module !== "graph") explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);
     if (state.module === "graph") await refreshDirectoryGraph();
   } catch (error) {
-    setStatus(`目录加载失败，保留本地数据：${String(error?.message || error)}`, "warn");
+    if (isCurrent()) setStatus(`目录加载失败，保留本地数据：${String(error?.message || error)}`, "warn");
   }
 
-  renderAll();
+  if (isCurrent()) renderAll();
   return true;
 }
 

@@ -71,7 +71,7 @@ export function renderSettingsPanelForRuntime(deps = {}) {
   syncSettingsAiInputs({ $, settingsState });
   renderAiProviderConfigControls();
   renderAiRoutePreview();
-  renderScheduledTasksWorkspace();
+  renderScheduledTasksWorkspace({ preserveForm: true });
   renderAiSuggestionsWorkspace();
   renderSettingsAiTestPanel({ $, settingsState, aiTestBlockedReason });
   renderAiCanonicalDebugPanel();

@@ -2,6 +2,7 @@ import {
   buildGraphPanelVisualMapProps,
   renderGraphPanelFocusedToolbar
 } from "./graph-panel-visual-map-props.js";
+import { captureGraphViewport, restoreGraphViewport } from "./graph-viewport-memory.js";
 
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
@@ -90,6 +91,8 @@ export function renderGraphPanelForRuntime({
     : "";
   const toolbarMarkup = renderGraphPanelFocusedToolbar(panelState, { renderGraphRelationTypeFilter });
   const noticeMarkup = (panelState.notices || []).map((notice) => renderGraphInlineNotice(notice)).join("");
+  const returningViewport = graphState.readingReturnViewport;
+  const viewportSnapshot = returningViewport || captureGraphViewport(canvas);
   canvas.innerHTML = `
     ${noticeMarkup}
     ${renderGraphVisualMap(buildGraphPanelVisualMapProps(panelState, {
@@ -99,5 +102,8 @@ export function renderGraphPanelForRuntime({
       toolbarMarkup
     }))}
   `;
+  if (restoreGraphViewport(canvas, viewportSnapshot, { requireSameLayout: !returningViewport })) {
+    graphState.readingReturnViewport = null;
+  }
   return true;
 }

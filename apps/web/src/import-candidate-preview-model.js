@@ -43,6 +43,7 @@ export function isConfirmableCandidate(item = {}, originalityGuard = null) {
 }
 
 export function candidateBadge(item = {}) {
+  if (item.candidateGroup === "PermanentNote" && item.originalityStatus === "pass" && item.status === "draft") return "待确认";
   const value = item.originalityStatus || item.status || item.sourceType || item.type || "candidate";
   const labels = {
     warning: "警告",
@@ -161,12 +162,15 @@ export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
     ])
   );
   const map = {};
+  const candidateById = new Map(candidatePreviewItems(candidatePreview).map(item => [String(item.id), item]));
 
   for (const candidateId of skippedIds.unselected) {
+    const item = candidateById.get(candidateId);
+    const guarded = item && !isConfirmableCandidate(item, payload.originalityGuard);
     map[candidateId] = {
       reason: "unselected",
-      tone: "neutral",
-      message: "未写入原因：确认前取消勾选。"
+      tone: guarded ? "warning" : "neutral",
+      message: guarded ? "未写入原因：原创性检查未通过，未勾选导入。" : "未写入原因：确认时未勾选。"
     };
   }
   for (const candidateId of skippedIds.invalid) {

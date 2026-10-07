@@ -12,13 +12,30 @@ import {
   normalizeStoredNoteTemplateSource,
   noteTemplateHistoryWithPrevious
 } from "../../apps/web/src/prototype-note-templates.js";
+import { legacyLiteratureTemplateSource } from "../../apps/web/src/literature-note-template.js";
+import { parseLiteratureWorkspace, validateLiteratureTemplateSource } from "../../apps/web/src/editor-template-workspace.js";
 
 test("prototype note template helpers keep default template sources stable", () => {
   assert.equal(NOTE_TEMPLATE_STORAGE_KEYS.permanent, "yansilu:settings:note-template:permanent");
   assert.match(defaultPermanentTemplateSource(), /## 核心观点/);
   assert.match(defaultPermanentTemplateSource(), /## 相关笔记/);
-  assert.match(defaultLiteratureTemplateSource(), /## 引用信息/);
-  assert.match(defaultLiteratureTemplateSource(), /## 保留原因/);
+  const literature = defaultLiteratureTemplateSource();
+  assert.deepEqual([...literature.matchAll(/^## (.+)$/gm)].map(match => match[1]), ["出处", "原文", "我的理解"]);
+  assert.equal((literature.match(/^- /gm) || []).length, 3);
+  assert.doesNotMatch(literature, /判断种子|年份|容器|DOI|保留原因/);
+  assert.equal(validateLiteratureTemplateSource(literature).ok, true);
+  const parsed = parseLiteratureWorkspace(literature);
+  assert.equal(parsed.originalText, "");
+  assert.equal(parsed.paraphrase, "");
+});
+
+test("only the exact old literature default upgrades; custom templates and history are preserved", () => {
+  const legacy = legacyLiteratureTemplateSource();
+  assert.equal(normalizeStoredNoteTemplateSource(legacy, "literature"), defaultLiteratureTemplateSource());
+  assert.equal(normalizeStoredNoteTemplateSource(legacy.replace(/\n/g, "\r\n"), "literature"), defaultLiteratureTemplateSource());
+  const custom = legacy.replace("用你自己的话重写，不要贴原句。", "保留我的研究笔记。用自己的话说明原文。");
+  assert.equal(normalizeStoredNoteTemplateSource(custom, "literature"), custom.trim());
+  assert.deepEqual(normalizeNoteTemplateHistory([legacy, custom], "literature"), [legacy.trim(), custom.trim()]);
 });
 
 test("prototype note template helpers normalize empty and legacy templates", () => {

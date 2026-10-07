@@ -23,7 +23,7 @@ test("prototype settings navigation normalizes sections and items", () => {
   assert.equal(normalizeSettingsSection("missing"), "workspace");
   assert.equal(settingsSectionConfig("support").label, "帮助与反馈");
   assert.equal(normalizeSettingsItem("version-update"), "version-update");
-  assert.equal(normalizeSettingsItem("missing"), "mobile-access");
+  assert.equal(normalizeSettingsItem("missing"), "current-vault");
   assert.equal(settingsDetailItemConfig("feedback").sectionId, "support");
 });
 
@@ -49,7 +49,7 @@ test("prototype settings navigation derives chrome from explicit state dependenc
   assert.equal(chrome.templates.badge, "1 个草稿");
   assert.equal(chrome.ai.badge, "只用本地模型");
   assert.equal(chrome.automation.badge, "5");
-  assert.equal(chrome.support.meta, "遇到问题先看这里、Demo、任务帮助");
+  assert.equal(chrome.support.meta, "使用帮助、问题反馈与版本更新");
 });
 
 test("prototype settings navigation renders sidebar and mobile item options", () => {
@@ -60,7 +60,7 @@ test("prototype settings navigation renders sidebar and mobile item options", ()
   assert.match(html, /data-settings-item="version-update"/);
   assert.match(html, /class="settings-sidebar-menu-item is-active"/);
   assert.match(html, /关于与更新/);
-  assert.match(html, /问题反馈与本地说明/);
+  assert.doesNotMatch(html, /settings-sidebar-menu-meta/);
 
   const options = settingsMobileItemOptionsHtml();
   assert.match(options, /<optgroup label="工作区与数据">/);
@@ -69,13 +69,19 @@ test("prototype settings navigation renders sidebar and mobile item options", ()
 
 test("prototype settings navigation prioritizes the vault in workspace settings", () => {
   const localItems = SETTINGS_DETAIL_ITEMS.filter((item) => item.sectionId === "workspace").map((item) => item.id);
-  assert.deepEqual(localItems.slice(0, 3), ["mobile-access", "current-vault", "import-export"]);
+  assert.deepEqual(localItems.slice(0, 3), ["current-vault", "import-export", "mobile-access"]);
 
   const html = settingsSidebarNavigationHtml();
-  assert.equal(html.match(/data-settings-item="([^"]+)"/)?.[1], "mobile-access");
+  assert.equal(html.match(/data-settings-item="([^"]+)"/)?.[1], "current-vault");
 
   const options = settingsMobileItemOptionsHtml();
-  assert.equal(options.match(/<option value="([^"]+)"/)?.[1], "mobile-access");
+  assert.equal(options.match(/<option value="([^"]+)"/)?.[1], "current-vault");
+});
+
+test("settings navigation only surfaces unsaved template metadata", () => {
+  const html = settingsSidebarNavigationHtml({ settingsState: { noteTemplates: { permanent: { draftActive: true } } } });
+  assert.equal(html.match(/settings-sidebar-menu-meta/g)?.length, 1);
+  assert.match(html, /未保存/);
 });
 
 test("prototype settings navigation keeps user-facing helper copy stable", () => {

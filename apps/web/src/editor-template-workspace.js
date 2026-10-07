@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { literatureCitationReadiness } from "./literature-source-readiness.js";
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 
 function escapeRegExp(value) {
@@ -267,7 +268,9 @@ export function distillationNextStepGuide(note = {}) {
 }
 
 const LITERATURE_SECTION_ALIASES = {
-  supportsJudgment: ["支持判断"],
+  citation: ["出处"],
+  paraphrase: ["我的理解"],
+  supportsJudgment: ["支持判断", "我的想法"],
   boundary: ["边界/反例", "边界与反例", "不适用范围"]
 };
 
@@ -283,7 +286,7 @@ const LITERATURE_CITATION_FIELD_LABELS = {
   identifier: "DOI / ISBN / arXiv / URL / PDF"
 };
 
-const REQUIRED_LITERATURE_CITATION_FIELDS = ["sourceTitle", "authors", "year", "locator", "identifier"];
+const LITERATURE_CITATION_FIELD_ALIASES = { identifier: ["链接 / 文件"] };
 
 const REFLECTION_QUESTIONS = [
   "这段材料你真正理解成什么？",
@@ -600,12 +603,12 @@ function extractLiteratureSection(body = "", labels = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
   const candidates = Array.isArray(labels) ? labels : [labels];
   for (const label of candidates.filter(Boolean)) {
-    const headingRegex = new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*\\n`, "m");
+    const headingRegex = new RegExp(`(^|\\n)##[^\\S\\r\\n]+${escapeRegExp(label)}[^\\S\\r\\n]*(?:\\n|$)`, "m");
     const match = headingRegex.exec(text);
     if (!match) continue;
     const start = match.index + match[0].length;
     const rest = text.slice(start);
-    const nextHeading = /\n##\s+[^\n]+\s*\n/m.exec(rest);
+    const nextHeading = /(^|\n)##[^\S\r\n]+[^\n]+(?:\n|$)/m.exec(rest);
     const section = nextHeading ? rest.slice(0, nextHeading.index) : rest;
     return section.replace(/^\n+|\n+$/g, "");
   }
@@ -620,7 +623,8 @@ function parseLiteratureCitationFields(section = "") {
   const text = String(section || "").replace(/\r\n/g, "\n");
   const fields = emptyLiteratureCitationFields();
   for (const [key, label] of Object.entries(LITERATURE_CITATION_FIELD_LABELS)) {
-    const pattern = new RegExp(`^[^\\S\\r\\n]*(?:[-*+][^\\S\\r\\n]*)?${escapeRegExp(label)}[^\\S\\r\\n]*[：:][^\\S\\r\\n]*(.*)$`, "m");
+    const labels = [label, ...(LITERATURE_CITATION_FIELD_ALIASES[key] || [])].map(escapeRegExp).join("|");
+    const pattern = new RegExp(`^[^\\S\\r\\n]*(?:[-*+][^\\S\\r\\n]*)?(?:${labels})[^\\S\\r\\n]*[：:][^\\S\\r\\n]*(.*)$`, "m");
     fields[key] = normalizeFieldText(pattern.exec(text)?.[1] || "");
   }
   return fields;
@@ -638,14 +642,7 @@ function composeLiteratureCitationLines(citation = {}) {
 }
 
 export function literatureCitationState(citation = {}) {
-  const fields = normalizeLiteratureCitationFields(citation);
-  const missingKeys = REQUIRED_LITERATURE_CITATION_FIELDS.filter((key) => !fields[key]);
-  return {
-    fields,
-    complete: missingKeys.length === 0,
-    missingKeys,
-    missingLabels: missingKeys.map((key) => LITERATURE_CITATION_FIELD_LABELS[key])
-  };
+  return literatureCitationReadiness(normalizeLiteratureCitationFields(citation));
 }
 
 export function parseLiteratureWorkspace(body = "", options = {}) {

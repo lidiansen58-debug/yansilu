@@ -1,4 +1,6 @@
 import { buildNoteTemplateSettingsCardModel } from "./settings-template-card-model.js";
+import { persistTemplateEntry } from "./settings-template-storage.js";
+import { createTemplatePreviewFocus } from "./settings-template-preview-focus.js";
 
 export function createSettingsNoteTemplateRuntime(deps = {}) {
   const {
@@ -19,7 +21,7 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     settingsState,
     setStatus,
     validateLiteratureTemplateSource,
-    writeStoredText,
+    getStorage = () => globalThis.window?.localStorage,
     currentVaultPath
   } = deps;
 
@@ -40,17 +42,19 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
   }
 
-  function persistNoteTemplateSettingsToStorage() {
-    for (const kind of ["permanent", "literature"]) {
-      writeStoredText(
-        noteTemplateStorageKey(kind),
-        normalizeNoteTemplateSource(settingsState.noteTemplates[kind].text, kind)
-      );
-      writeStoredText(
-        noteTemplateStorageKey(kind, { suffix: "history" }),
-        JSON.stringify(normalizeNoteTemplateHistory(settingsState.noteTemplates[kind].history, kind))
-      );
+  function persistNoteTemplateSettingsToStorage(kind = "", entry = null) {
+    for (const item of kind ? [cleanTemplateKind(kind)] : ["permanent", "literature"]) {
+      const next = entry || settingsState.noteTemplates[item];
+      const result = persistTemplateEntry({
+        getStorage,
+        key: noteTemplateStorageKey(item),
+        historyKey: noteTemplateStorageKey(item, { suffix: "history" }),
+        source: normalizeNoteTemplateSource(next.text, item),
+        history: normalizeNoteTemplateHistory(next.history, item)
+      });
+      if (!result.ok) return result;
     }
+    return { ok: true };
   }
 
   function noteTemplateFieldMeta(kind = "") {
@@ -110,6 +114,12 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     return validateLiteratureTemplateSource(source);
   }
 
+  const previewFocus = createTemplatePreviewFocus({
+    getModal: () => $("settingsTemplatePreviewModal"),
+    getCloseButton: () => $("settingsTemplatePreviewClose"),
+    close: closeNoteTemplatePreview
+  });
+
   function openNoteTemplatePreview(kind = "") {
     const cleanKind = cleanTemplateKind(kind);
     const stateEntry = settingsState.noteTemplates?.[cleanKind];
@@ -126,12 +136,14 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     const body = $("settingsTemplatePreviewBody");
     if (!modal || !title || !note || !body) return;
     title.textContent = cleanKind === "literature" ? "文献笔记模板预览" : "永久笔记模板预览";
-    note.textContent = validation.ok ? "这里会按真实笔记的样子显示。" : `当前内容还不能保存：${validation.message}`;
+    note.textContent = validation.ok ? "" : `当前内容还不能保存：${validation.message}`;
+    note.hidden = validation.ok;
     body.innerHTML = validation.ok
       ? renderTemplateMarkdownPreviewHtml(applyTitleToNoteTemplate(source, copy.previewTitle, cleanKind))
       : `<div class="markdown-preview-empty">模板当前不能保存：${escapeHtml(validation.message)}</div>`;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
+    previewFocus.open();
   }
 
   function closeNoteTemplatePreview() {
@@ -139,13 +151,33 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     if (!modal) return;
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
+    previewFocus.close();
+  }
+
+  function commitTemplate(kind, source, successText) {
+    const entry = settingsState.noteTemplates[kind];
+    const previousSource = normalizeNoteTemplateSource(entry.text, kind);
+    const history = source === previousSource ? entry.history
+      : noteTemplateHistoryWithPrevious(entry.history, previousSource, kind);
+    const result = persistNoteTemplateSettingsToStorage(kind, { text: source, history });
+    if (!result.ok) {
+      entry.feedbackTone = "warn";
+      entry.feedbackText = `保存失败，修改仍保留在这里：${result.message}`;
+      renderSettingsPanel();
+      setStatus(entry.feedbackText, "bad");
+      return false;
+    }
+    Object.assign(entry, { text: source, draftText: source, history, draftActive: false,
+      feedbackTone: "ok", feedbackText: successText });
+    renderSettingsPanel();
+    setStatus(successText, "ok");
+    return true;
   }
 
   function saveNoteTemplateFromEditor(kind = "") {
     const cleanKind = cleanTemplateKind(kind);
     const editorField = $(noteTemplateEditorElementId(cleanKind));
-    const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
-    const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
+    const draftSource = String(editorField?.value ?? settingsState.noteTemplates[cleanKind].draftText ?? "").replace(/\r\n/g, "\n");
     const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
     if (cleanKind === "literature") {
       const validation = validateLiteratureTemplateSource(nextSource);
@@ -157,39 +189,12 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
         return;
       }
     }
-    if (nextSource !== previousSource) {
-      settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
-        settingsState.noteTemplates[cleanKind].history,
-        previousSource,
-        cleanKind
-      );
-    }
-    settingsState.noteTemplates[cleanKind].text = nextSource;
-    settingsState.noteTemplates[cleanKind].draftText = nextSource;
-    settingsState.noteTemplates[cleanKind].draftActive = false;
-    settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
-    settingsState.noteTemplates[cleanKind].feedbackText = "已保存，新建时会使用这个模板。";
-    persistNoteTemplateSettingsToStorage();
-    renderSettingsPanel();
-    setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
+    return commitTemplate(cleanKind, nextSource, "已保存，新建时会使用这个模板。");
   }
 
   function resetNoteTemplateToDefault(kind = "") {
     const cleanKind = cleanTemplateKind(kind);
-    const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
-    settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
-      settingsState.noteTemplates[cleanKind].history,
-      previousSource,
-      cleanKind
-    );
-    settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
-    settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
-    settingsState.noteTemplates[cleanKind].draftActive = false;
-    settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
-    settingsState.noteTemplates[cleanKind].feedbackText = "已恢复默认模板。";
-    persistNoteTemplateSettingsToStorage();
-    renderSettingsPanel();
-    setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
+    return commitTemplate(cleanKind, defaultTemplateSourceForKind(cleanKind), "已恢复默认模板。");
   }
 
   function updateNoteTemplatePreviewFromEditor(kind = "") {

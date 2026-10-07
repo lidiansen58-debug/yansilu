@@ -199,8 +199,23 @@ async function request(pathname, options = {}) {
     apiError.cause = error;
     throw apiError;
   }
-  if (timeoutId) globalThis.clearTimeout(timeoutId);
-  const json = await response.json().catch(() => ({}));
+  let json;
+  try {
+    json = await response.json().catch(() => ({}));
+    if (externalSignal?.aborted) {
+      const cancelled = new Error("Request cancelled.");
+      cancelled.code = "request_cancelled";
+      throw cancelled;
+    }
+    if (controller?.signal?.aborted) {
+      const timeoutError = new Error(`Request timed out after ${timeoutMs}ms`);
+      timeoutError.code = "request_timeout";
+      timeoutError.timeoutMs = timeoutMs;
+      throw timeoutError;
+    }
+  } finally {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+  }
   if (!response.ok) {
     const message = json?.error?.message || json?.message || `HTTP ${response.status}`;
     const error = new Error(message);
@@ -801,7 +816,8 @@ export async function deleteDirectory(directoryId) {
 
 export async function fetchDirectoryNotes(directoryId, options = {}) {
   if (!directoryId) return [];
-  const json = await request(`/api/v1/directories/${encodeURIComponent(directoryId)}/notes`, { signal: options.signal, timeoutMs: options.timeoutMs });
+  const query = options.includeDescendants === true ? "?includeDescendants=true" : "";
+  const json = await request(`/api/v1/directories/${encodeURIComponent(directoryId)}/notes${query}`, { signal: options.signal, timeoutMs: options.timeoutMs });
   return Array.isArray(json.items) ? json.items : [];
 }
 
@@ -1066,6 +1082,7 @@ export async function uploadNoteAsset(noteId, payload) {
   if (!noteId) throw new Error("noteId is required");
   const json = await request("/api/v1/assets", {
     method: "POST",
+    timeoutMs: 60000,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       noteId,
@@ -1104,6 +1121,12 @@ export async function previewImport({ connector, payload, options } = {}) {
   });
 }
 
+export async function fetchImportRecord(importRecordId) {
+  return (await request(`/api/v1/imports/${encodeURIComponent(importRecordId)}`, {
+    timeoutMs: 5000, cache: "no-store"
+  })).importRecord;
+}
+
 const recoverImportConfirmation = createImportConfirmationRecovery({
   getStorage: () => typeof window === "undefined" ? null : window.localStorage,
   write: (importRecordId, payload) => request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
@@ -1115,9 +1138,7 @@ const recoverImportConfirmation = createImportConfirmationRecovery({
       ...payload
     })
   }),
-  read: async importRecordId => (await request(`/api/v1/imports/${encodeURIComponent(importRecordId)}`, {
-    timeoutMs: 5000, cache: "no-store"
-  })).importRecord
+  read: fetchImportRecord
 });
 
 export function confirmImport(importRecordId, payload = {}) {
@@ -1257,6 +1278,15 @@ export async function fetchDraftScaffold(draftScaffoldId) {
   return request(`/api/v1/draft-scaffolds/${encodeURIComponent(cleanDraftScaffoldId)}`);
 }
 
+export async function restoreDraftScaffold(writingProjectId, payload) {
+  const id = String(writingProjectId || "").trim();
+  if (!id) throw new Error("writingProjectId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(id)}/scaffold-restore`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+  });
+  return json.item || null;
+}
+
 export async function updateDraftScaffoldVersionNote(draftScaffoldId, versionNote = "") {
   const cleanDraftScaffoldId = String(draftScaffoldId || "").trim();
   if (!cleanDraftScaffoldId) throw new Error("draftScaffoldId is required");
@@ -1279,11 +1309,12 @@ export async function updateDraftScaffold(draftScaffoldId, payload = {}) {
   return json.item || null;
 }
 
-export async function listProjectScaffolds(writingProjectId, limit = 12) {
+export async function listProjectScaffolds(writingProjectId, limit = 12, offset = 0) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   const size = Math.max(1, Math.min(50, Number(limit || 12) || 12));
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
-  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/scaffolds?limit=${encodeURIComponent(String(size))}`);
+  const skip = Math.max(0, Math.trunc(Number(offset) || 0));
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/scaffolds?limit=${encodeURIComponent(String(size))}${skip ? `&offset=${skip}` : ""}`);
   return Array.isArray(json.items) ? json.items : [];
 }
 
@@ -1339,7 +1370,7 @@ export async function setWritingCurrentDraftNote(writingProjectId, draftNoteId) 
   return json.item || null;
 }
 
-export async function createDraftScaffold(writingProjectId, versionNote = "") {
+export async function createDraftScaffold(writingProjectId, versionNote = "", options = {}) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   const cleanVersionNote = String(versionNote || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
@@ -1348,6 +1379,7 @@ export async function createDraftScaffold(writingProjectId, versionNote = "") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       writingProjectId: cleanWritingProjectId,
+      ...(options.expectedVaultPath ? { expectedVaultPath: options.expectedVaultPath } : {}),
       ...(cleanVersionNote ? { versionNote: cleanVersionNote } : {})
     })
   });

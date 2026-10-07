@@ -2,6 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
+test("preview prioritizes the selectable list over repeated metadata and follow-up suggestions", () => {
+  const html = renderImportResultPanel({
+    data: { stage: "preview" }, subtitle: "imp_test",
+    candidatePreviewHtml: "SELECTABLE-NOTES",
+    metrics: [{ label: "可导入内容", value: "1 永久" }],
+    warnings: [{ code: "CHECK_REQUIRED", message: "Needs checking", detail: "Preserved detail" }], actions: ["Review the source"]
+  });
+  assert.ok(html.indexOf("SELECTABLE-NOTES") < html.indexOf("Review the source"));
+  assert.doesNotMatch(html, /result-subtitle|result-metrics/);
+  assert.match(html, /Needs checking/);
+  assert.match(html, /Preserved detail/);
+  assert.doesNotMatch(html, /CHECK_REQUIRED/);
+  assert.match(html, /result-candidates-detail" open/);
+});
+
 test("interrupted file inventory never truncates the missing or unconfirmed item", () => {
   const html = renderImportResultPanel({ data: { stage: "confirm_pending", importRecord: { recoveryResult: {
     checkpointAvailable: true, files: [
@@ -54,7 +69,13 @@ test("import result panel renders localized zero-candidate preview feedback", ()
   assert.match(html, /原始数据/);
   assert.match(html, /result-detail-body/);
   assert.match(html, /result-candidates/);
+  assert.match(html, /<details class="result-detail-section result-candidates-detail" open>/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
+});
+
+test("completed import details remain collapsed instead of competing with the next action", () => {
+  const html = renderImportResultPanel({ data: { stage: "confirm" }, candidatePreviewHtml: "CANDIDATES" });
+  assert.match(html, /<details class="result-detail-section result-candidates-detail">/);
 });
 
 test("import result panel renders created files summary with assets", () => {
@@ -79,7 +100,7 @@ test("import result panel renders created files summary with assets", () => {
   assert.match(html, /资源 1/);
 });
 
-test("import result panel renders organizing home after permanent-note import", () => {
+test("import result keeps one follow-up instead of duplicating home, theme and writing panels", () => {
   const html = renderImportResultPanel({
     data: {
       stage: "confirm",
@@ -101,18 +122,13 @@ test("import result panel renders organizing home after permanent-note import", 
     },
     title: "导入完成",
     statusLabel: "完成",
+    writingActionsHtml: '<button class="mini-btn primary" data-import-writing-action="open-today">去首页整理</button>',
     raw: "{}"
   });
 
-  assert.match(html, /导入完成，回到首页/);
-  assert.match(html, /去首页/);
-  assert.match(html, /未关联笔记/);
-  assert.match(html, /可成主题/);
-  assert.match(html, /可进入写作/);
-  assert.match(html, /导入永久笔记/);
-  assert.match(html, /还未关联/);
-  assert.match(html, /易经需要慢读/);
-  assert.match(html, /情境判断训练/);
+  assert.match(html, /去首页整理/);
+  assert.equal((html.match(/data-import-writing-action=/g) || []).length, 1);
+  assert.doesNotMatch(html, /import-organizing-home|未关联笔记|可成主题|可进入写作|易经需要慢读|情境判断训练/);
   assert.doesNotMatch(html, /候选|队列|复核|线索/);
 });
 
@@ -132,12 +148,33 @@ test("import result panel does not suggest isolated-note handling without a reco
       }
     },
     title: "导入完成",
-    statusLabel: "完成"
+    statusLabel: "完成",
+    writingActionsHtml: '<button class="mini-btn primary" data-import-writing-action="open-today">去首页整理</button>'
   });
 
   assert.doesNotMatch(html, /data-import-writing-action="open-first-isolated-note"/);
   assert.doesNotMatch(html, /处理第一条未关联笔记/);
-  assert.match(html, /已完成/);
   assert.match(html, /去首页/);
-  assert.match(html, /已可写作主题/);
+  assert.doesNotMatch(html, /已可写作主题/);
+});
+
+test("completed import puts audit metadata after the next action in closed details", () => {
+  const html = renderImportResultPanel({ data: { stage: "confirm" }, subtitle: "internal-id",
+    metrics: [{ label: "已选", value: "4/5" }], candidatePreviewHtml: "ALL-NOTES",
+    writingActionsHtml: "NEXT-ACTION" });
+  assert.doesNotMatch(html, /result-subtitle/);
+  assert.ok(html.indexOf("NEXT-ACTION") < html.indexOf("4/5"));
+  assert.match(html, /<details class="result-detail-section result-candidates-detail">/);
+  assert.match(html, /ALL-NOTES/);
+});
+
+test("specific originality reasons replace only the duplicate summary, not unrelated warnings", () => {
+  const html = renderImportResultPanel({ data: { stage: "preview" }, warnings: [
+    { code: "ORIGINALITY_GUARD_BLOCKED", message: "DUPLICATE" },
+    { code: "ORIGINALITY_BLOCKED", message: "My note: TOO CLOSE" },
+    { code: "UNREADABLE", message: "File could not be read" }
+  ] });
+  assert.doesNotMatch(html, /DUPLICATE/);
+  assert.match(html, /My note: TOO CLOSE/);
+  assert.match(html, /File could not be read/);
 });

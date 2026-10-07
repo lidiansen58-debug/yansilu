@@ -342,9 +342,14 @@ export class ExplorerPane {
         e.preventDefault();
         e.stopPropagation();
         const id = toggleBtn.dataset.toggleFolder;
+        const restoreFocus = this.els.listArea.ownerDocument.activeElement === toggleBtn;
         if (this.expandedFolders.has(id)) this.expandedFolders.delete(id);
         else this.expandedFolders.add(id);
         this.render();
+        if (restoreFocus) {
+          [...this.els.listArea.querySelectorAll("button[data-toggle-folder]")]
+            .find((button) => button.dataset.toggleFolder === id)?.focus({ preventScroll: true });
+        }
         return;
       }
 

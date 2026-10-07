@@ -113,7 +113,7 @@ export function summarizeCandidateSelection(candidates = {}) {
   };
 }
 
-export function summarizeImportCandidates(candidates = {}, originalityGuard = null, limit = 12) {
+export function summarizeImportCandidates(candidates = {}, originalityGuard = null, limit = Infinity) {
   const sources = Array.isArray(candidates.sources) ? candidates.sources : [];
   const literature = Array.isArray(candidates.literature) ? candidates.literature : [];
   const permanent = Array.isArray(candidates.permanent) ? candidates.permanent : [];
@@ -143,7 +143,9 @@ export function publicImportRecord(record) {
     state: record.state,
     summary: record.summary,
     samples: record.samples,
-    candidatePreview: record.candidatePreview || summarizeImportCandidates(record.candidates, record.originalityGuard),
+    candidatePreview: record.candidates
+      ? summarizeImportCandidates(record.candidates, record.originalityGuard)
+      : record.candidatePreview || summarizeImportCandidates(),
     candidateSelection: record.candidateSelection || summarizeCandidateSelection(record.candidates),
     warnings: record.warnings || [],
     originalityGuard: record.originalityGuard || null,

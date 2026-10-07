@@ -130,6 +130,106 @@ function markdownDestinationPattern(target) {
   return new RegExp(`\\((?:<${escaped}>|${escaped})\\)`);
 }
 
+test('directory subtree note endpoint retains bodies, metadata and direct-only isolation', async t => {
+  const vaultPath = await makeTempDir('yansilu-api-subtree-');
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ['apps/api/src/server.mjs'], {
+    cwd: REPO_ROOT, env: { ...process.env, API_PORT: String(port), VAULT_PATH: vaultPath }, stdio: 'ignore'
+  });
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const nested = (await postJson(baseUrl, '/api/v1/directories', {
+    title: '子目录', parentDirectoryId: 'dir_original_default', directoryType: 'custom',
+    fsPath: path.join(vaultPath, 'notes', 'original', 'subtree')
+  })).json.item;
+  const rootNote = (await postJson(baseUrl, '/api/v1/notes', { directoryId: 'dir_original_default', body: '# 根笔记\n\n保留根正文。' })).json.item;
+  const nestedNote = (await postJson(baseUrl, '/api/v1/notes', { directoryId: nested.id, body: '# 子笔记\n\n保留子正文。' })).json.item;
+  const otherNote = (await postJson(baseUrl, '/api/v1/notes', { directoryId: 'dir_fleeting_default', body: '# 其他根\n\n不能混入永久笔记。' })).json.item;
+  const bytes = new Map();
+  for (const note of [rootNote, nestedNote, otherNote]) bytes.set(note.id, await fs.readFile(path.join(vaultPath, note.markdownPath)));
+  const direct = await getJson(baseUrl, '/api/v1/directories/dir_original_default/notes');
+  assert.equal(direct.status, 200);
+  assert.deepEqual(direct.json.items.map(note => note.id), [rootNote.id]);
+  const scoped = await getJson(baseUrl, '/api/v1/directories/dir_original_default/notes?includeDescendants=true');
+  assert.equal(scoped.status, 200);
+  assert.equal(scoped.json.total, 2);
+  assert.deepEqual(scoped.json.items.map(note => note.id).sort(), [rootNote.id, nestedNote.id].sort());
+  for (const note of [rootNote, nestedNote]) {
+    const actual = scoped.json.items.find(item => item.id === note.id);
+    assert.equal(actual.body, note.body);
+    assert.equal(actual.directoryId, note.directoryId);
+    assert.equal(actual.fileRevision, note.fileRevision);
+    assert.equal(actual.noteType, note.noteType);
+  }
+  for (const note of [rootNote, nestedNote, otherNote]) assert.deepEqual(await fs.readFile(path.join(vaultPath, note.markdownPath)), bytes.get(note.id));
+  assert.equal((await getJson(baseUrl, '/api/v1/directories/not-found/notes?includeDescendants=true')).status, 400);
+});
+
+test("viewpoint title saves preserve sources and old links, and reject stale revisions", async t => {
+  const vaultPath = await makeTempDir("yansilu-viewpoint-title-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT, env: { ...process.env, API_PORT: String(port), VAULT_PATH: vaultPath }, stdio: "ignore"
+  });
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const source = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", body: "# 阅读材料\n\n保留这段原始记录。"
+  })).json.item;
+  const sourceFile = path.join(vaultPath, source.markdownPath);
+  const sourceBytes = await fs.readFile(sourceFile);
+  const created = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: `# 材料旧标题\n\n来源：[[${source.id}|阅读材料]]\n\n保留原始正文。`
+  });
+  assert.equal(created.status, 201);
+  const original = created.json.item;
+  const oldFile = path.join(vaultPath, original.markdownPath);
+  const reference = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", body: "# 引用旧名字\n\n[[材料旧标题]]"
+  })).json.item;
+  const title = "解释 $&、$$、$` 与 $' 的判断";
+  const updated = await patchJson(baseUrl, `/api/v1/permanent-notes/${original.id}/distillation`, {
+    title, thesis: "用自己的话解释以后，再检查遗漏。", expectedRevision: original.fileRevision
+  });
+  assert.equal(updated.status, 200, JSON.stringify(updated.json));
+  const renamed = updated.json.item;
+  assert.equal(renamed.id, original.id);
+  assert.equal(renamed.title, title);
+  assert.ok(renamed.body.startsWith(`# ${title}\n`));
+  assert.ok(renamed.body.includes(`[[${source.id}|阅读材料]]`));
+  assert.match(renamed.body, /保留原始正文/);
+  assert.notEqual(renamed.markdownPath, original.markdownPath);
+  await assert.rejects(fs.access(oldFile), { code: "ENOENT" });
+  const file = path.join(vaultPath, renamed.markdownPath);
+  const bytes = await fs.readFile(file);
+  assert.match(bytes.toString("utf8"), /yansilu_link_aliases:/);
+  assert.match(bytes.toString("utf8"), /材料旧标题/);
+  assert.deepEqual(await fs.readFile(sourceFile), sourceBytes);
+  const links = await getJson(baseUrl, `/api/v1/notes/${reference.id}/relations`);
+  assert.ok(links.json.item.outgoingLinks.some(item => item.toNoteId === original.id), "Old title must still resolve");
+  for (const request of [
+    () => patchJson(baseUrl, `/api/v1/permanent-notes/${original.id}/distillation`, { title: "Stale overwrite", thesis: "Wrong", expectedRevision: original.fileRevision }),
+    () => postJson(baseUrl, `/api/v1/permanent-notes/${original.id}/distillation/confirm`, { expectedRevision: original.fileRevision })
+  ]) {
+    const conflict = await request();
+    assert.equal(conflict.status, 409, JSON.stringify(conflict.json));
+    assert.equal(conflict.json.error.code, "NOTE_SAVE_CONFLICT");
+    assert.deepEqual(await fs.readFile(file), bytes);
+  }
+  const blank = await patchJson(baseUrl, `/api/v1/permanent-notes/${original.id}/distillation`, { title: "  " });
+  assert.equal(blank.status, 400);
+  assert.equal(blank.json.error.code, "NOTE_TITLE_REQUIRED");
+  assert.deepEqual(await fs.readFile(file), bytes);
+  const confirmed = await postJson(baseUrl, `/api/v1/permanent-notes/${original.id}/distillation/confirm`, { expectedRevision: renamed.fileRevision });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
+  assert.equal(confirmed.json.item.title, title);
+  assert.equal(confirmed.json.item.distillationStatus, "confirmed");
+  assert.match(confirmed.json.item.body, /用自己的话解释以后，再检查遗漏/);
+  assert.ok(confirmed.json.item.body.includes(`[[${source.id}|阅读材料]]`));
+});
+
 test("notes API creates, lists, loads, and updates markdown note", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-notes-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
@@ -1240,6 +1340,74 @@ test("notes API stores note assets and serves them back for preview", async (t) 
   assert.equal(assetResponse.headers.get("content-type"), "image/png");
   const assetBuffer = Buffer.from(await assetResponse.arrayBuffer());
   assert.ok(assetBuffer.length > 0);
+});
+
+test("asset upload stays scoped to its original vault even when note IDs match", async t => {
+  const vaultPath = await makeTempDir("yansilu-asset-scope-a-");
+  const nextVaultPath = await makeTempDir("yansilu-asset-scope-b-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: { ...process.env, API_PORT: String(port), VAULT_PATH: vaultPath },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const creationId = "12345678-1234-1234-1234-123456789abc";
+  const create = body => postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", clientCreationId: creationId, body
+  });
+  const first = await create("# First vault\n\nOriginal first body.");
+  assert.equal(first.status, 201, JSON.stringify(first.json));
+  const noteId = first.json.item.id;
+  const payload = {
+    noteId, fileName: "scope-check.txt", mimeType: "text/plain",
+    contentBase64: Buffer.from("scoped bytes").toString("base64"), kind: "file"
+  };
+  const rejected = await postJson(baseUrl, "/api/v1/assets", { ...payload, expectedVaultPath: nextVaultPath });
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.json.error.code, "VAULT_CHANGED");
+
+  // Keep a real upload body incomplete while another request switches the vault.
+  const raw = JSON.stringify(payload);
+  const pending = http.request(`${baseUrl}/api/v1/assets`, {
+    method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(raw) }
+  });
+  const result = new Promise((resolve, reject) => {
+    pending.on("error", reject);
+    pending.on("response", async response => {
+      try {
+        const chunks = [];
+        for await (const chunk of response) chunks.push(chunk);
+        resolve({ status: response.statusCode, json: JSON.parse(Buffer.concat(chunks).toString("utf8")) });
+      } catch (error) { reject(error); }
+    });
+  });
+  result.catch(() => {});
+  t.after(() => pending.destroy());
+  await new Promise((resolve, reject) => pending.write(raw.slice(0, 1), error => error ? reject(error) : resolve()));
+  await getJson(baseUrl, "/health");
+  const switched = await postJson(baseUrl, "/api/v1/vault", { vaultPath: nextVaultPath });
+  assert.equal(switched.status, 200, JSON.stringify(switched.json));
+  const second = await create("# Second vault\n\nOriginal second body.");
+  assert.equal(second.status, 201, JSON.stringify(second.json));
+  assert.equal(second.json.item.id, noteId);
+  pending.end(raw.slice(1));
+  const delayed = await result;
+  assert.equal(delayed.status, 409, JSON.stringify(delayed.json));
+  assert.equal(delayed.json.error.code, "VAULT_CHANGED");
+
+  const staleClient = await postJson(baseUrl, "/api/v1/assets", { ...payload, expectedVaultPath: vaultPath });
+  assert.equal(staleClient.status, 409);
+  for (const vault of [vaultPath, nextVaultPath]) {
+    await assert.rejects(fs.access(path.join(vault, "assets", "files", noteId, payload.fileName)), { code: "ENOENT" });
+  }
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/${noteId}`)).json.item.body, second.json.item.body);
+  const current = await postJson(baseUrl, "/api/v1/assets", { ...payload, expectedVaultPath: nextVaultPath });
+  assert.equal(current.status, 201, JSON.stringify(current.json));
+  assert.equal(await fs.readFile(path.join(nextVaultPath, current.json.item.assetPath), "utf8"), "scoped bytes");
+  assert.equal(await fs.readFile(path.join(vaultPath, first.json.item.markdownPath), "utf8").then(text => text.includes("Original first body.")), true);
 });
 
 test("notes API rewrites relative asset links when moving a note between directories", async (t) => {

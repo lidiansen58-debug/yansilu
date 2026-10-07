@@ -78,6 +78,7 @@ export function buildAppShellNoteStateChangeDeps(host = {}) {
     },
     saveNoteDistillation: {
       state,
+      getVaultPath,
       updatePermanentNoteDistillation: host.updatePermanentNoteDistillation || (async () => null),
       confirmPermanentNoteDistillation,
       mapNoteItem,
@@ -87,6 +88,7 @@ export function buildAppShellNoteStateChangeDeps(host = {}) {
     },
     confirmNoteDistillation: {
       state,
+      getVaultPath,
       confirmPermanentNoteDistillation,
       mapNoteItem,
       setStatus,

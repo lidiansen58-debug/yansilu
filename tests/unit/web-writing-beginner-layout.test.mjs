@@ -53,7 +53,7 @@ test("writing center keeps adding material behind one clear action", () => {
   assert.match(controller, /const candidateDetails = \$\("writingCandidateDetails"\)/);
   assert.match(controller, /可添加 \$\{candidates\.length\} 条笔记/);
   assert.match(controller, /classList\.toggle\("hidden", !hasScaffold\)/);
-  assert.match(controller, /createScaffoldButton\.disabled = !hasProject && !basketEntries\.length && !explicitSelectedTheme/);
+  assert.match(controller, /createScaffoldButton\.disabled = Boolean\(writingState\.scaffoldGenerationPending\) \|\| \(!hasProject && !basketEntries\.length && !explicitSelectedTheme\)/);
   assert.doesNotMatch(controller, /createScaffoldButton\.disabled = hasProject/);
   assert.match(prototypeApp, /if \(themeId\) return relatedIndexIds\.includes\(themeId\);/);
   assert.match(prototypeApp, /if \(normalizedThemeId\) return relatedIndexIds\.includes\(normalizedThemeId\);/);

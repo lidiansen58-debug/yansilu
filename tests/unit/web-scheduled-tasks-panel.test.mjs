@@ -40,7 +40,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   assert.match(html, /id="scheduledTaskForm"/);
   assert.match(html, /id="scheduledTaskTemplateSelect"/);
   assert.match(html, /整理类型/);
-  assert.match(html, /决定这条规则要做什么；结果会先放到待处理。/);
+  assert.doesNotMatch(html, /决定这条规则要做什么/);
   assert.doesNotMatch(html, />模板</);
   assert.match(html, /id="btnScheduledTaskSave"/);
   assert.match(html, /id="btnScheduledTaskUseCurrentNote"/);
@@ -56,7 +56,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   assert.match(html, /<option value="daily" selected>每天<\/option>/);
   assert.match(html, /每 30 分钟/);
   assert.match(html, /1 条笔记/);
-  assert.match(html, /1\/3 次 \/ week，上限 2/);
+  assert.match(html, /1\/3 次 \/ 周，上限 2/);
   assert.match(html, /data-scheduled-task-id="sched_reflection"/);
   assert.match(html, /data-scheduled-task-edit="sched_reflection"/);
   assert.match(html, /data-scheduled-task-status="paused"/);
@@ -145,4 +145,16 @@ test("scheduled tasks compact mode keeps filters visible when an empty filter is
 
   assert.match(html, /还没有整理规则/);
   assert.match(html, /id="btnScheduledTasksApplyFilters"/);
+});
+
+test("scheduled rule form shows only relevant schedule fields and escapes actionable errors", () => {
+  for (const scheduleType of ["daily", "weekly", "interval", "manual_only"]) {
+    const html = renderScheduledTasksPanel({ compact: true, form: { scheduleType }, formError: "失败 <script>", actionError: "状态失败" });
+    for (const [types, visible] of [["weekly", scheduleType === "weekly"], ["daily weekly", ["daily", "weekly"].includes(scheduleType)], ["interval", scheduleType === "interval"]]) {
+      assert.ok(html.includes(`data-schedule-types="${types}" ${visible ? "" : "hidden"}>`));
+    }
+    assert.match(html, /role="alert">失败 &lt;script&gt;/);
+    assert.match(html, /role="alert">状态失败/);
+    assert.doesNotMatch(html, /编辑中 sched_/);
+  }
 });

@@ -74,6 +74,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       ...formOverrides
     };
     settingsState.ai.scheduledTaskFormOpen = Boolean(formOpen);
+    settingsState.ai.scheduledTaskFormError = "";
     render();
   }
 
@@ -95,6 +96,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       time: schedule.time || settingsState.ai.scheduledTaskForm.time
     };
     settingsState.ai.scheduledTaskFormOpen = true;
+    settingsState.ai.scheduledTaskFormError = "";
     render();
   }
 
@@ -108,21 +110,25 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     if (!options.silent) {
       settingsState.ai.scheduledTaskTemplatesLoading = true;
       settingsState.ai.scheduledTaskTemplatesError = "";
-      render();
+      render({ preserveForm: true });
     }
     try {
       const result = await fetchAiScheduledTaskTemplates({ implementationReady: true });
       settingsState.ai.scheduledTaskTemplates = result.items;
       settingsState.ai.scheduledTaskTemplatesError = "";
-      if (!cleanText(settingsState.ai.scheduledTaskForm.templateId)) resetForm();
+      if (!cleanText(settingsState.ai.scheduledTaskForm.templateId)) {
+        if (settingsState.ai.scheduledTaskFormOpen) {
+          settingsState.ai.scheduledTaskForm.templateId = scheduledTaskFormDefaults({ templates: result.items }).templateId;
+        } else resetForm();
+      }
       return result;
     } catch (error) {
       settingsState.ai.scheduledTaskTemplatesError = String(error?.message || error);
-      setStatus(`计划任务模板加载失败：${settingsState.ai.scheduledTaskTemplatesError}`, "warn");
+      setStatus(`整理类型加载失败：${settingsState.ai.scheduledTaskTemplatesError}`, "warn");
       return null;
     } finally {
       settingsState.ai.scheduledTaskTemplatesLoading = false;
-      render();
+      render({ preserveForm: true });
     }
   }
 
@@ -138,7 +144,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     if (!options.silent) {
       settingsState.ai.scheduledTasksLoading = true;
       settingsState.ai.scheduledTasksError = "";
-      render();
+      render({ preserveForm: true });
     }
     try {
       const result = await fetchAiScheduledTasks({ ...settingsState.ai.scheduledTaskFilters, canonical: true });
@@ -151,11 +157,11 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       return result;
     } catch (error) {
       settingsState.ai.scheduledTasksError = String(error?.message || error);
-      setStatus(`Scheduled task load failed: ${settingsState.ai.scheduledTasksError}`, "warn");
+      setStatus(`整理规则加载失败：${settingsState.ai.scheduledTasksError}`, "warn");
       return null;
     } finally {
       settingsState.ai.scheduledTasksLoading = false;
-      render();
+      render({ preserveForm: true });
     }
   }
 
@@ -170,12 +176,14 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       window = globalThis.window
     } = runtimeDeps();
     const form = formFromUi();
+    if (settingsState.ai.scheduledTaskActionLoading) return null;
     settingsState.ai.scheduledTaskForm = form;
     settingsState.ai.scheduledTaskFormOpen = true;
+    settingsState.ai.scheduledTaskFormError = "";
     const payload = scheduledTaskPayloadFromForm(form);
     if (payload.status === "active" && !scheduledTaskPayloadHasScope(payload)) {
       const confirmed = typeof window?.confirm === "function"
-        ? window.confirm("Create an active scheduled task without a note, directory, tag, or keyword scope?")
+        ? window.confirm(`没有限制整理范围，这条规则将处理${payload.scope.includePrivateNotes ? "所有笔记（包括私密笔记）" : "所有非私密笔记"}。确认启用吗？`)
         : true;
       if (!confirmed) return null;
     }
@@ -189,10 +197,11 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(canonicalTask || item);
       settingsState.ai.scheduledTaskFormOpen = false;
       await refreshScheduledTasks({ silent: true });
-      setStatus(`Scheduled task saved: ${item?.name || item?.scheduledTaskId || ""}`, "ok");
+      setStatus(`整理规则已保存：${item?.name || ""}`, "ok");
       return item;
     } catch (error) {
-      setStatus(`Scheduled task save failed: ${String(error?.message || error)}`, "bad");
+      settingsState.ai.scheduledTaskFormError = `保存失败：${String(error?.message || error)}`;
+      setStatus(settingsState.ai.scheduledTaskFormError, "bad");
       return null;
     } finally {
       settingsState.ai.scheduledTaskActionLoading = false;
@@ -208,11 +217,12 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     } = runtimeDeps();
     const id = cleanText(scheduledTaskId);
     const task = settingsState.ai.scheduledTasks.find((item) => cleanText(item.scheduledTaskId) === id);
-    if (!task) return setStatus("Scheduled task not found in the current list", "warn");
+    if (!task) return setStatus("这条整理规则已不在列表中，请刷新后重试。", "warn");
     settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(task);
     settingsState.ai.scheduledTaskFormOpen = true;
+    settingsState.ai.scheduledTaskFormError = "";
     render();
-    setStatus(`Editing scheduled task: ${task.name || id}`, "ok");
+    setStatus(`正在编辑：${task.name || "整理规则"}`, "ok");
   }
 
   async function setTaskStatus(scheduledTaskId, status) {
@@ -227,7 +237,9 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     const cleanScheduledTaskId = cleanText(scheduledTaskId);
     const cleanStatus = cleanText(status);
     if (!cleanScheduledTaskId || !cleanStatus) return null;
+    if (settingsState.ai.scheduledTaskActionLoading) return null;
     settingsState.ai.scheduledTaskActionLoading = true;
+    settingsState.ai.scheduledTaskActionError = "";
     render();
     try {
       const item = await updateAiScheduledTaskStatusWithOptions(cleanScheduledTaskId, cleanStatus, { canonical: true });
@@ -238,10 +250,11 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
         cleanText(task.scheduledTaskId) === cleanScheduledTaskId ? nextTask : task
       );
       await refreshScheduledTasks({ silent: true });
-      setStatus(`Scheduled task ${cleanStatus}: ${cleanScheduledTaskId}`, "ok");
+      setStatus(cleanStatus === "active" ? "整理规则已启用" : "整理规则已暂停", "ok");
       return item;
     } catch (error) {
-      setStatus(`Scheduled task status failed: ${String(error?.message || error)}`, "bad");
+      settingsState.ai.scheduledTaskActionError = `修改规则状态失败：${String(error?.message || error)}`;
+      setStatus(settingsState.ai.scheduledTaskActionError, "bad");
       return null;
     } finally {
       settingsState.ai.scheduledTaskActionLoading = false;
@@ -266,11 +279,13 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       settingsState = {},
       window = globalThis.window
     } = runtimeDeps();
+    if (settingsState.ai.scheduledTaskActionLoading) return null;
     const confirmed = typeof window?.confirm === "function"
-      ? window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入系统消息，等待你确认。")
+      ? window.confirm("现在整理到期内容吗？结果会先进入待处理，确认后才写入笔记。使用远程模型可能产生第三方费用。")
       : true;
     if (!confirmed) return null;
     settingsState.ai.scheduledTaskActionLoading = true;
+    settingsState.ai.scheduledTaskActionError = "";
     settingsState.ai.scheduledTasksError = "";
     render();
     try {
@@ -292,10 +307,11 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
         const systemMessage = scheduledTaskSystemMessageForArtifacts(artifactCount);
         if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });
       }
-      setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
+      setStatus(`整理完成：${summary?.succeeded || 0} 条成功，${summary?.skipped || 0} 条跳过，${summary?.failed || 0} 条失败`, summary?.failed ? "warn" : "ok");
       return summary;
     } catch (error) {
-      setStatus(`Run due scheduled tasks failed: ${String(error?.message || error)}`, "bad");
+      settingsState.ai.scheduledTaskActionError = `整理失败：${String(error?.message || error)}`;
+      setStatus(settingsState.ai.scheduledTaskActionError, "bad");
       return null;
     } finally {
       settingsState.ai.scheduledTaskActionLoading = false;

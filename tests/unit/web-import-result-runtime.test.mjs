@@ -2,6 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createImportResultRuntime } from "../../apps/web/src/import-result-runtime.js";
+import { importConfirmButtonState } from "../../apps/web/src/import-toolbar-model.js";
+
+for (const [stage, recordStatus, mode, selected, total, visible] of [
+  ["preview", "", "import", 2, 3, true],
+  ["preview", "", "import", 0, 3, true],
+  ["preview", "", "import", 0, 0, true],
+  ["record", "preview", "import", 2, 3, true],
+  ["record", "completed", "import", 2, 3, false],
+  ["preview_error", "", "import", 2, 3, false],
+  ["confirm_error", "", "import", 2, 3, false],
+  ["confirm_pending", "", "import", 2, 3, false],
+  ["confirm", "", "import", 2, 3, false],
+  ["preview", "", "export", 2, 3, false]
+]) {
+  test(`import confirmation belongs to a matching preview: ${stage}/${recordStatus}/${mode}/${selected}`, () => {
+    const elements = { importRecordId: { value: "imp_1" }, btnImportConfirm: {}, importPreviewActions: {} };
+    const importState = { lastPreview: { importRecordId: "imp_1", candidatePreview: {} }, lastResultPayload: { stage, importRecord: { status: recordStatus } }, operationResultMode: mode };
+    const runtime = createImportResultRuntime({
+      $: id => elements[id] || null, importState, importConfirmButtonState,
+      selectionSummaryForImportState: () => ({ selectedCount: selected, totalCount: total })
+    });
+    runtime.updateImportConfirmButton();
+    assert.equal(elements.importPreviewActions.hidden, !visible);
+    assert.equal(elements.btnImportConfirm.disabled, selected === 0);
+  });
+}
 
 function createRuntimeHarness(lastResultPayload, overrides = {}) {
   const calls = [];
@@ -90,4 +116,21 @@ test("import result runtime does not treat arbitrary imported permanent notes as
   assert.equal(opened, false);
   assert.equal(calls.some((call) => call[0] === "open"), false);
   assert.match(calls.find((call) => call[0] === "status")?.[2] || "", /没有需要优先处理的未关联永久笔记/);
+});
+
+test("continuing imported literature dismisses persisted result state before navigation", async () => {
+  const calls = [];
+  const importState = { operationResultVisible: true, lastResultPayload: { stage: "confirm", result: { createdFiles: [{ noteType: "literature", noteId: "ln1" }] } } };
+  const runtime = createImportResultRuntime({
+    importState, $: () => null,
+    createdNoteIdsByTypeFromImportPayload: () => ["ln1"],
+    importPayloadRecordId: () => "imp1", ensureNotesLoaded: async () => {},
+    setLiteratureQueueFocus: ids => calls.push(["scope", ids]),
+    activateModule: module => { assert.equal(importState.operationResultVisible, false); calls.push(["module", module]); },
+    openNoteById: id => { calls.push(["open", id]); return true; },
+    setStatus: () => {}
+  });
+  assert.equal(await runtime.openImportedLiteratureQueue(), true);
+  assert.deepEqual(calls, [["scope", ["ln1"]], ["module", "explorer"], ["open", "ln1"]]);
+  assert.equal(importState.operationResultVisible, false);
 });

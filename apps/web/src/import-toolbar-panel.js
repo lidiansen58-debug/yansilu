@@ -23,12 +23,6 @@ export function renderImportToolbarPanel(input = {}) {
 
   return `
     <div class="import-card import-toolbar-card">
-      <div class="import-card-head">
-        <div>
-          <div class="import-card-kicker">导入</div>
-          <strong>从 Obsidian 导入</strong>
-        </div>
-      </div>
       <input id="importRecordId" type="hidden" value="${escapeHtml(model.importRecordId)}" />
       <select id="importConnector" hidden aria-hidden="true" tabindex="-1">
         <option value="obsidian" selected>Obsidian 仓库</option>
@@ -40,15 +34,18 @@ export function renderImportToolbarPanel(input = {}) {
             <input id="importPath" placeholder="选择 Obsidian 仓库目录" value="${escapeHtml(model.path)}" />
             <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
           </div>
-          <div class="import-field-help">先预览确认：默认不修改原 Vault；导入后的笔记可随时导回 Markdown。</div>
+          <div class="import-field-help">先预览确认，默认不修改原 Vault；导入后可导回 Markdown。</div>
         </section>
         <section class="import-field-panel">
           <label class="import-field-label" for="importDirectoryId">导入到</label>
           <select id="importDirectoryId">
             ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
           </select>
-          <div class="import-field-help">第 3 步确认导入后，默认进入永久笔记目录，方便继续建立关系和主题。</div>
         </section>
+      </div>
+      <div class="import-actions">
+        <button class="mini-btn primary" id="btnImportPreview" type="button">预览笔记</button>
+        <button class="mini-btn is-ghost" id="btnImportRepreview" type="button" hidden title="重新预览" aria-label="重新预览">&#8635;</button>
       </div>
       <details class="import-compat-details">
         <summary>高级导入设置</summary>
@@ -65,10 +62,6 @@ export function renderImportToolbarPanel(input = {}) {
           </section>
         </div>
       </details>
-      <div class="import-actions">
-        <button class="mini-btn primary" id="btnImportPreview">第 2 步：生成预览</button>
-        <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
-      </div>
     </div>
   `;
 }

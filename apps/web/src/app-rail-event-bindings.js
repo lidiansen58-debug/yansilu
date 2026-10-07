@@ -13,6 +13,7 @@ export function installAppRailEventBindings(deps = {}) {
     openWritingModule = async () => {},
     openDistillationModule = async () => {},
     dismissSafeOverlaysForNavigation = () => ({ ok: true }),
+    getStatusRevision = () => 0,
     setStatus = () => {},
     now = () => Date.now()
   } = deps;
@@ -39,11 +40,14 @@ export function installAppRailEventBindings(deps = {}) {
         if (state.module === "aiInbox") setStatus("已打开 AI 建议", "ok");
       }
       if (targetModule === "settings" && state.module === "settings") {
+        const revision = getStatusRevision();
+        const vaultScope = state.noteMoveVaultScope;
+        const isCurrent = () => state.module === "settings" && state.noteMoveVaultScope === vaultScope && !state.noteMoveVaultSwitching;
         try {
           await refreshVaultSettings();
-          if (state.module === "settings") setStatus("已打开设置", "ok");
+          if (isCurrent()) setStatus("已打开设置", "ok", { skipIfStaleSince: revision });
         } catch (error) {
-          if (state.module === "settings") setStatus(`设置刷新失败：${String(error?.message || error)}`, "warn");
+          if (isCurrent()) setStatus(`设置刷新失败：${String(error?.message || error)}`, "warn", { skipIfStaleSince: revision });
         }
       }
       if (targetModule === "writing" && state.module === "writing") {

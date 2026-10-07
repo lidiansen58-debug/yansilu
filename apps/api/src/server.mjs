@@ -63,6 +63,7 @@ import {
   listTags,
   listNotesByTag,
   listNotesInDirectory,
+  listNotesInDirectoryScope,
   moveNoteToDirectory,
   registerMarkdownNoteInCatalog,
   resolveVaultPath,
@@ -91,6 +92,7 @@ import {
 import {
   bindDraftNoteToProject,
   createDraftScaffold,
+  restoreDraftScaffold,
   createWritingProject,
   getDraftScaffold,
   getWritingProject,
@@ -5474,9 +5476,13 @@ const server = http.createServer(async (req, res) => {
 
     const dirNotesId = parseDirectoryNotesPath(url.pathname);
     if (req.method === "GET" && dirNotesId) {
+      const vaultPath = VAULT_PATH;
       try {
-        await initVault(VAULT_PATH);
-        const items = await listNotesInDirectory(VAULT_PATH, dirNotesId);
+        await initVault(vaultPath);
+        const items = url.searchParams.get("includeDescendants") === "true"
+          ? await listNotesInDirectoryScope(vaultPath, dirNotesId, { includeDescendants: true })
+          : await listNotesInDirectory(vaultPath, dirNotesId);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，请重新读取笔记。", rid));
         return sendJson(res, 200, {
           directoryId: dirNotesId,
           items,
@@ -5570,6 +5576,8 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const item = await updatePermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationId, {
+          title: body.title,
+          expectedRevision: body.expectedRevision,
           thesis: body.thesis,
           threeLineSummary: body.threeLineSummary ?? body.three_line_summary,
           startingQuestion: body.startingQuestion ?? body.starting_question,
@@ -5586,7 +5594,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        const status = error?.code === "PERMANENT_NOTE_REQUIRED" ? 400 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        const status = error?.code === "NOTE_SAVE_CONFLICT" ? 409 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "PERMANENT_NOTE_DISTILLATION_UPDATE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
@@ -5599,7 +5607,8 @@ const server = http.createServer(async (req, res) => {
         const note = await getNoteById(VAULT_PATH, permanentNoteDistillationConfirmId);
         assertPermanentNoteReadyToConfirm(note, body);
         const item = await confirmPermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationConfirmId, {
-          aiAssisted: body.aiAssisted ?? body.ai_assisted
+          aiAssisted: body.aiAssisted ?? body.ai_assisted,
+          expectedRevision: body.expectedRevision
         });
         return sendJson(res, 200, {
           item,
@@ -5607,7 +5616,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        const status = error?.code === "PERMANENT_NOTE_REQUIRED" ? 400 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        const status = error?.code === "NOTE_SAVE_CONFLICT" ? 409 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "PERMANENT_NOTE_DISTILLATION_CONFIRM_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
@@ -6005,10 +6014,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/assets") {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const item = await saveNoteAsset(VAULT_PATH, body.noteId, {
+        if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次附件上传未执行。请在当前笔记库重新插入。", rid));
+        }
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次附件上传未执行。请在当前笔记库重新插入。", rid));
+        }
+        const item = await saveNoteAsset(vaultPath, body.noteId, {
           fileName: body.fileName,
           mimeType: body.mimeType,
           contentBase64: body.contentBase64,
@@ -6485,10 +6501,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/writing-projects") {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开主题后重试。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
-        const item = await createWritingProject(VAULT_PATH, body);
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开主题后重试。", rid));
+        const item = await createWritingProject(vaultPath, body);
         return sendJson(res, 201, {
           item,
           requestId: rid,
@@ -6522,10 +6543,15 @@ const server = http.createServer(async (req, res) => {
 
     const writingProjectMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)$/);
     if (req.method === "PATCH" && writingProjectMatch) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开主题后重试。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
-        const item = await syncWritingProject(VAULT_PATH, decodeURIComponent(writingProjectMatch[1]), body);
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开主题后重试。", rid));
+        const item = await syncWritingProject(vaultPath, decodeURIComponent(writingProjectMatch[1]), body);
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -6649,6 +6675,22 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    const restoreScaffoldMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/scaffold-restore$/);
+    if (req.method === "POST" && restoreScaffoldMatch) {
+      const vaultPath = VAULT_PATH;
+      const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开历史记录后重试。", rid));
+      }
+      try {
+        await initVault(vaultPath);
+        const item = await restoreDraftScaffold(vaultPath, decodeURIComponent(restoreScaffoldMatch[1]), body);
+        return sendJson(res, 201, { item, requestId: rid, timestamp: new Date().toISOString() });
+      } catch (error) {
+        return sendJson(res, error?.code === "WRITING_OUTLINE_CONFLICT" ? 409 : 400, err(error?.code || "DRAFT_SCAFFOLD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
     const writingProjectScaffoldsMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/scaffolds$/);
     if (req.method === "GET" && writingProjectScaffoldsMatch) {
       try {
@@ -6656,7 +6698,7 @@ const server = http.createServer(async (req, res) => {
         const item = await listProjectScaffolds(
           VAULT_PATH,
           decodeURIComponent(writingProjectScaffoldsMatch[1]),
-          { limit: Number(url.searchParams.get("limit") || 12) }
+          { limit: Number(url.searchParams.get("limit") || 12), offset: Number(url.searchParams.get("offset") || 0) }
         );
         return sendJson(res, 200, {
           items: item,
@@ -6670,10 +6712,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/draft-scaffolds") {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开主题后生成提纲。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
-        const item = await createDraftScaffold(VAULT_PATH, body);
+        await initVault(vaultPath);
+        const item = await createDraftScaffold(vaultPath, body);
         return sendJson(res, 201, {
           item,
           export: {
@@ -6728,19 +6774,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "PATCH" && draftScaffoldMatch) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+        return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已变化，请重新打开提纲后重试。", rid));
+      }
       try {
-        await initVault(VAULT_PATH);
+        await initVault(vaultPath);
         const item = Array.isArray(body.sections)
-          ? await updateDraftScaffold(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body)
-          : await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
+          ? await updateDraftScaffold(vaultPath, decodeURIComponent(draftScaffoldMatch[1]), body)
+          : await updateDraftScaffoldVersionNote(vaultPath, decodeURIComponent(draftScaffoldMatch[1]), body);
         return sendJson(res, 200, {
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("DRAFT_SCAFFOLD_INVALID", String(error?.message || error), rid));
+        return sendJson(res, ["WRITING_OUTLINE_CONFLICT", "WRITING_CURRENT_OUTLINE_CHANGED"].includes(error?.code) ? 409 : 400, err(error?.code || "DRAFT_SCAFFOLD_INVALID", String(error?.message || error), rid));
       }
     }
 

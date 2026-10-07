@@ -1,10 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectWritingDraftTarget, selectedWritingBookChapter } from "../../apps/web/src/writing-book-chapter-controller.js";
+import { selectWritingDraftTarget, selectedWritingBookChapter, renderWritingBookChapterSelector } from "../../apps/web/src/writing-book-chapter-controller.js";
 import { assertWritingDraftCanLeave, recordWritingDraftInput, handleWritingSaveDraftClick } from "../../apps/web/src/writing-draft-save-controller.js";
 import { writingDraftContent } from "../../apps/web/src/writing-workbench-model.js";
 const creationId = "12345678-1234-4234-8234-123456789abc";
 const createdNoteId = `note_${creationId}`;
+
+test("chapter heading displays the complete selected title and resets when returning to the article", () => {
+  const title = "A complete chapter name with evidence, questions and counterpoints ".repeat(2);
+  const nodes = { writingDraftTarget: {}, writingDraftTitle: {} };
+  const writingState = { project: { id: "project", book_structure: { parts: [{ title: "Part", chapters: [{ id: "chapter", title }] }] } },
+    bookChapter: { projectId: "project", id: "chapter", title } };
+  const deps = { writingState, $: id => nodes[id], escapeHtml: value => String(value) };
+  renderWritingBookChapterSelector(deps);
+  assert.equal(nodes.writingDraftTitle.textContent, title);
+  assert.equal(nodes.writingDraftTarget.value, "chapter");
+  assert.ok(nodes.writingDraftTarget.innerHTML.includes(title));
+  writingState.bookChapter = null;
+  renderWritingBookChapterSelector(deps);
+  assert.equal(nodes.writingDraftTitle.textContent, "草稿");
+  assert.equal(nodes.writingDraftTarget.value, "");
+});
 
 function deferred() {
   let resolve, reject;

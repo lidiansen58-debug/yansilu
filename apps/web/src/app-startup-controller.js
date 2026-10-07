@@ -1,14 +1,12 @@
 import { bindImportWorkspaceEventsForRuntime } from "./app-event-bindings.js";
-import { initializeAppRouteForRuntime } from "./app-route-initializer.js";
-import { openInitialStartupRouteForRuntime } from "./app-startup-seed.js";
-import { initializeStartupConnection } from "./app-startup-connection.js";
+import { createAppStartupRetryController } from "./app-startup-retry-controller.js";
+import { createImportPreviewResumeController } from "./import-preview-resume-controller.js";
 
 export async function bootstrapAppForRuntime(deps = {}) {
   const {
     state = {},
     importState = {},
     setUsingLocalFallbackData = () => {},
-    getUsingLocalFallbackData = () => false,
     renderImportPageShell = () => {},
     createImportToolbarActions = () => ({}),
     currentImportToolbarValues = () => ({}),
@@ -27,19 +25,16 @@ export async function bootstrapAppForRuntime(deps = {}) {
     syncNotesForDirectory = async () => {},
     refreshImportedNotesView = () => {},
     renderImportToolbar = () => {},
-    hideImportOperationResultModal = () => {},
     bindImportWorkspaceEvents = bindImportWorkspaceEventsForRuntime,
-    initializeAppRoute = initializeAppRouteForRuntime,
-    openInitialStartupRoute = openInitialStartupRouteForRuntime,
-    activateModule = () => {},
-    renderAll = () => {},
-    updateController = null,
     setStatus = () => {}
   } = deps;
 
   setUsingLocalFallbackData(false);
   state.appStartupPending = true;
   renderImportPageShell();
+  const resumeImportPreview = createImportPreviewResumeController({ importState, getToolbarValues: currentImportToolbarValues,
+    getVaultPath: deps.getVaultPath, readImportRecord: deps.fetchImportRecord, showImportResult, setStatus,
+    checkpoint: deps.checkpointImportWorkspace, clearCache: deps.clearImportWorkspaceCache });
   const importToolbarActions = createImportToolbarActions({
     getToolbarValues: currentImportToolbarValues,
     getFallbackImportRecordId: () => importState.importRecordId,
@@ -47,9 +42,11 @@ export async function bootstrapAppForRuntime(deps = {}) {
     selectionSummary,
     resolveDirectoryRootId: (directoryId) => rootBoxIdFromFolder(state, directoryId),
     previewImport,
+    resumeImportPreview,
     confirmImport,
-    onPreviewSuccess: async (preview) => {
+    onPreviewSuccess: async (preview, { values } = {}) => {
       importState.lastPreview = preview;
+      importState.previewRequest = values || currentImportToolbarValues();
       syncImportSelection(preview.importRecordId, preview.candidatePreview, preview.candidateSelection || null, {
         selectedIds: defaultSelectedCandidateIds(
           preview.candidatePreview,
@@ -88,6 +85,9 @@ export async function bootstrapAppForRuntime(deps = {}) {
         candidatePreview: preview?.candidatePreview || null
       });
       importState.lastPreview = null;
+      importState.previewRequest = null;
+      deps.clearImportWorkspaceCache?.();
+      deps.checkpointImportWorkspace?.();
     },
     showImportResult,
     refreshImportedNotesView,
@@ -96,50 +96,6 @@ export async function bootstrapAppForRuntime(deps = {}) {
 
   renderImportToolbar();
   bindImportWorkspaceEvents({ ...deps, importToolbarActions });
-  let connecting = null;
-  let updateScheduled = false;
-  const connect = async () => {
-    state.appStartupPending = true;
-    state.appStartupError = "";
-    deps.resetDesktopServiceStatusCache?.();
-    renderAll();
-    try {
-      const connection = await initializeStartupConnection(deps, initializeAppRoute);
-      state.appStartupPending = false;
-      if (connection?.connected === false && !connection?.usingLocalFallbackData) {
-        state.appStartupError = connection.error?.serviceStatus?.startupWaitTimedOut
-          ? "本地服务准备超时，请重新连接。"
-          : String(connection.error?.message || "本地服务尚未就绪，请重新连接。");
-        activateModule("today");
-        renderAll();
-        return false;
-      }
-      renderAll();
-      await openInitialStartupRoute({
-        ...deps,
-        usingLocalFallbackData: getUsingLocalFallbackData()
-      });
-      if (updateController && !updateScheduled) {
-        updateScheduled = true;
-        setTimeout(async () => {
-          await updateController.refreshAppVersionInfo();
-          await updateController.runAppUpdateCheck({ manual: false });
-        }, 1200);
-      }
-      return true;
-    } catch (error) {
-      state.appStartupPending = false;
-      state.appStartupError = String(error?.message || error);
-      setUsingLocalFallbackData(false);
-      activateModule("today");
-      renderAll();
-      setStatus(`启动未完成：${state.appStartupError}。请点击重新连接。`, "bad", { force: true, holdMs: 10000, priority: 5 });
-      return false;
-    }
-  };
-  state.retryStartupConnection = () => {
-    if (!connecting) connecting = connect().finally(() => { connecting = null; });
-    return connecting;
-  };
+  state.retryStartupConnection = createAppStartupRetryController({ ...deps, state });
   await state.retryStartupConnection();
 }

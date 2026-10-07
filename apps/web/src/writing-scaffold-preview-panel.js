@@ -2,6 +2,9 @@ import {
   normalizeWritingOutlineSections
 } from "./writing-workbench-model.js";
 
+import { observeWritingOutlineSize, resizeWritingOutlineHeading } from "./writing-outline-layout.js";
+export { resizeWritingOutlineHeading };
+
 export function renderWritingScaffoldPreviewDom(deps = {}) {
   const {
     $,
@@ -10,6 +13,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
   } = deps;
   const el = $("writingScaffoldPreview");
   if (!el) return;
+  observeWritingOutlineSize(el);
 
   if (!writingState.scaffold) {
     el.innerHTML = `<div class="writing-empty">先回到主题页生成提纲。</div>`;
@@ -23,7 +27,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
           <article class="writing-outline-section" data-writing-outline-index="${escapeHtml(index)}">
             <div class="writing-outline-section-head">
               <span>${escapeHtml(index + 1)}</span>
-              <input data-writing-outline-field="heading" data-writing-outline-index="${escapeHtml(index)}" value="${escapeHtml(section.heading)}" aria-label="章节标题" />
+              <textarea class="writing-outline-heading" data-writing-outline-field="heading" data-writing-outline-index="${escapeHtml(index)}" rows="2" aria-label="章节标题">${escapeHtml(section.heading)}</textarea>
               <div class="writing-outline-section-actions">
                 <button class="mini-btn icon-btn" type="button" data-writing-outline-action="up" data-writing-outline-index="${escapeHtml(index)}" aria-label="上移" title="上移">↑</button>
                 <button class="mini-btn icon-btn" type="button" data-writing-outline-action="down" data-writing-outline-index="${escapeHtml(index)}" aria-label="下移" title="下移">↓</button>
@@ -36,4 +40,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
         `)
         .join("")}</div>`
     : `<div class="writing-empty">还没有章节。</div><button class="mini-btn" type="button" data-writing-outline-action="add" data-writing-outline-index="0">添加第一节</button>`;
+  el.ownerDocument?.defaultView?.requestAnimationFrame(() => {
+    el.querySelectorAll('.writing-outline-heading').forEach(resizeWritingOutlineHeading);
+  });
 }

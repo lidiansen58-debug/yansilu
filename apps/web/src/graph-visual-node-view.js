@@ -74,10 +74,12 @@ export function graphVisualNodeViewState(
     selectedIsolatedNodeId = "",
     selectedBridgeNoteIds = new Set(),
     adjacencyMap = new Map(),
+    layoutNodeMap = new Map(),
     readingLensState = null,
     filterActive = false,
     denseGalaxyMode = false,
     denseDirectoryMode = false,
+    smallGraph = false,
     zoomKey = "fit"
   } = {},
   deps = {}
@@ -93,7 +95,7 @@ export function graphVisualNodeViewState(
   } = graphVisualNodeDeps(deps);
   const title = node.title || node.id;
   const starRank = graphNodeStarRank(node.starTier);
-  const labelLimit = node.isHub
+  const labelLimit = smallGraph ? 16 : node.isHub
     ? (zoomKey === "fit" ? 12 : 18)
     : starRank >= 3
       ? (zoomKey === "fit" ? 10 : 15)
@@ -103,7 +105,9 @@ export function graphVisualNodeViewState(
           ? 10
           : 14;
   const label = graphShortTitle(title, labelLimit);
-  const labelY = node.y + node.radius + 12;
+  const neighbors = [...(adjacencyMap.get(node.id) || [])];
+  const labelAbove = smallGraph && neighbors.length === 1 && Number(layoutNodeMap.get(neighbors[0])?.y) > node.y;
+  const labelY = labelAbove ? node.y - node.radius - 12 : node.y + node.radius + (smallGraph ? 22 : 12);
   const metaY = labelY + 11;
   const labelQuota = denseGalaxyMode
     ? (zoomKey === "detail" ? 3 : zoomKey === "read" ? 1 : 0)
@@ -133,6 +137,7 @@ export function graphVisualNodeViewState(
   const fitLensLabel = lensPriority && starRank >= 3;
   const showLabel = Boolean(zoomKey === "fit"
     ? (
+        smallGraph ||
         node.isFocused ||
         node.isHub ||
         selected ||
@@ -142,6 +147,7 @@ export function graphVisualNodeViewState(
         fitLensLabel
       )
     : (
+        smallGraph ||
         node.isFocused ||
         node.isHub ||
         node.isAnchor ||
@@ -173,7 +179,6 @@ export function graphVisualNodeViewState(
     !lensPriority &&
     (zoomKey === "fit" ? false : denseDirectoryMode && starRank <= 1)
   );
-  const neighbors = [...(adjacencyMap.get(node.id) || [])];
   const metaLabel = node.isGraphIsolatedCandidate ? labels.isolatedNodeType : noteTypeLabel(node.noteType);
   const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
   const attentionText = attentionReasons.length
@@ -189,7 +194,7 @@ export function graphVisualNodeViewState(
         : inSelectedTheme
           ? "is-theme"
           : "is-anchor";
-  const hitRadius = Math.max(18, Number(node.radius || 0) + 6);
+  const hitRadius = Math.max(smallGraph ? 44 : 18, Number(node.radius || 0) + 6);
   const glintRadius = Math.max(1.2, Number(node.radius || 0) * 0.12);
   const glintX = Number(node.x || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
   const glintY = Number(node.y || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
@@ -210,10 +215,12 @@ export function graphVisualNodeViewState(
   const glintFade = pointLike ? Math.max(0.18, 0.82 - clusterArmDepth * 0.52) : 1;
   const nodeStyle = `--graph-node-core-alpha:${pointFade.toFixed(2)};--graph-node-glint-alpha:${glintFade.toFixed(2)};`;
   return {
-    typeClass: graphNodeClass(node.noteType),
+    smallGraph,
+    typeClass: `${graphNodeClass(node.noteType)}${smallGraph ? " is-small-graph-node" : ""}`,
     title,
     starRank,
     label,
+    labelAbove,
     labelY,
     metaY,
     selected,
@@ -254,7 +261,7 @@ export function renderGraphVisualNodeView(node = {}, index = 0, context = {}, de
       ${state.haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(state.haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 5.5}"></circle>` : ""}
       <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
       ${state.pointLike ? "" : `<circle class="graph-map-node-glint" cx="${state.glintX}" cy="${state.glintY}" r="${state.glintRadius}"></circle>`}
-      ${(state.showLabel || state.revealOnly) ? `<text class="graph-map-node-label${state.revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${state.labelY}" text-anchor="middle">${escapeHtml(state.label)}</text>` : ""}
+      ${(state.showLabel || state.revealOnly) ? `<text class="graph-map-node-label${state.labelAbove ? " is-above" : ""}${state.revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${state.labelY}" text-anchor="middle">${escapeHtml(state.label)}</text>` : ""}
       ${state.showMeta ? `<text class="graph-map-node-meta" x="${node.x}" y="${state.metaY}" text-anchor="middle">${escapeHtml(state.metaLabel)}${labels.metaSeparator}${Number(node.degree || 0)}</text>` : ""}
     </g>
   `;

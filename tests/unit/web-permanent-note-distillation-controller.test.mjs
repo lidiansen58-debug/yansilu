@@ -12,6 +12,7 @@ import {
   permanentNoteViewpointHasChanged
 } from "../../apps/web/src/permanent-note-distillation-model.js";
 import { PermanentNoteDistillationController } from "../../apps/web/src/permanent-note-distillation-controller.js";
+import { syncDistillationEditorResult } from "../../apps/web/src/distillation-editor-result.js";
 import { renderPermanentNoteDistillationSection } from "../../apps/web/src/permanent-note-distillation-view.js";
 
 function field(value = "") {
@@ -31,6 +32,7 @@ function distillationForm(values = {}) {
     ['[name="boundaryOrCounterpoint"]', field(values.boundaryOrCounterpoint)],
     ['[name="distillationStatus"]', field(values.distillationStatus)]
   ]);
+  if (Object.hasOwn(values, "title")) fields.set('[name="title"]', field(values.title));
   return {
     querySelector(selector) {
       return fields.get(selector) || null;
@@ -106,6 +108,91 @@ test("distillation form values keep thesis, boundary and confirmed status", () =
     boundaryOrCounterpoint: "Boundary",
     distillationStatus: "confirmed"
   });
+});
+
+test("a user chosen title is trimmed, escaped and preserved as a pending draft", () => {
+  const note = { id: "pn1", title: "Source title", noteType: "permanent" };
+  const controller = new PermanentNoteDistillationController({ activeNote: () => note });
+  controller.syncDraftFromForm(distillationForm({ title: '  My <claim> & "title"  ', thesis: "My judgment" }));
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.title, 'My <claim> & "title"');
+  const html = renderPermanentNoteDistillationSection(note, {
+    noteType: "permanent", distillationPrefill: controller.currentPrefill(note.id)
+  });
+  assert.match(html, /name="title"[^>]*value="My &lt;claim&gt; &amp; &quot;title&quot;"/);
+  assert.equal(note.title, "Source title");
+});
+
+test("an empty title blocks writes and focuses the title field", async () => {
+  for (const method of ["handleForm", "confirm"]) {
+    const form = distillationForm({ title: "  ", thesis: "My judgment" });
+    let focused = 0;
+    form.querySelector('[name="title"]').focus = () => { focused++; };
+    const statuses = [];
+    const controller = new PermanentNoteDistillationController({
+      activeNote: () => ({ id: "pn1", noteType: "permanent" }), resolvedNoteType: () => "permanent",
+      els: { result: { querySelector: () => form } }, onStatus: (...args) => statuses.push(args),
+      autoSaveActiveNote: () => assert.fail("Empty title must not write"),
+      onStateChange: () => assert.fail("Empty title must not write")
+    });
+    await controller[method](form);
+    assert.equal(focused, 1);
+    assert.deepEqual(statuses, [["请填写笔记标题", "warn"]]);
+  }
+});
+
+test("a partial save refreshes the renamed draft but retains the form for retry", async () => {
+  const note = { id: "pn1", title: "Before", noteType: "permanent" };
+  const tab = { body: "# Before", savedBody: "# Before", savedFileRevision: "baseline" };
+  const form = distillationForm({ title: "My title", thesis: "My viewpoint" });
+  let body = tab.body;
+  let payload;
+  const controller = new PermanentNoteDistillationController({
+    activeNote: () => note, activeTab: () => tab, resolvedNoteType: () => "permanent",
+    autoSaveActiveNote: async () => true, isActiveNoteId: () => true,
+    getEditorValue: () => body, fillEditorFromTab: () => { body = tab.body; },
+    onStateChange: async (action, input) => {
+      payload = input;
+      tab.body = tab.savedBody = "# My title";
+      return { id: note.id, title: "My title", body: tab.body, distillationSaveIncomplete: true };
+    },
+    renderThinkingStatus: () => assert.fail("Not confirmed"),
+    permanentNoteWorkspace: () => ({ reset: () => assert.fail("Must retain draft") })
+  });
+  controller.syncDraftFromForm(form);
+  await controller.handleForm(form);
+  assert.equal(payload.title, "My title");
+  assert.equal(payload.expectedRevision, "baseline");
+  assert.equal(body, "# My title");
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.title, "My title");
+  assert.equal(controller.associationFollowup.current(note, ""), null);
+});
+
+test("explicit confirmation failure leaves the saved title visible in the editor", async () => {
+  const note = { id: "pn1", title: "Before", noteType: "permanent" };
+  const form = distillationForm({ title: "After", thesis: "My judgment" });
+  let body = "# Before";
+  const tab = { body, savedFileRevision: "baseline" };
+  const actions = [];
+  const controller = new PermanentNoteDistillationController({
+    activeNote: () => note, activeTab: () => tab, resolvedNoteType: () => "permanent",
+    els: { result: { querySelector: () => form } },
+    autoSaveActiveNote: async () => true, isActiveNoteId: () => true,
+    getEditorValue: () => body, fillEditorFromTab: () => { body = tab.body; },
+    readTemplateVariantPreference: () => "", templateVariantPreferenceMeta: () => ({}),
+    onStateChange: async (action, input) => {
+      actions.push(action);
+      if (action === "confirm-note-distillation") return false;
+      assert.equal(input.title, "After");
+      assert.equal(input.expectedRevision, "baseline");
+      tab.body = "# After";
+      return { id: note.id, title: "After", body: tab.body };
+    },
+    renderThinkingStatus: () => assert.fail("Not confirmed")
+  });
+  await controller.confirm();
+  assert.equal(body, "# After");
+  assert.deepEqual(actions, ["save-note-distillation", "confirm-note-distillation"]);
+  assert.equal(controller.associationFollowup.current(note, ""), null);
 });
 
 test("viewpoint changes only require a reason after an existing thesis changes", () => {
@@ -207,6 +294,23 @@ test("unsaved viewpoint reason and source selection survive a controller rerende
   assert.doesNotMatch(html, /data-viewpoint-change-reason hidden/);
 });
 
+test("saved pending viewpoint reason is restored while an intentionally cleared local draft stays empty", () => {
+  const note = { id: "pending-note", thesis: "New judgment", pendingViewpointRevision: {
+    previousThesis: "Old judgment", thesis: "New judgment", reason: "Evidence <changed> the scope.", sourceNoteIds: ["evidence"]
+  } };
+  const options = { noteType: "permanent", viewpointBaseline: permanentNoteViewpointBaseline(note),
+    viewpointSourceCandidates: permanentNoteViewpointSourceCandidates(note, {}, [{ id: "evidence", title: "Actual evidence" }]) };
+  const html = renderPermanentNoteDistillationSection(note, options);
+  assert.match(html, /Evidence &lt;changed&gt; the scope\./);
+  assert.match(html, /value="evidence" checked/);
+  const edited = renderPermanentNoteDistillationSection(note, { ...options, distillationPrefill: { viewpointDraft: {
+    thesis: note.thesis, originalThesis: "Old judgment", thesisChangeReason: "", viewpointChangeSourceNoteIds: []
+  } } });
+  assert.doesNotMatch(edited, /Evidence &lt;changed&gt;/);
+  assert.match(edited, /name="thesisChangeReason"[^>]*><\/textarea>/);
+  assert.doesNotMatch(edited, /value="evidence" checked/);
+});
+
 test("unsaved viewpoint drafts stay isolated per note", () => {
   const notes = {
     first: { id: "first", thesis: "First saved", noteType: "permanent" },
@@ -268,8 +372,9 @@ test("distillation view shows source choices only for a changed viewpoint", () =
   assert.doesNotMatch(html, /data-viewpoint-change-reason hidden/);
 });
 
-test("distillation controller confirms authorship after a confirmed save", async () => {
-  const note = { id: "pn1", title: "Note", status: "active", noteType: "permanent", authorship: { ai_assisted: false } };
+for (const aiAssisted of [false, true]) {
+test(`distillation controller confirms authorship without erasing AI provenance (${aiAssisted})`, async () => {
+  const note = { id: "pn1", title: "Note", status: "active", noteType: "permanent", authorship: { ai_assisted: aiAssisted } };
   const calls = [];
   const host = {
     activeNote: () => note,
@@ -309,15 +414,16 @@ test("distillation controller confirms authorship after a confirmed save", async
   }));
 
   assert.equal(note.distillationStatus, "confirmed");
-  assert.deepEqual(note.authorship, { ai_assisted: false, user_confirmed: true });
+  assert.deepEqual(note.authorship, { ai_assisted: aiAssisted, user_confirmed: true });
   assert.equal(calls[0][0], "save-note-distillation");
-  assert.deepEqual(calls[0][1].authorship, { user_confirmed: true, ai_assisted: false });
+  assert.deepEqual(calls[0][1].authorship, { user_confirmed: true, ai_assisted: aiAssisted });
   assert.equal(calls[0][1].commitViewpointChange, true);
   assert.deepEqual(calls[0][1].viewpointChangeSourceNoteIds, ["source-1"]);
   assert.deepEqual(calls.slice(-3), [["thinking"], ["workspace-reset", "pn1"], ["related"]]);
   assert.equal(controller.associationFollowup.current(note, "").thesis, "Thesis");
   assert.match(controller.renderSection(note), /观点已保存|data-note-association-next="associate"/);
 });
+}
 
 test("distillation controller leaves note and writing status alone when save fails", async () => {
   const note = { id: "pn1", title: "Note", status: "active", noteType: "permanent" };
@@ -349,6 +455,95 @@ test("distillation controller leaves note and writing status alone when save fai
 
   assert.equal(note.thesis, undefined);
   assert.deepEqual(calls, [["save-note-distillation"]]);
+  assert.equal(controller.associationFollowup.current(note, ""), null);
+});
+
+test("saving the current viewpoint refreshes the actual editor, without replacing newer typing", async () => {
+  for (const typingDuringSave of [false, true]) {
+    const note = { id: "pn1", noteType: "permanent" };
+    const tab = { body: "old", savedBody: "old", dirty: false };
+    let editorBody = "old";
+    const warnings = [];
+    let fills = 0;
+    const controller = new PermanentNoteDistillationController({
+      activeNote: () => note, resolvedNoteType: () => "permanent", isActiveNoteId: () => true,
+      autoSaveActiveNote: async () => true,
+      getEditorValue: () => editorBody,
+      onStateChange: async () => {
+        if (typingDuringSave) editorBody = "new typing";
+        tab.body = tab.savedBody = "saved viewpoint";
+        tab.dirty = false;
+        return { id: note.id, body: tab.body };
+      },
+      fillEditorFromTab: () => { fills++; editorBody = tab.body; },
+      updateActiveTabFromEditor: () => { tab.body = editorBody; tab.dirty = tab.body !== tab.savedBody; },
+      onStatus: message => warnings.push(message),
+      renderThinkingStatus: () => {}, renderRelated: () => {},
+      readTemplateVariantPreference: () => "", templateVariantPreferenceMeta: () => ({})
+    });
+    await controller.handleForm(distillationForm({ thesis: "My own viewpoint" }));
+    assert.equal(editorBody, typingDuringSave ? "new typing" : "saved viewpoint");
+    assert.equal(tab.savedBody, "saved viewpoint");
+    assert.equal(tab.dirty, typingDuringSave);
+    assert.equal(fills, typingDuringSave ? 0 : 1);
+    assert.equal(warnings.length, typingDuringSave ? 1 : 0);
+  }
+});
+
+test("a refreshed body keeps keyboard focus in the open viewpoint panel without stealing outside focus", () => {
+  for (const panelFocused of [false, true]) {
+    let focuses = 0;
+    const host = {
+      els: { relatedPanel: { ownerDocument: { activeElement: {} }, contains: () => panelFocused } },
+      getEditorValue: () => "old", fillEditorFromTab: () => {},
+      permanentNoteWorkspace: () => ({ focusWorkspace: () => { focuses++; } })
+    };
+    syncDistillationEditorResult(host, { body: "saved" }, "old");
+    assert.equal(focuses, 0, "An input still focused within the panel must retain focus");
+    host.els.relatedPanel.contains = () => false;
+    syncDistillationEditorResult(host, { body: "saved" }, "old", { panelFocused });
+    assert.equal(focuses, panelFocused ? 1 : 0, "The save-time focus survives rendering that focuses the editor");
+  }
+});
+
+test("typing a newer title while saving retains its draft and does not offer completion", async () => {
+  const note = { id: "pn1", title: "Before", noteType: "permanent" };
+  const initial = distillationForm({ title: "First title", thesis: "First judgment" });
+  const warnings = [];
+  const controller = new PermanentNoteDistillationController({
+    activeNote: () => note, resolvedNoteType: () => "permanent", isActiveNoteId: () => true,
+    autoSaveActiveNote: async () => true,
+    onStateChange: async () => {
+      controller.syncDraftFromForm(distillationForm({ title: "Newer title", thesis: "Newer judgment" }));
+      note.thesis = "First judgment";
+      return { id: note.id, title: "First title", body: "# First title" };
+    },
+    onStatus: message => warnings.push(message),
+    renderThinkingStatus: () => assert.fail("Must not close the composing draft")
+  });
+  controller.syncDraftFromForm(initial);
+  await controller.handleForm(initial);
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.title, "Newer title");
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.thesis, "Newer judgment");
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.originalThesis, "First judgment");
+  assert.equal(controller.associationFollowup.current(note, ""), null);
+  assert.match(warnings.at(-1), /新输入的修改尚未保存/);
+});
+
+test("explicit confirmation also retains a later viewpoint draft", async () => {
+  const note = { id: "pn1", title: "Saved", noteType: "permanent" };
+  const controller = new PermanentNoteDistillationController({
+    els: {},
+    activeNote: () => note, resolvedNoteType: () => "permanent", isActiveNoteId: () => true,
+    onStateChange: async () => {
+      controller.syncDraftFromForm(distillationForm({ title: "Later", thesis: "Later claim" }));
+      return { id: note.id, body: "# Saved" };
+    },
+    onStatus: message => assert.match(message, /新输入的修改尚未保存/),
+    renderThinkingStatus: () => assert.fail("Must not discard the later draft")
+  });
+  await controller.confirm();
+  assert.equal(controller.currentPrefill(note.id).viewpointDraft.title, "Later");
   assert.equal(controller.associationFollowup.current(note, ""), null);
 });
 

@@ -3,6 +3,191 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
+test("a renamed viewpoint draft survives confirmation failure and retries at 320px", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  await page.setViewportSize({ width: 320, height: 844 });
+  const note = (await createWritingReadyPermanentNote(apiBase, {
+    title: "阅读材料留下的旧标题", body: "# 阅读材料留下的旧标题\n\n原始正文保留。", thesis: "先前的判断。"
+  })).json.item;
+  await page.locator("#btnToggleSearch").click();
+  await page.locator(`[data-search-note="${note.id}"]`).click();
+  await page.locator("#btnShowRelated").click();
+  const panel = page.locator("#relatedPanel");
+  const title = "核对原文能修正解释的遗漏";
+  const thesis = "向别人解释后，再核对原文中的前提。";
+  await panel.locator('input[name="title"]').fill(title);
+  await panel.locator('textarea[name="thesis"]').fill(thesis);
+  await panel.locator('textarea[name="thesisChangeReason"]').fill("交流暴露了原先遗漏的条件。");
+  await panel.getByRole("tab", { name: "形成过程", exact: true }).click();
+  await panel.getByRole("tab", { name: "当前观点", exact: true }).click();
+  assert.equal(await panel.locator('input[name="title"]').inputValue(), title);
+  const endpoint = `**/api/v1/permanent-notes/${note.id}/distillation/confirm`;
+  await page.route(endpoint, route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "确认服务暂时不可用" } }) }));
+  await panel.getByRole("button", { name: "保存当前观点", exact: true }).click();
+  await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /草稿已保存，但确认失败.*确认服务暂时不可用/));
+  const draft = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+  assert.equal(draft.title, title);
+  assert.equal(draft.thesis, thesis);
+  assert.equal(draft.distillationStatus, "draft");
+  assert.ok((await page.evaluate(() => window.__prototypeEditor.getEditorValue())).startsWith(`# ${title}\n`));
+  assert.equal(await panel.locator('input[name="title"]').inputValue(), title);
+  assert.equal(await panel.locator('textarea[name="thesis"]').inputValue(), thesis);
+  assert.equal(await panel.locator("[data-note-association-followup]").count(), 0);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  await mkdir("output/note-core-flow-ux", { recursive: true });
+  await page.screenshot({ path: "output/note-core-flow-ux/title-confirm-retry-320.png", fullPage: true });
+  await page.unroute(endpoint);
+  await panel.getByRole("button", { name: "保存当前观点", exact: true }).click();
+  await panel.locator("[data-note-association-followup]").waitFor({ state: "visible" });
+  const confirmed = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+  assert.equal(confirmed.title, title);
+  assert.equal(confirmed.distillationStatus, "confirmed");
+  assert.match(confirmed.body, /向别人解释后，再核对原文中的前提/);
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().savedFileRevision), confirmed.fileRevision);
+});
+
+test("a late confirmed save preserves a newer title, viewpoint and input selection", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  await page.setViewportSize({ width: 390, height: 844 });
+  const note = (await createWritingReadyPermanentNote(apiBase, {
+    title: "第一份观点", body: "# 第一份观点\n\n我的记录。", thesis: "已有判断。"
+  })).json.item;
+  await page.locator("#btnToggleSearch").click();
+  await page.locator(`[data-search-note="${note.id}"]`).click();
+  await page.locator("#btnShowRelated").click();
+  const panel = page.locator("#relatedPanel");
+  await panel.locator('input[name="title"]').fill("本次保存的标题");
+  await panel.locator('textarea[name="thesis"]').fill("本次保存的判断。");
+  await panel.locator('textarea[name="thesisChangeReason"]').fill("新的阅读材料补充了依据。");
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  t.after(() => release());
+  const endpoint = `**/api/v1/permanent-notes/${note.id}/distillation/confirm`;
+  await page.route(endpoint, async route => {
+    const response = await route.fetch();
+    entered();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await panel.getByRole("button", { name: "保存当前观点", exact: true }).click();
+  await started;
+  await panel.locator('input[name="title"]').fill("继续输入的新标题");
+  const thesis = panel.locator('textarea[name="thesis"]');
+  await thesis.fill("继续输入的新判断。");
+  await thesis.evaluate(el => { el.focus(); el.setSelectionRange(2, 6, "backward"); });
+  release();
+  await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /新输入的修改尚未保存/));
+  assert.equal(await panel.locator('input[name="title"]').inputValue(), "继续输入的新标题");
+  assert.equal(await panel.locator('input[name="originalThesis"]').inputValue(), "本次保存的判断。");
+  assert.deepEqual(await thesis.evaluate(el => ({ value: el.value, focused: el === document.activeElement,
+    start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection })), {
+    value: "继续输入的新判断。", focused: true, start: 2, end: 6, direction: "backward"
+  });
+  assert.equal(await panel.locator("[data-note-association-followup]").count(), 0);
+  const saved = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+  assert.equal(saved.title, "本次保存的标题");
+  assert.equal(saved.thesis, "本次保存的判断。");
+  await page.unroute(endpoint);
+  await panel.getByRole("button", { name: "保存当前观点", exact: true }).click();
+  await panel.locator("[data-note-association-followup]").waitFor({ state: "visible" });
+  const newest = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+  assert.equal(newest.title, "继续输入的新标题");
+  assert.equal(newest.thesis, "继续输入的新判断。");
+  assert.ok(newest.viewpointHistory.some(item => item.previousThesis === "本次保存的判断。" && item.thesis === "继续输入的新判断。"));
+});
+
+for (const failed of [false, true]) {
+  test(`delayed relation ${failed ? "failure" : "success"} keeps the composing viewpoint input mounted`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const stack = await startPrototypeStack(t, pw);
+    if (!stack) return;
+    const { page, apiBase } = stack;
+    const note = (await createWritingReadyPermanentNote(apiBase, { title: "正在输入的观点", body: "# 正在输入的观点", thesis: "原观点" })).json.item;
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${note.id}"]`).click();
+    let release, entered;
+    const gate = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    t.after(() => release());
+    const endpoint = `**/api/v1/notes/${note.id}/relations`;
+    await page.route(endpoint, async route => {
+      entered();
+      await gate;
+      if (failed) await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "delayed relation failure" } }) });
+      else await route.continue();
+    });
+    await page.evaluate(() => {
+      const editor = window.__prototypeEditor;
+      window.__delayedRelationsTrace = [];
+      window.__completedRelationSerials = new Set();
+      const refresh = editor.refreshSemanticRelations.bind(editor);
+      editor.refreshSemanticRelations = async (...args) => {
+        window.__delayedRelationsTrace.push({ phase: "start", requested: args[1], current: editor.relationsRequestSerial });
+        await refresh(...args);
+        window.__completedRelationSerials.add(args[1]);
+        window.__delayedRelationsTrace.push({ phase: "end", requested: args[1], current: editor.relationsRequestSerial,
+          state: editor.semanticRelationsState, links: editor.currentSemanticRelations?.outgoingLinks?.length });
+      };
+    });
+    await page.locator("#btnShowRelated").click();
+    await started;
+    const field = page.locator('#relatedPanel textarea[name="thesis"]');
+    await field.fill("加载中输入的新观点");
+    await page.locator('#relatedPanel textarea[name="thesisChangeReason"]').fill("新的材料补充了判断依据。");
+    await field.focus();
+    await field.evaluate(el => {
+      window.__composingViewpointInput = el;
+      el.setSelectionRange(2, 7, "backward");
+      el.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "新" }));
+    });
+    let related;
+    if (!failed) {
+      related = (await createWritingReadyPermanentNote(apiBase, { title: "迟到的补充依据", body: "# 迟到的补充依据", thesis: "补充判断依据。" })).json.item;
+      const relation = await postJson(apiBase, `/api/v1/notes/${note.id}/relations`, {
+        toNoteId: related.id, relationType: "supports", rationale: "提供了正在整理的观点所需的依据。"
+      });
+      assert.equal(relation.status, 201, JSON.stringify(relation.json));
+    }
+    release();
+    try {
+      await page.waitForFunction(() => window.__completedRelationSerials.has(window.__prototypeEditor.relationsRequestSerial));
+    } catch (error) {
+      t.diagnostic(JSON.stringify(await page.evaluate(() => ({ trace: window.__delayedRelationsTrace,
+        completed: [...window.__completedRelationSerials], state: window.__prototypeEditor.semanticRelationsState,
+        current: window.__prototypeEditor.relationsRequestSerial, note: window.__prototypeEditor.activeNote()?.id }))));
+      throw error;
+    }
+    assert.deepEqual(await field.evaluate(el => ({
+      sameNode: el === window.__composingViewpointInput, value: el.value,
+      focused: el === document.activeElement, start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection
+    })), { sameNode: true, value: "加载中输入的新观点", focused: true, start: 2, end: 7, direction: "backward" });
+    assert.equal(await page.evaluate(() => window.__prototypeEditor.semanticRelationsState), failed ? "error" : "loaded");
+    await field.evaluate(el => el.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "新" })));
+    await page.unroute(endpoint);
+    if (related) {
+      await page.locator("#relatedPanel").getByRole("tab", { name: "笔记关联", exact: true }).click();
+      await page.locator("#relatedPanel").getByText(related.title, { exact: true }).first().waitFor({ state: "visible" });
+      await page.locator("#relatedPanel").getByRole("tab", { name: "当前观点", exact: true }).click();
+      assert.equal(await field.inputValue(), "加载中输入的新观点");
+    }
+    await page.locator("#relatedPanel").getByRole("button", { name: "保存当前观点", exact: true }).click();
+    await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.thesis, "加载中输入的新观点"));
+  });
+}
+
 test("polish workspace preserves edits across keyboard tabs and fits desktop and mobile", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
@@ -74,7 +259,13 @@ test("polish workspace preserves edits across keyboard tabs and fits desktop and
     assert.equal(saved.thesis, "重新解释一个观点，能暴露理解中的空白。");
   });
   await panel.locator("[data-note-association-followup]").waitFor({ state: "visible" });
+  const focusAfterSave = await panel.evaluate(el => ({
+    within: el.contains(document.activeElement), active: document.activeElement?.outerHTML?.slice(0, 600),
+    visible: el.getClientRects().length, inspector: window.__prototypeEditor.state.inspectorVisible
+  }));
+  if (!focusAfterSave.within) t.diagnostic(JSON.stringify(focusAfterSave));
   assert.equal(await panel.evaluate(el => el.contains(document.activeElement)), true);
+  await page.screenshot({ path: "output/note-core-flow-ux/viewpoint-saved-390.png" });
   await page.keyboard.press("Escape");
   assert.equal(await panel.isVisible(), false);
   assert.equal(await page.locator("#btnShowRelated").evaluate(el => el === document.activeElement), true);
@@ -109,6 +300,63 @@ test("polish workspace preserves edits across keyboard tabs and fits desktop and
 });
 
 for (const width of [1366, 390]) {
+  test(`late viewpoint save preserves newer body input and a dismissed panel (${width}px)`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t);
+    if (!pw) return;
+    const stack = await startPrototypeStack(t, pw);
+    if (!stack) return;
+    const { page, apiBase } = stack;
+    await page.setViewportSize({ width, height: 900 });
+    const note = (await createWritingReadyPermanentNote(apiBase, {
+      title: "等待保存时继续写", body: "# 等待保存时继续写\n\n保留已有记录。", thesis: "原来的判断。"
+    })).json.item;
+    await page.locator("#btnToggleSearch").click();
+    await page.locator(`[data-search-note="${note.id}"]`).click();
+    if (!await page.locator("#editorHost .cm-content:visible").isVisible()) await page.locator("#btnModeToggle").click();
+    const previous = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
+    await page.locator("#btnShowRelated").click();
+    const panel = page.locator("#relatedPanel");
+    await panel.locator('textarea[name="thesis"]').fill("交流后核对原文，可以发现遗漏。");
+    await panel.locator('textarea[name="thesisChangeReason"]').fill("读书交流中出现了不同的解释。");
+    let release, entered;
+    const gate = new Promise(resolve => { release = resolve; });
+    const started = new Promise(resolve => { entered = resolve; });
+    t.after(() => release());
+    await page.route(`**/api/v1/permanent-notes/${note.id}/distillation/confirm`, async route => {
+      const response = await route.fetch();
+      entered();
+      await gate;
+      await route.fulfill({ response });
+    });
+    await page.evaluate(() => {
+      const editor = window.__prototypeEditor;
+      const handle = editor.handleDistillationForm.bind(editor);
+      editor.handleDistillationForm = async form => { await handle(form); window.__viewpointSaveReturned = true; };
+    });
+    await panel.getByRole("button", { name: "保存当前观点", exact: true }).click();
+    await started;
+    await panel.locator("#btnHideRelated").click();
+    const newer = `${previous.trim()}\n\n迟到的响应不能覆盖这段新记录。`;
+    const body = page.locator("#editorHost .cm-content:visible");
+    await body.click();
+    await page.keyboard.press("Control+a");
+    await page.keyboard.insertText(newer);
+    release();
+    await page.waitForFunction(() => window.__viewpointSaveReturned);
+    assert.equal(await panel.isVisible(), false);
+    assert.equal(await body.evaluate(el => el.contains(document.activeElement)), true);
+    const client = await page.evaluate(() => ({ body: window.__prototypeEditor.getEditorValue(), tab: window.__prototypeEditor.activeTab() }));
+    assert.equal(client.body.trim(), newer);
+    assert.equal(client.tab.body.trim(), newer);
+    assert.equal(client.tab.dirty, true);
+    assert.ok(client.tab.savedBody.includes("交流后核对原文，可以发现遗漏。"));
+    await page.keyboard.press("Control+s");
+    await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.trim(), newer));
+    await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
+    assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().dirty), false);
+  });
+
   test(`polish refresh restores selection and modal shortcuts cannot switch notes (${width}px)`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
     const pw = await optionalPlaywright(t);
@@ -116,6 +364,14 @@ for (const width of [1366, 390]) {
     const stack = await startPrototypeStack(t, pw);
     if (!stack) return;
     const { apiBase, page } = stack;
+    await page.evaluate(() => {
+      window.__workspaceFocusTrace = [];
+      document.addEventListener("focusin", event => {
+        const node = event.target;
+        window.__workspaceFocusTrace.push({ tag: node.tagName, id: node.id, name: node.getAttribute("name"), time: performance.now() });
+        window.__workspaceFocusTrace = window.__workspaceFocusTrace.slice(-20);
+      });
+    });
     const create = async title => (await createWritingReadyPermanentNote(apiBase, {
       title, body: `# ${title}\n\n保留正文。`, thesis: "保留当前判断。"
     })).json.item;
@@ -204,7 +460,12 @@ for (const width of [1366, 390]) {
       }, legacy);
       assert.equal(prevented, false);
       assert.equal(await panel.isVisible(), true);
-      assert.equal(await composingField.evaluate(el => el === document.activeElement), true);
+      const focus = await composingField.evaluate(el => ({
+        retained: el === document.activeElement,
+        active: { tag: document.activeElement.tagName, id: document.activeElement.id, name: document.activeElement.getAttribute("name") },
+        trace: window.__workspaceFocusTrace
+      }));
+      assert.equal(focus.retained, true, JSON.stringify(focus));
     }
     await page.keyboard.press("Escape");
     assert.equal(await panel.isVisible(), false);

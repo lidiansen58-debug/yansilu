@@ -7,6 +7,7 @@ export function applyLoadedNoteToClientState(state, loaded, { refreshLoaded = fa
   for (const tab of tabs) {
     tab.body = loaded.body;
     tab.savedBody = loaded.body;
+    tab.savedFileRevision = loaded.fileRevision;
     tab.title = loaded.title;
     tab.savedTitle = loaded.title;
   }

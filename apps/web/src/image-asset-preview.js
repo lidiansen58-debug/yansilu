@@ -9,7 +9,7 @@ export function renderImageAssetPreview(container, url, label) {
   status.textContent = "正在加载图片...";
   const retry = documentRef.createElement("button");
   retry.type = "button";
-  retry.className = "mini-btn";
+  retry.className = "mini-btn primary asset-preview-retry";
   retry.textContent = "重新加载";
   retry.hidden = true;
   const load = () => {

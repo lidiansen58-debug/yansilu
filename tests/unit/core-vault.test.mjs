@@ -1476,6 +1476,7 @@ test("confirmPermanentNoteDistillation writes the distilled viewpoint into the v
   assert.match(reconfirmed.body, /Updated viewpoint replaces the old visible block\./);
   assert.doesNotMatch(reconfirmed.body, /Confirmed viewpoint should be visible in the note\./);
   assert.equal((reconfirmed.body.match(/## 提炼观点/g) || []).length, 1);
+  assert.match(reconfirmed.body, /Original body stays below the distilled viewpoint\./);
   assert.equal(reconfirmed.startingQuestion, "How should a saved viewpoint remain traceable?");
   assert.equal(reconfirmed.viewpointHistory.length, 1);
   assert.equal(reconfirmed.viewpointHistory[0].previousThesis, "Confirmed viewpoint should be visible in the note.");
@@ -1505,6 +1506,28 @@ test("permanent note can confirm a current viewpoint without a three-line summar
   assert.deepEqual(confirmed.threeLineSummary, []);
   assert.match(confirmed.body, /### 当前观点/);
   assert.doesNotMatch(confirmed.body, /### 补充说明/);
+  assert.match(confirmed.body, /Original note body\./);
+  const repeated = await confirmPermanentNoteDistillation(vaultPath, created.id);
+  assert.match(repeated.body, /Original note body\./);
+  assert.equal((repeated.body.match(/## 提炼观点/g) || []).length, 1);
+});
+
+test("confirmed viewpoint fields cannot turn into Markdown block boundaries", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const note = await createNoteInDirectory(vaultPath, {
+    directoryId: "dir_original_default", title: "Literal viewpoint fields",
+    body: "# Literal viewpoint fields\n\nKeep this authored observation.", originalityStatus: "pass"
+  });
+  for (const thesis of ["## A heading-like judgment", "```md", "<!-- yansilu:distillation:end -->"]) {
+    await updatePermanentNoteDistillation(vaultPath, note.id, { thesis, thesisChangeReason: "Check a different literal example." });
+    await confirmPermanentNoteDistillation(vaultPath, note.id);
+    const saved = await confirmPermanentNoteDistillation(vaultPath, note.id);
+    assert.equal(saved.thesis, thesis);
+    assert.ok(saved.body.includes("Keep this authored observation."));
+    assert.equal((saved.body.match(/^## 提炼观点$/gm) || []).length, 1);
+    assert.equal((saved.body.match(/^<!-- yansilu:distillation:end -->$/gm) || []).length, 1);
+  }
 });
 
 test("AI viewpoint draft becomes history only after the user confirms the change", async () => {

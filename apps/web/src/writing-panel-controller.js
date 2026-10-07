@@ -360,8 +360,8 @@ export function renderWritingPanelDom(deps = {}) {
     createProjectButton.textContent = hasProject ? "主题已确定" : projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
-    createScaffoldButton.disabled = !hasProject && !basketEntries.length && !explicitSelectedTheme;
-    createScaffoldButton.textContent = "生成提纲";
+    createScaffoldButton.disabled = Boolean(writingState.scaffoldGenerationPending) || (!hasProject && !basketEntries.length && !explicitSelectedTheme);
+    createScaffoldButton.textContent = writingState.scaffoldGenerationPending ? "正在生成..." : "生成提纲";
   }
   if (copyScaffoldButton) {
     copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
@@ -371,6 +371,8 @@ export function renderWritingPanelDom(deps = {}) {
     exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
     exportScaffoldButton.hidden = !hasScaffold;
   }
+  if ($("btnWritingReloadScaffold")) $("btnWritingReloadScaffold").hidden = !hasScaffold;
+  if ($("btnWritingHistory")) $("btnWritingHistory").hidden = !hasScaffold;
   const bookChapter = selectedWritingBookChapter(writingState);
   renderWritingBookChapterSelector({ ...deps, escapeHtml });
   renderWritingBookDirectoryTools(deps);

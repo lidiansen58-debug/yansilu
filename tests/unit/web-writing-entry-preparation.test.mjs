@@ -31,6 +31,15 @@ test("cancelling confirmation does not write or add a note", async () => {
   assert.equal(writes.length, 0);
 });
 
+test("writing confirmation refreshes the open tab revision for subsequent editing", async () => {
+  const { note, state, deps } = fixture();
+  state.tabs = [{ noteId: "n", body: note.body, savedBody: note.body, savedFileRevision: note.fileRevision, dirty: false }];
+  deps.update = async (_id, input) => ({ ...note, ...input, fileRevision: "b".repeat(64) });
+  assert.equal(await prepareWritingEntryNote("n", deps), true);
+  assert.equal(state.tabs[0].savedFileRevision, "b".repeat(64));
+  assert.equal(state.tabs[0].savedBody, note.body);
+});
+
 for (const status of ["warning", "blocked", "missing"]) {
   test(`writing preparation does not bypass ${status} originality result`, async () => {
     const { writes, deps } = fixture({ check: async () => ({ originalityGuard: { evaluations: [{ permanentId: "n", status }] } }) });

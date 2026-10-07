@@ -192,6 +192,8 @@ export function renderWritingBookChapterSelector(deps) {
   if (!select) return;
   const escape = deps.escapeHtml;
   const parts = deps.writingState.project?.book_structure?.parts || [];
+  const title = deps.$?.("writingDraftTitle");
+  if (title) title.textContent = selectedWritingBookChapter(deps.writingState)?.title || "草稿";
   select.innerHTML = `<option value="">文章正文</option>${parts.map((part) => `<optgroup label="${escape(part.title || part.label || "章节")}">${(part.chapters || []).map((chapter) => `<option value="${escape(chapter.id)}">${escape(chapter.title)}</option>`).join("")}</optgroup>`).join("")}`;
   select.value = selectedWritingBookChapter(deps.writingState)?.id || "";
   select.disabled = !deps.writingState.project?.id;

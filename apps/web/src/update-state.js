@@ -221,12 +221,14 @@ export function updateStateIgnoreLatest(state = {}) {
 }
 
 export function updateStateAutoCheckEnabled(state = {}, enabled = true) {
+  const status = state.status || UPDATE_STATUS.IDLE;
+  const inactive = status === UPDATE_STATUS.IDLE || status === UPDATE_STATUS.DISABLED;
   return {
     ...createUpdateState(),
     ...state,
     autoCheckEnabled: enabled !== false,
-    status: enabled === false ? UPDATE_STATUS.DISABLED : state.status === UPDATE_STATUS.DISABLED ? UPDATE_STATUS.IDLE : state.status,
-    error: enabled === false ? "" : state.error
+    status: inactive ? (enabled === false ? UPDATE_STATUS.DISABLED : UPDATE_STATUS.IDLE) : status,
+    error: inactive && enabled === false ? "" : state.error
   };
 }
 

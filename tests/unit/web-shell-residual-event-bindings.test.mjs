@@ -89,7 +89,7 @@ test("settings feedback bindings open the prepared email", async () => {
   assert.deepEqual(statuses, [["已打开反馈邮件", "ok"]]);
 });
 
-test("editor shell bindings route focus helper and delayed save actions", async () => {
+test("editor shell bindings toggle focus without repeating helper instructions", async () => {
   const elements = {
     btnFocusMode: button(),
     btnDismissEditorHelper: button(),
@@ -129,9 +129,7 @@ test("editor shell bindings route focus helper and delayed save actions", async 
 
   assert.equal(state.focusMode, true);
   assert.ok(calls.some(([name, value]) => name === "focus" && value === true));
-  assert.ok(calls.some(([name, noteId]) => name === "open" && noteId === "note-2"));
-  assert.ok(calls.some(([name]) => name === "later"));
-  assert.ok(calls.some(([name, key, value]) => name === "stored" && key === "mute-key" && value === true));
+  assert.equal(calls.some(([name]) => ["open", "later", "stored", "hint", "hide"].includes(name)), false);
 });
 
 test("save AI suggestion route binding handles route actions", async () => {

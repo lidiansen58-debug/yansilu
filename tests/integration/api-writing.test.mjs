@@ -14,9 +14,111 @@ import { saveNoteWithReadback } from "../../apps/web/src/note-save-readback.js";
 import { createNoteCreationController } from "../../apps/web/src/note-creation-controller.js";
 import { createWritingNoteWithRecovery } from "../../apps/web/src/writing-note-creation-recovery.js";
 import { saveEditorNoteWithRecovery } from "../../apps/web/src/editor-save-recovery.js";
+import { randomUUID } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+test("historical restore rejects a request whose Vault switches while the body is incomplete", async t => {
+  const initialVault = await makeTempDir("yansilu-history-request-old-");
+  const targetVault = await makeTempDir("yansilu-history-request-target-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, initialVault);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: targetVault });
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Target evidence\n\nDo not change." })).json.item;
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Target history", basketNoteIds: [note.id] })).json.item.id;
+  const source = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const current = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const before = await fs.readFile(path.join(targetVault, note.markdownPath), "utf8");
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: initialVault });
+  let pending;
+  const result = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}/api/v1/writing-projects/${projectId}/scaffold-restore`, { method: "POST", headers: { "Content-Type": "application/json" } }, res => {
+      let text = "";
+      res.on("data", chunk => { text += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+    });
+    pending.on("error", reject); pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: targetVault });
+  pending.end(JSON.stringify({ sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`, expectedScaffoldId: current.id,
+    expectedScaffoldUpdatedAt: current.updated_at, expectedProjectUpdatedAt: project.updated_at,
+    expectedSourceUpdatedAt: source.updated_at, expectedVaultPath: targetVault }).slice(1));
+  const response = await result;
+  assert.equal(response.status, 409);
+  assert.equal(response.json.error.code, "VAULT_CHANGED");
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, current.id);
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffolds?limit=50`)).json.items.length, 2);
+  assert.equal(await fs.readFile(path.join(targetVault, note.markdownPath), "utf8"), before);
+});
+
+test("historical outline restore is atomic, conflict guarded, idempotent and preserves actual sources and drafts", async t => {
+  const vaultPath = await makeTempDir("yansilu-outline-history-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Actual evidence\n\nPreserve these original bytes." })).json.item;
+  const draft = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Article\n\nPreserve the article body." })).json.item;
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "History restoration", basketNoteIds: [note.id] })).json.item.id;
+  const first = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId, versionNote: "Original version" })).json.item;
+  const second = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const current = (await patchJson(baseUrl, `/api/v1/draft-scaffolds/${second.id}`, { sections: second.sections.map((s, i) => i ? s : { ...s, heading: "Current different heading" }) })).json.item;
+  assert.equal((await postJson(baseUrl, `/api/v1/writing-projects/${projectId}/draft-note`, { draftNoteId: draft.id, sourceScaffoldId: second.id })).status, 200);
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const sourceFile = path.join(vaultPath, note.markdownPath), draftFile = path.join(vaultPath, draft.markdownPath);
+  const bytes = await Promise.all([sourceFile, draftFile].map(file => fs.readFile(file, "utf8")));
+  const payload = { sourceScaffoldId: first.id, restorationId: `ds_${randomUUID()}`, expectedScaffoldId: second.id,
+    expectedScaffoldUpdatedAt: current.updated_at, expectedProjectUpdatedAt: project.updated_at,
+    expectedSourceUpdatedAt: first.updated_at, expectedVaultPath: vaultPath };
+  const route = `/api/v1/writing-projects/${projectId}/scaffold-restore`;
+  for (const invalid of [
+    { expectedScaffoldId: first.id }, { expectedScaffoldUpdatedAt: "outdated" },
+    { expectedProjectUpdatedAt: "outdated" }, { expectedSourceUpdatedAt: "outdated" },
+    { expectedVaultPath: path.join(vaultPath, "different-vault") }
+  ]) {
+    const response = await postJson(baseUrl, route, { ...payload, ...invalid });
+    assert.equal(response.status, 409, JSON.stringify(response.json));
+    assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, second.id);
+    assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffolds?limit=50`)).json.items.length, 2);
+  }
+  const otherProject = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Other project", basketNoteIds: [note.id] })).json.item;
+  const otherVersion = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: otherProject.id })).json.item;
+  assert.equal((await postJson(baseUrl, route, { ...payload, sourceScaffoldId: otherVersion.id })).status, 400);
+  assert.equal((await postJson(baseUrl, route, { sourceScaffoldId: first.id })).status, 400);
+  const restored = await postJson(baseUrl, route, payload);
+  assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assert.equal(restored.json.item.id, payload.restorationId);
+  assert.equal(restored.json.item.writing_project.scaffold_id, payload.restorationId);
+  assert.equal(restored.json.item.writing_project.draft_note_id, draft.id);
+  assert.deepEqual(restored.json.item.sections, first.sections);
+  assert.deepEqual(restored.json.item.open_questions, first.open_questions);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${first.id}`)).json.item.sections, first.sections);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`)).json.item, current);
+  const lateSave = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`, { sections: current.sections.map((s, i) => i ? s : { ...s, heading: "Late edit must not change historical data" }), expectedCurrentScaffoldId: current.id });
+  assert.equal(lateSave.status, 409);
+  assert.equal(lateSave.json.error.code, "WRITING_CURRENT_OUTLINE_CHANGED");
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`)).json.item, current);
+  const retry = await postJson(baseUrl, route, payload);
+  assert.equal(retry.status, 201, JSON.stringify(retry.json));
+  assert.equal(retry.json.item.id, restored.json.item.id);
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffolds?limit=50`)).json.items.length, 3);
+  child.kill();
+  await once(child, "exit");
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, payload.restorationId);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${payload.restorationId}`)).json.item.sections, first.sections);
+  const newer = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  assert.equal((await postJson(baseUrl, route, payload)).status, 409, "A retry must not roll back a newer version");
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, newer.id);
+  assert.deepEqual(await Promise.all([sourceFile, draftFile].map(file => fs.readFile(file, "utf8"))), bytes);
+});
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -275,7 +377,81 @@ test("an incomplete create request cannot create in a vault switched while its b
   assert.equal((await getJson(baseUrl, `/api/v1/notes/note_${id}`)).status, 404);
 });
 
-for (const [method, suffix] of [["PATCH", "book-structure"], ["POST", "draft-note"]]) {
+test("writing project form sync rejects incomplete and stale Vault requests and preserves article-only structure", async t => {
+  const originalVault = await makeTempDir("yansilu-form-sync-old-"), targetVault = await makeTempDir("yansilu-form-sync-target-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`, child = startApi(port, originalVault);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: targetVault });
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Form evidence\n\nPreserve this source." })).json.item;
+  const project = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Original title", goal: "Original question", basketNoteIds: [note.id], bookStructure: { schema_version: 1, parts: [] } })).json.item;
+  const before = await fs.readFile(path.join(targetVault, note.markdownPath), "utf8");
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: originalVault });
+  const route = `/api/v1/writing-projects/${project.id}`;
+  let pending;
+  const result = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}${route}`, { method: "PATCH", headers: { "Content-Type": "application/json" } }, res => {
+      let text = ""; res.on("data", chunk => { text += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+    });
+    pending.on("error", reject); pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath: targetVault });
+  pending.end(JSON.stringify({ title: "Wrong cross-Vault title", expectedVaultPath: targetVault }).slice(1));
+  const denied = await result;
+  assert.equal(denied.status, 409);
+  assert.equal(denied.json.error.code, "VAULT_CHANGED");
+  assert.equal((await getJson(baseUrl, route)).json.item.title, "Original title");
+  assert.equal((await patchJson(baseUrl, route, { title: "Stale title", expectedVaultPath: originalVault })).status, 409);
+  const saved = await patchJson(baseUrl, route, { title: "Latest title", goal: "Latest question", audience: "", tone: "", expectedVaultPath: targetVault });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.equal(saved.json.item.title, "Latest title");
+  assert.equal(saved.json.item.goal, "Latest question");
+  assert.deepEqual(saved.json.item.book_structure.parts, [], "Editing an article topic must not silently create book chapters");
+  assert.equal(await fs.readFile(path.join(targetVault, note.markdownPath), "utf8"), before);
+});
+
+test("writing project creation rejects incomplete and stale requests across a Vault switch", async t => {
+  const vaultPath = await makeTempDir("yansilu-project-create-old-");
+  const otherVault = await makeTempDir("yansilu-project-create-new-");
+  const baseUrl = `http://127.0.0.1:${await findFreePort()}`;
+  const child = startApi(Number(new URL(baseUrl).port), vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}/api/v1/writing-projects`, { method: "POST", headers: { "Content-Type": "application/json" } }, res => {
+      let text = "";
+      res.on("data", chunk => { text += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+    });
+    pending.on("error", reject); pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Original material\n\nUNCHANGED" })).json.item;
+  const sourceFile = path.join(otherVault, note.markdownPath);
+  const original = await fs.readFile(sourceFile, "utf8");
+  const payload = { title: "Must not cross Vaults", basketNoteIds: [note.id] };
+  pending.end(JSON.stringify(payload).slice(1));
+  const denied = await response;
+  assert.equal(denied.status, 409);
+  assert.equal(denied.json.error.code, "VAULT_CHANGED");
+  const stale = await postJson(baseUrl, "/api/v1/writing-projects", { ...payload, expectedVaultPath: vaultPath });
+  assert.equal(stale.status, 409);
+  assert.equal((await getJson(baseUrl, "/api/v1/writing-projects?limit=50")).json.items.length, 0);
+  const retried = await postJson(baseUrl, "/api/v1/writing-projects", { ...payload, expectedVaultPath: otherVault });
+  assert.equal(retried.status, 201, JSON.stringify(retried.json));
+  assert.equal((await getJson(baseUrl, "/api/v1/writing-projects?limit=50")).json.items.length, 1);
+  assert.equal(await fs.readFile(sourceFile, "utf8"), original);
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath });
+  assert.equal((await getJson(baseUrl, "/api/v1/writing-projects?limit=50")).json.items.length, 0);
+});
+
+for (const [method, suffix] of [["PATCH", "book-structure"], ["POST", "draft-note"], ["POST", "scaffolds"]]) {
   test(`writing ${suffix} rejects an incomplete request across a vault switch`, async t => {
     const vaultPath = await makeTempDir("yansilu-writing-scope-old-");
     const otherVault = await makeTempDir("yansilu-writing-scope-new-");
@@ -290,14 +466,16 @@ for (const [method, suffix] of [["PATCH", "book-structure"], ["POST", "draft-not
     assert.equal(projectResponse.status, 201, JSON.stringify(projectResponse.json));
     const project = projectResponse.json.item;
     const projectRoute = `/api/v1/writing-projects/${project.id}`;
-    const payload = suffix === "draft-note" ? { draftNoteId: note.id }
+    const actionRoute = suffix === "scaffolds" ? "/api/v1/draft-scaffolds" : `${projectRoute}/${suffix}`;
+    const payload = suffix === "scaffolds" ? { writingProjectId: project.id }
+      : suffix === "draft-note" ? { draftNoteId: note.id }
       : { bookStructure: { parts: [{ id: "late", title: "DO NOT WRITE", chapters: [] }] } };
     const file = path.join(otherVault, note.markdownPath);
     const originalFile = await fs.readFile(file, "utf8");
     await postJson(baseUrl, "/api/v1/vault", { vaultPath });
     let pending;
     const response = new Promise((resolve, reject) => {
-      pending = http.request(`${baseUrl}${projectRoute}/${suffix}`, { method, headers: { "Content-Type": "application/json" } }, res => {
+      pending = http.request(`${baseUrl}${actionRoute}`, { method, headers: { "Content-Type": "application/json" } }, res => {
         let text = "";
         res.on("data", chunk => { text += chunk; });
         res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
@@ -312,14 +490,73 @@ for (const [method, suffix] of [["PATCH", "book-structure"], ["POST", "draft-not
     const denied = await response;
     assert.equal(denied.status, 409);
     assert.equal(denied.json.error.code, "VAULT_CHANGED");
-    const stale = await fetch(`${baseUrl}${projectRoute}/${suffix}`, { method, headers: { "Content-Type": "application/json" },
+    const stale = await fetch(`${baseUrl}${actionRoute}`, { method, headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, expectedVaultPath: vaultPath }) });
     assert.equal(stale.status, 409);
     assert.equal((await stale.json()).error.code, "VAULT_CHANGED");
     assert.deepEqual((await getJson(baseUrl, projectRoute)).json.item, project);
     assert.equal(await fs.readFile(file, "utf8"), originalFile);
+    if (suffix === "scaffolds") {
+      assert.equal((await getJson(baseUrl, `${projectRoute}/scaffolds?limit=50`)).json.items.length, 0);
+      const retried = await postJson(baseUrl, actionRoute, { ...payload, expectedVaultPath: otherVault });
+      assert.equal(retried.status, 201, JSON.stringify(retried.json));
+      assert.equal((await getJson(baseUrl, `${projectRoute}/scaffolds?limit=50`)).json.items.length, 1);
+      assert.equal(await fs.readFile(file, "utf8"), originalFile);
+    }
   });
 }
+
+test("outline autosave rejects an incomplete request and stale Vault context without touching another outline", async t => {
+  const vaultPath = await makeTempDir("yansilu-outline-scope-old-");
+  const otherVault = await makeTempDir("yansilu-outline-scope-new-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  const note = (await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Preserved evidence\n\nUNCHANGED" })).json.item;
+  const project = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Preserved project", goal: "Preserve real evidence.", basketNoteIds: [note.id] })).json.item;
+  const created = await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: project.id });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  const route = `/api/v1/draft-scaffolds/${created.json.item.id}`;
+  const original = (await getJson(baseUrl, route)).json.item;
+  const originalFile = await fs.readFile(path.join(otherVault, note.markdownPath), "utf8");
+  await postJson(baseUrl, "/api/v1/vault", { vaultPath });
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(`${baseUrl}${route}`, { method: "PATCH", headers: { "Content-Type": "application/json" } }, res => {
+      let text = "";
+      res.on("data", chunk => { text += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+    });
+    pending.on("error", reject);
+    pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+  const payload = { sections: [{ heading: "DO NOT OVERWRITE", purpose: "Wrong context", evidence_note_ids: [note.id] }], openQuestions: [] };
+  pending.end(JSON.stringify(payload).slice(1));
+  const denied = await response;
+  assert.equal(denied.status, 409);
+  assert.equal(denied.json.error.code, "VAULT_CHANGED");
+  const stale = await patchJson(baseUrl, route, { ...payload, expectedVaultPath: vaultPath });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.json.error.code, "VAULT_CHANGED");
+  assert.deepEqual((await getJson(baseUrl, route)).json.item, original);
+  assert.equal(await fs.readFile(path.join(otherVault, note.markdownPath), "utf8"), originalFile);
+  const saved = await patchJson(baseUrl, route, { ...payload, sections: original.sections, expectedVaultPath: otherVault });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.deepEqual(saved.json.item.sections.map(section => section.evidence_note_ids), original.sections.map(section => section.evidence_note_ids));
+  const baseline = { sections: saved.json.item.sections, openQuestions: saved.json.item.open_questions };
+  const changed = await patchJson(baseUrl, route, { sections: [{ ...saved.json.item.sections[0], heading: "External edit" }], openQuestions: [] });
+  assert.equal(changed.status, 200);
+  const conflict = await patchJson(baseUrl, route, { sections: baseline.sections, openQuestions: baseline.openQuestions, expectedOutline: baseline });
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.json.error.code, "WRITING_OUTLINE_CONFLICT");
+  assert.deepEqual((await getJson(baseUrl, route)).json.item, changed.json.item);
+});
 
 test("lost save response is recovered from its operation receipt without rewriting", async t => {
   const vaultPath = await makeTempDir("yansilu-api-save-readback-");
@@ -1045,6 +1282,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "confirmed_distillation" && check.status === "warning"));
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "distillation_quality" && check.status === "warning"));
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
+  assert.equal(scaffold.json.item.writing_project.updated_at, scaffold.json.item.updated_at);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "ready_for_review");
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
   assert.match(scaffold.json.export.markdown, /## 文章提纲预检/);

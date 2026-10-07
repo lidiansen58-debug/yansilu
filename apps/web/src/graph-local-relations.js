@@ -10,18 +10,18 @@ export function graphNoteTagsForLocalRelation(note = {}, { parseTags = () => [] 
   return [...new Set(parsedTags.map((tag) => String(tag || "").trim()).filter(Boolean))].slice(0, 12);
 }
 
-export function graphTitleCharacterOverlap(left = "", right = "") {
-  const normalizeChars = (value) =>
-    new Set(
-      [...String(value || "").trim()]
-        .map((char) => char.toLowerCase())
-        .filter((char) => /[\p{L}\p{N}]/u.test(char))
-    );
-  const leftChars = normalizeChars(left);
-  const rightChars = normalizeChars(right);
+function titleCharacters(value = "") {
+  return new Set([...String(value || "").trim()].map(char => char.toLowerCase()).filter(char => /[\p{L}\p{N}]/u.test(char)));
+}
+
+function characterOverlap(leftChars, rightChars) {
   if (!leftChars.size || !rightChars.size) return 0;
   const shared = [...leftChars].filter((char) => rightChars.has(char)).length;
   return shared / Math.max(1, Math.min(leftChars.size, rightChars.size));
+}
+
+export function graphTitleCharacterOverlap(left = "", right = "") {
+  return characterOverlap(titleCharacters(left), titleCharacters(right));
 }
 
 export function graphConnectedNoteIdsForNote(noteId = "", edges = [], { relationStatusCountsAsNetworkEdge = () => true } = {}) {
@@ -34,10 +34,25 @@ function graphPermanentLikeNote(note = {}) {
 }
 
 const NOTE_CLASSIFICATION_TAGS = new Set(["permanent", "original", "永久笔记", "原创笔记"]);
+const titleCollator = new Intl.Collator("zh-Hans-CN");
+
+export function prepareGraphLocalRelationCandidates(nodeMap, { noteTags = graphNoteTagsForLocalRelation } = {}) {
+  const features = new Map();
+  const tagFrequency = new Map();
+  for (const [key, note] of nodeMap) {
+    if (!graphPermanentLikeNote(note)) continue;
+    const id = String(note?.id || "").trim();
+    const title = String(note?.title || id).trim() || id;
+    const tags = noteTags(note);
+    features.set(key, { id, title, tags, characters: titleCharacters(title) });
+    for (const tag of new Set(tags)) tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
+  }
+  return { nodeMap, features, tagFrequency };
+}
 
 export function graphLocalRelationCandidatesForNote(
   noteId = "",
-  { nodeMap = new Map(), edges = [], limit = 5 } = {},
+  { nodeMap = new Map(), edges = [], limit = 5, prepared = null } = {},
   {
     relationStatusCountsAsNetworkEdge = () => true,
     noteTags = graphNoteTagsForLocalRelation,
@@ -49,28 +64,26 @@ export function graphLocalRelationCandidatesForNote(
   const source = nodeMap.get(cleanNoteId);
   if (!source || !graphPermanentLikeNote(source)) return [];
   const connectedIds = graphConnectedNoteIdsForNote(cleanNoteId, edges, { relationStatusCountsAsNetworkEdge });
-  const sourceTags = noteTags(source);
+  const context = prepared?.nodeMap === nodeMap ? prepared : prepareGraphLocalRelationCandidates(nodeMap, { noteTags });
+  const sourceTags = context.features.get(cleanNoteId)?.tags || noteTags(source);
   const sourceTagSet = new Set(sourceTags);
   const sourceTitle = String(source.title || cleanNoteId).trim() || cleanNoteId;
-  const permanentNotes = [...nodeMap.values()].filter(graphPermanentLikeNote);
-  const tagFrequency = new Map();
-  for (const note of permanentNotes) {
-    for (const tag of new Set(noteTags(note))) tagFrequency.set(tag, (tagFrequency.get(tag) || 0) + 1);
-  }
+  const sourceCharacters = titleCharacters(sourceTitle);
+  const { features, tagFrequency } = context;
   // Tags used by most notes describe the library, not a specific shared topic.
   const isSpecificTag = (tag) => !NOTE_CLASSIFICATION_TAGS.has(String(tag).toLowerCase()) &&
-    (permanentNotes.length < 4 || (tagFrequency.get(tag) || 0) / permanentNotes.length < 0.6);
-  return [...nodeMap.values()]
+    (features.size < 4 || (tagFrequency.get(tag) || 0) / features.size < 0.6);
+  return [...features.values()]
     .filter((candidate) => {
-      const targetId = String(candidate?.id || "").trim();
-      return graphPermanentLikeNote(candidate) && targetId && targetId !== cleanNoteId && !connectedIds.has(targetId);
+      const targetId = candidate.id;
+      return targetId && targetId !== cleanNoteId && !connectedIds.has(targetId);
     })
     .map((candidate) => {
-      const targetId = String(candidate?.id || "").trim();
-      const targetTitle = String(candidate?.title || targetId).trim() || targetId;
-      const targetTags = noteTags(candidate);
+      const targetId = candidate.id;
+      const targetTitle = candidate.title;
+      const targetTags = candidate.tags;
       const sharedTags = targetTags.filter((tag) => sourceTagSet.has(tag) && isSpecificTag(tag));
-      const titleOverlap = graphTitleCharacterOverlap(sourceTitle, targetTitle);
+      const titleOverlap = characterOverlap(sourceCharacters, candidate.characters);
       if (!sharedTags.length && titleOverlap < 0.62) return null;
       const score = sharedTags.length * 3 + titleOverlap * 2;
       if (score < 0.62) return null;
@@ -94,7 +107,7 @@ export function graphLocalRelationCandidatesForNote(
       };
     })
     .filter(Boolean)
-    .sort((left, right) => Number(right.confidence || 0) - Number(left.confidence || 0) || left.targetTitle.localeCompare(right.targetTitle, "zh-Hans-CN"))
+    .sort((left, right) => Number(right.confidence || 0) - Number(left.confidence || 0) || titleCollator.compare(left.targetTitle, right.targetTitle))
     .slice(0, Math.max(1, Number(limit) || 5));
 }
 

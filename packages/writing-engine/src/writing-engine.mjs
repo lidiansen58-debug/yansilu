@@ -1,5 +1,6 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
 import { collectDistillationQualityWarnings } from "../../domain/src/distillation-quality.mjs";
 import { getNoteById } from "../../domain/src/index.mjs";
@@ -7,6 +8,7 @@ import { getIndexCard } from "../../domain/src/index-card-store.mjs";
 import { deriveWritingProjectThinkingStatus } from "../../domain/src/thinking-status.mjs";
 import { analyzeWritingProjectReadiness } from "../../domain/src/quality-checks.mjs";
 import { hasBookChapterDrafts, preserveBookChapterDrafts, validateBookChapterDrafts } from "./book-chapter-drafts.mjs";
+import { restoreDraftScaffoldRecord } from "./restore-draft-scaffold.mjs";
 
 const GENERATED_BY = "writing-engine:v1";
 
@@ -982,10 +984,17 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     writing_project: {
       ...project,
       scaffold_id: scaffold.id,
+      updated_at: now,
       thinkingStatus: deriveWritingProjectThinkingStatus({ ...project, scaffold_id: scaffold.id })
     },
     basket_notes: basketNotes.map(({ body, ...note }) => note)
   };
+}
+
+export async function restoreDraftScaffold(vaultPath, writingProjectId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  return restoreDraftScaffoldRecord(vaultPath, cleanText(writingProjectId), input, { loadDatabaseSync, catalogDbPath,
+    loadProject, mapScaffoldRow, loadBasketNotes, loadRelatedIndexCards, loadBasketNoteSummaries, buildScaffoldPreflight, renderMarkdown, deriveWritingProjectThinkingStatus });
 }
 
 export async function getWritingProject(vaultPath, writingProjectId) {
@@ -1102,7 +1111,7 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
   const audienceChanged = audience !== (existingProject.audience || "");
   const bookStructure = explicitBookStructure
     ? normalizeBookStructure(preserveBookChapterDrafts(providedBookStructure, existingBookStructure))
-    : (basketChanged && !hasBookChapterDrafts(existingBookStructure)) || !existingBookStructure.parts.length
+    : basketChanged && !hasBookChapterDrafts(existingBookStructure)
       ? buildDefaultBookStructure({ ...existingProject, title, goal, audience, tone, intent, desired_reader_takeaway: desiredReaderTakeaway }, basketNotes)
       : normalizeBookStructure({
           ...existingBookStructure,
@@ -1213,6 +1222,7 @@ export async function listProjectScaffolds(vaultPath, writingProjectId, input = 
   const projectId = cleanText(writingProjectId);
   if (!projectId) throw new Error("writingProjectId is required");
   const limit = Math.max(1, Math.min(50, Number(input.limit || 12) || 12));
+  const offset = Math.max(0, Math.trunc(Number(input.offset) || 0));
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
@@ -1226,9 +1236,9 @@ export async function listProjectScaffolds(vaultPath, writingProjectId, input = 
          FROM draft_scaffolds ds
          WHERE ds.writing_project_id = ?
          ORDER BY ds.created_at DESC, ds.id DESC
-         LIMIT ?`
+         LIMIT ? OFFSET ?`
       )
-      .all(projectId, limit);
+      .all(projectId, limit, offset);
     return rows.map(mapScaffoldListRow);
   } finally {
     db.close();
@@ -1394,11 +1404,31 @@ export async function updateDraftScaffold(vaultPath, draftScaffoldId, input = {}
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    db.exec("BEGIN IMMEDIATE");
+    if (input.expectedCurrentScaffoldId !== undefined) {
+      const currentProject = db.prepare("SELECT scaffold_id FROM writing_projects WHERE id = ?").get(existing.writing_project_id);
+      if (currentProject?.scaffold_id !== input.expectedCurrentScaffoldId || input.expectedCurrentScaffoldId !== id) {
+        throw Object.assign(new Error("当前提纲已切换，本次未覆盖历史版本。请重新打开主题核对。"), { code: "WRITING_CURRENT_OUTLINE_CHANGED" });
+      }
+    }
+    if (input.expectedOutline !== undefined) {
+      const expected = input.expectedOutline;
+      if (!Array.isArray(expected?.sections) || !Array.isArray(expected?.openQuestions)) throw new Error("expectedOutline is incomplete");
+      const current = db.prepare("SELECT sections_json, open_questions_json FROM draft_scaffolds WHERE id = ?").get(id);
+      if (!current || !isDeepStrictEqual(JSON.parse(current.sections_json), expected.sections)
+        || !isDeepStrictEqual(JSON.parse(current.open_questions_json), expected.openQuestions)) {
+        throw Object.assign(new Error("提纲已在其他地方修改，本次未覆盖。当前输入仍保留，请重新核对。"), { code: "WRITING_OUTLINE_CONFLICT" });
+      }
+    }
     db.prepare(
       `UPDATE draft_scaffolds
        SET sections_json = ?, open_questions_json = ?, markdown = ?, updated_at = ?
        WHERE id = ?`
     ).run(JSON.stringify(sections), JSON.stringify(openQuestions), markdown, now, id);
+    db.exec("COMMIT");
+  } catch (error) {
+    try { db.exec("ROLLBACK"); } catch {}
+    throw error;
   } finally {
     db.close();
   }
@@ -1453,6 +1483,7 @@ export async function getDraftScaffold(vaultPath, draftScaffoldId) {
     const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids, { tolerateMissing: true });
     return {
       ...scaffold,
+      evidence_notes: await loadBasketNoteSummaries(vaultPath, uniqueIds(scaffold.sections.flatMap(section => section.evidence_note_ids || []))),
       preflight: buildScaffoldPreflight(project, basketNotes)
     };
   } finally {

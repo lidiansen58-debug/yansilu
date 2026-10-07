@@ -90,6 +90,28 @@ function createHarness() {
   };
 }
 
+test("vault directory chooser failures keep the entered path and can be retried", async () => {
+  const h = createHarness();
+  h.$("settingsVaultPath").value = "C:/my-vault";
+  let attempts = 0;
+  installSettingsEventBindings({
+    $: h.$,
+    settingsState: { ai: {}, update: {} },
+    desktopCommands: { pickVaultDirectory: async options => {
+      assert.equal(options.defaultPath, "C:/my-vault");
+      if (++attempts === 1) throw new Error("系统目录选择器不可用");
+      return { path: "C:/selected-vault", source: "native" };
+    } },
+    setStatus: (...args) => h.calls.push(args)
+  });
+  await h.listeners.get("settingsBrowseVault:click")();
+  assert.equal(h.$("settingsVaultPath").value, "C:/my-vault");
+  assert.deepEqual(h.calls.at(-1), ["选择笔记库目录失败：系统目录选择器不可用", "bad"]);
+  await h.listeners.get("settingsBrowseVault:click")();
+  assert.equal(h.$("settingsVaultPath").value, "C:/selected-vault");
+  assert.deepEqual(h.calls.at(-1), ["已选择笔记库目录", "ok"]);
+});
+
 test("settings event bindings route section, item, and template actions", () => {
   const harness = createHarness();
   installSettingsEventBindings({
@@ -173,7 +195,7 @@ test("settings demo import button shows progress while import is running", async
 
   assert.equal(importButton.disabled, true);
   assert.equal(importButton.textContent, "正在导入...");
-  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "正在导入示例库。完成后会打开练习入口。");
+  assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").textContent, "正在导入示例笔记与写作，完成后可在普通目录中查看。");
   assert.equal(harness.elements.get("settingsImportSmartNotesDemoStatus").dataset.tone, "busy");
   finishImport();
   await importPromise;

@@ -139,6 +139,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "app-shell-state-change-host-deps.js": 100,
     "app-shell-state-change-deps.js": 40,
     "app-startup-controller.js": 125,
+    "app-startup-retry-controller.js": 90,
     "app-event-bindings.js": 200,
     "app-rail-event-bindings.js": 70,
     "quick-action-event-bindings.js": 70,
@@ -149,9 +150,20 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "save-ai-suggestion-route-events.js": 80,
     "save-ai-suggestion-workflow-routes.js": 120,
     "directory-option-runtime.js": 150,
+    "import-directory-controls.js": 80,
+    "import-markdown-export-action.js": 80,
+    "import-workspace-form-state.js": 45,
+    "import-result-focus.js": 100,
+    "import-candidate-pagination.js": 80,
+    "import-preview-resume-model.js": 45,
+    "import-preview-resume-controller.js": 80,
     "app-module-header-runtime-routes.js": 80,
     "app-startup-seed.js": 100,
     "startup-explicit-note-route.js": 40,
+    "startup-vault-notes.js": 35,
+    "literature-source-readiness.js": 70,
+    "literature-note-template.js": 75,
+    "distillation-editor-result.js": 30,
     "app-route-initializer.js": 76,
     "import-workspace-shell.js": 120,
     "import-result-runtime.js": 420,
@@ -182,6 +194,14 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "writing-theme-card-panel.js": 180,
     "writing-status-strip-panel.js": 210,
     "writing-scaffold-preview-panel.js": 160,
+    "writing-outline-layout.js": 55,
+    "writing-outline-save.js": 65,
+    "writing-outline-recovery.js": 100,
+    "writing-scaffold-open-controller.js": 80,
+    "writing-scaffold-generation.js": 20,
+    "writing-project-creation-context.js": 25,
+    "writing-project-creation-actions.js": 190,
+    "writing-project-form-sync.js": 90,
     "system-messages-shell.js": 75,
     "system-messages-host-deps.js": 30,
     "system-messages-view.js": 100,
@@ -225,6 +245,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "graph-panel-renderer.js": 150,
     "graph-entry-event-bindings.js": 45,
     "graph-route-runtime.js": 280,
+    "graph-analysis-runtime-controller.js": 100,
+    "graph-selection-context.js": 55,
     "graph-scope-state.js": 160,
     "graph-refresh-controller.js": 90,
     "graph-viewport-controller.js": 110,
@@ -293,7 +315,6 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "startup-auto-open-event-bindings.js",
     "dirty-tabs-beforeunload-event-bindings.js",
     "editor-shell-event-bindings.js",
-    "save-ai-suggestion-route-events.js",
     "save-ai-suggestion-workflow-routes.js",
     "directory-option-runtime.js",
     "import-workspace-shell.js",
@@ -365,7 +386,6 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
     "note-runtime-controller.js",
     "note-placeholder-runtime.js",
     "note-persistence-policy.js",
-    "workspace-status-hint-model.js",
     "settings-template-preview-view.js",
     "editor-host-deps.js",
     "graph-selection-panel-renderer.js",
@@ -375,6 +395,8 @@ test("prototype-app keeps shell-era UI responsibilities behind extracted modules
   for (const modulePath of requiredImports) {
     assert.match(source, new RegExp(`from "\\./${modulePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   }
+
+  assert.doesNotMatch(source, /installSaveAiSuggestionRouteEventBindings|buildWorkspaceStatusHintModel/);
 
   assert.doesNotMatch(source, /function renderWritingFlowSteps/);
   assert.doesNotMatch(source, /function renderWritingStatusStrip/);

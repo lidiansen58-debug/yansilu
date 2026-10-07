@@ -14,3 +14,19 @@ export function graphSelectionContextKey(selection = null) {
     clean(selection.topicKey)
   ]);
 }
+
+export function captureGraphRequestContext(depsProvider, { includeAnalysis = false } = {}) {
+  const deps = depsProvider();
+  const item = deps.graphState?.item;
+  const analysis = deps.graphState?.aiAnalysis;
+  const selection = graphSelectionContextKey(deps.graphState?.selection);
+  const directory = deps.graphScopeDirectoryId?.();
+  const module = deps.state?.module;
+  return () => {
+    const current = depsProvider();
+    return current.graphState?.item === item &&
+      (!includeAnalysis || current.graphState?.aiAnalysis === analysis) &&
+      graphSelectionContextKey(current.graphState?.selection) === selection &&
+      current.graphScopeDirectoryId?.() === directory && current.state?.module === module;
+  };
+}

@@ -1,3 +1,6 @@
+import { captureImportPreviewFocus, captureImportResultDisclosures, createImportResultDialogController, restoreImportPreviewFocus, restoreImportResultDisclosures } from "./import-result-focus.js";
+import { importCandidatePage, importPreviewPageForState } from "./import-candidate-pagination.js";
+
 export function createImportResultRuntime(deps = {}) {
   const {
     $,
@@ -46,6 +49,7 @@ export function createImportResultRuntime(deps = {}) {
     writingNoteById,
     writingState
   } = deps;
+  const { show: showImportOperationResultModal, hide: hideImportOperationResultModal } = createImportResultDialogController({ getElement: $, importState });
 
   function candidateIdsForSelection(candidatePreview, candidateSelection = null) {
     return computeCandidateIdsForSelection(candidatePreview, candidateSelection, { candidatePreviewItemIds });
@@ -102,14 +106,29 @@ export function createImportResultRuntime(deps = {}) {
     const selection = data.result?.selection || data.importRecord?.confirmResult?.selection || null;
     const previewSummary = selectionSummary(candidatePreview, importRecordId, selection, candidateSelectionFromPayload(data));
     const showExcludedSummary = stage === "confirm" && Boolean(selection?.selectedCandidates < selection?.totalCandidates);
+    const samePreview = el.querySelector?.(".result-card")?.getAttribute("data-result-stage") === stage
+      && el.querySelector?.(".result-candidates")?.getAttribute("data-import-preview-record") === String(importRecordId);
+    const selectionOptions = el.querySelector?.(".candidate-selection-options");
+    const selectionOptionsOpen = selectionOptions?.open && selectionOptions.getAttribute("data-import-preview-record") === String(importRecordId);
+    const disclosures = samePreview ? captureImportResultDisclosures(el) : [];
+    const previewFocus = samePreview
+      ? captureImportPreviewFocus(el) : null;
     const raw = JSON.stringify(data, null, 2);
+    const pagination = importCandidatePage(candidatePreview, { interactive: interactivePreview, summary: previewSummary,
+      originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard,
+      focusReason: importState.resultFocusReason, focusCandidateIds: skippedCandidateIds[importState.resultFocusReason] || [],
+      page: importPreviewPageForState(importState, { importRecordId, stage, focusReason: importState.resultFocusReason }) });
+    importState.candidatePage = pagination.page;
   
     el.innerHTML = renderImportResultMount({
       data,
       writingActionsHtml: renderImportWritingActions(data),
       skipBreakdownHtml: renderConfirmSkipBreakdown(data, candidatePreview, { focusReason: importState.resultFocusReason }),
       candidatePreviewHtml: renderCandidatePreview(candidatePreview, {
+        pagination,
         interactive: interactivePreview,
+        importRecordId,
+        selectionOptionsOpen,
         summary: previewSummary,
         showExcludedSummary,
         originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard || null,
@@ -120,25 +139,8 @@ export function createImportResultRuntime(deps = {}) {
       writingDetailsHtml: renderWritingResultDetails(data),
       raw
     });
-  }
-
-  function showImportOperationResultModal(mode = "import", title = "操作结果") {
-    importState.operationResultVisible = true;
-    importState.operationResultMode = mode;
-    const modal = $("importOperationResultModal");
-    const titleEl = $("importOperationResultTitle");
-    const importResult = $("importResult");
-    const exportResult = $("exportResult");
-    if (!modal) return;
-    if (titleEl) titleEl.textContent = title;
-    if (importResult) importResult.hidden = mode !== "import";
-    if (exportResult) exportResult.hidden = mode !== "export";
-    modal.classList.remove("hidden");
-  }
-
-  function hideImportOperationResultModal() {
-    importState.operationResultVisible = false;
-    $("importOperationResultModal")?.classList.add("hidden");
+    restoreImportResultDisclosures(el, disclosures, { focusCandidates: !interactivePreview && Boolean(importState.resultFocusReason) });
+    restoreImportPreviewFocus(el, previewFocus);
   }
 
   function showImportResult(payload) {
@@ -240,6 +242,7 @@ export function createImportResultRuntime(deps = {}) {
     await ensureNotesLoaded(noteIds);
     const importRecordId = importPayloadRecordId(importState.lastResultPayload || {}) || importState.importRecordId || "";
     setLiteratureQueueFocus(noteIds, importRecordId ? `导入批次 ${importRecordId}` : "本次导入");
+    hideImportOperationResultModal();
     activateModule("explorer");
     const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
     if (!opened) return false;
@@ -343,6 +346,15 @@ export function createImportResultRuntime(deps = {}) {
     });
     button.disabled = state.disabled;
     button.textContent = state.label;
+    const actions = $("importPreviewActions");
+    const payload = importState.lastResultPayload;
+    const isPreviewResult = payload?.stage === "preview" || (payload?.stage === "record" && payload.importRecord?.status === "preview");
+    if (actions) {
+      actions.hidden = !hasMatchingPreview || !isPreviewResult || importState.operationResultMode === "export";
+      if (actions.hidden && actions.contains?.(actions.ownerDocument?.activeElement)) {
+        $("btnCloseImportOperationResult")?.focus?.({ preventScroll: true });
+      }
+    }
     deps.checkpointImportWorkspace?.();
   }
 

@@ -119,54 +119,16 @@ export function selectionSummaryForImportState(
   };
 }
 
-export function renderImportWritingActions(payload = {}, { literatureBatchSummaryForPayload } = {}) {
+export function renderImportWritingActions(payload = {}) {
+  if (payload.stage === "record" && payload.importRecord?.status !== "completed") return "";
   const permanentNoteIds = createdNoteIdsByTypeFromImportPayload(payload, "permanent");
   const literatureNoteIds = createdNoteIdsByTypeFromImportPayload(payload, "literature");
-  const literatureBatchSummary = literatureBatchSummaryForPayload?.(payload) || null;
   if (!permanentNoteIds.length && !literatureNoteIds.length) return "";
   return `
     <div class="result-actions-inline">
-      ${
-        literatureNoteIds.length
-          ? `
-      ${
-        literatureBatchSummary
-          ? `
-      <div class="result-metrics">
-        <div class="result-metric"><span>待转述</span><strong>${literatureBatchSummary.pending}</strong></div>
-        <div class="result-metric"><span>待提炼</span><strong>${literatureBatchSummary.refine}</strong></div>
-        <div class="result-metric"><span>可转永久笔记</span><strong>${literatureBatchSummary.ready}</strong></div>
-      </div>
-      `
-          : ""
-      }
-      <button class="mini-btn" type="button" data-import-writing-action="open-literature-queue">
-        处理文献笔记 ${literatureNoteIds.length}
+      <button class="mini-btn primary" type="button" data-import-writing-action="${literatureNoteIds.length ? "open-literature-queue" : "open-today"}">
+        ${literatureNoteIds.length ? "整理第一条笔记" : "去首页整理"}
       </button>
-      <div class="toolbar-note">${
-        literatureBatchSummary
-          ? `本批次预测：已完成转述 ${literatureBatchSummary.paraphraseDone}/${literatureBatchSummary.total}，剩余待处理 ${literatureBatchSummary.remaining} 条。`
-          : `这 ${literatureNoteIds.length} 条文献笔记会按本次导入范围连续处理。`
-      }</div>
-      `
-          : ""
-      }
-      ${
-        permanentNoteIds.length
-          ? `
-      <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes">
-        加入写作相关笔记 ${permanentNoteIds.length}
-      </button>
-      <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
-        加入并打开写作
-      </button>
-      <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
-        确定可写主题
-      </button>
-      <div class="toolbar-note">把本次新写入的永久笔记直接送进写作中心。</div>
-      `
-          : ""
-      }
     </div>
   `;
 }

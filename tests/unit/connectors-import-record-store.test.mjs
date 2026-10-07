@@ -10,6 +10,7 @@ import {
   loadImportRecord,
   listImportRecords,
   publicImportRecord,
+  summarizeImportCandidates,
   summarizeCandidateSelection,
   rollbackCreatedFiles
 } from "../../packages/connectors/src/index.mjs";
@@ -17,6 +18,42 @@ import {
 async function makeTempVault() {
   return fs.mkdtemp(path.join(os.tmpdir(), "yansilu-import-record-"));
 }
+
+test("large imports expose every lightweight candidate, without full bodies", () => {
+  const candidates = { sources: [], literature: [], permanent: Array.from({ length: 25 }, (_, index) => ({
+    id: `pn_${index}`, title: `Judgment ${index}`, body: "Private full body", core_claim: "x".repeat(1000)
+  })) };
+  candidates.sources = candidates.permanent.map(item => ({ id: `src_${item.id}`, title: item.title }));
+  candidates.literature = candidates.permanent.map(item => ({ id: `ln_${item.id}`, title: item.title, quote_text: item.core_claim }));
+  const preview = summarizeImportCandidates(candidates);
+  assert.equal(preview.sources.length, 25);
+  assert.equal(preview.literatureNotes.length, 25);
+  assert.equal(preview.permanentNotes.length, 25);
+  assert.equal(preview.truncated, false);
+  assert.equal(preview.permanentNotes[24].id, "pn_24");
+  assert.equal(preview.permanentNotes[24].body, undefined);
+  assert.ok(preview.permanentNotes[24].excerpt.length <= 142);
+});
+
+test("persisted old truncated previews recover all candidates and current guard statuses", async t => {
+  const vaultPath = await makeTempVault();
+  t.after(() => fs.rm(vaultPath, { recursive: true, force: true }));
+  const candidates = { sources: [], literature: [], permanent: Array.from({ length: 25 }, (_, index) => ({
+    id: `pn_${index}`, title: `Judgment ${index}`, status: "draft"
+  })) };
+  await appendImportRecord(vaultPath, "markdown", "imp_large_old", "preview", {
+    preview: { importRecordId: "imp_large_old", status: "preview", createdAt: "2026-10-07T00:00:00Z",
+      candidatePreview: summarizeImportCandidates(candidates, null, 12) },
+    candidates, payload: {}, options: {}
+  });
+  const record = await loadImportRecord(vaultPath, "imp_large_old");
+  record.originalityGuard = { evaluations: [{ permanentId: "pn_24", status: "blocked", reasons: ["exact_quote"] }] };
+  const preview = publicImportRecord(record).candidatePreview;
+  assert.equal(preview.permanentNotes.length, 25);
+  assert.equal(preview.truncated, false);
+  assert.equal(preview.permanentNotes[24].originalityStatus, "blocked");
+  assert.equal(record.candidatePreview.permanentNotes.length, 12, "Read projection must not mutate old journal data");
+});
 
 test("appendImportRecord writes stage logs under imports connector directory", async () => {
   const vaultPath = await makeTempVault();

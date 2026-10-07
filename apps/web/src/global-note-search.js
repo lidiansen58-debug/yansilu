@@ -55,6 +55,7 @@ export function installGlobalNoteSearch({ documentRef = document, searchNotes, o
     finally { button.disabled = false; }
   });
   documentRef.addEventListener("keydown", (event) => {
+    if (documentRef.querySelector?.("dialog[open]")) return;
     if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "f" && !event.isComposing) {
       event.preventDefault(); event.stopImmediatePropagation(); open(); return;
     }

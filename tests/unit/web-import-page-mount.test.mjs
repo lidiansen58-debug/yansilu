@@ -34,6 +34,12 @@ test("import page mount renders compact import export workspace and result modal
   assert.match(html, /id="importOperationResultModal"/);
   assert.match(html, /id="importResult"/);
   assert.match(html, /id="exportResult"/);
+  assert.doesNotMatch(html, /import-page-header|import-workspace-tab-detail|import-card-kicker/);
+  const beforeModal = html.slice(0, html.indexOf('id="importOperationResultModal"'));
+  assert.doesNotMatch(beforeModal, /id="btnImportConfirm"/);
+  assert.match(html, /id="importPreviewActions" hidden/);
+  assert.match(html, /id="btnImportConfirm" type="button" disabled/);
+  assert.equal((html.match(/id="btnImportConfirm"/g) || []).length, 1);
 });
 
 test("import page mount keeps composed results inside the modal sink", () => {
@@ -47,7 +53,7 @@ test("import page mount keeps composed results inside the modal sink", () => {
         summary: { sources: 1, literatureNotes: 1, permanentNotes: 1, warnings: 0 },
         warnings: []
       },
-      raw: '{"stage":"preview"}'
+      raw: '{"stage":"preview","importRecordId":"imp_page"}'
     }
   });
 
@@ -55,4 +61,5 @@ test("import page mount keeps composed results inside the modal sink", () => {
   assert.match(html, /import-result-modal/);
   assert.match(html, /imp_page/);
   assert.match(html, /result-json/);
+  assert.doesNotMatch(html, /result-subtitle/);
 });

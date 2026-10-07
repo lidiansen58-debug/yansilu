@@ -24,7 +24,7 @@ export function renderPermanentNoteWorkspace({
   `;
   return `
     <section class="inspector-deferred-workspace permanent-note-workspace" data-deferred-workspace data-permanent-note-workspace data-note-id="${escapeHtml(note.id)}">
-      <p class="note-workspace-context">${escapeHtml(note.title || "未命名笔记")}</p>
+      <p class="note-workspace-context" data-permanent-workspace-context ${currentTab === "viewpoint" && viewpointHtml.includes('name="title"') ? "hidden" : ""}>${escapeHtml(note.title || "未命名笔记")}</p>
       <div class="permanent-note-workspace-tabs" role="tablist" aria-label="打磨笔记">
         ${tab("viewpoint", "当前观点")}
         ${tab("relations", "笔记关联")}

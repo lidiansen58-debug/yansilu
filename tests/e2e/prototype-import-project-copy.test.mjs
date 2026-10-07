@@ -1,31 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, postJson, fetchJson } from "./prototype-copy-test-helpers.mjs";
 
-async function openImportsModule(page) {
-  await page.locator('.rail-btn[data-module="imports"]').click();
-  await waitFor(async () => {
-    const isActive = await page.locator('.rail-btn[data-module="imports"]').getAttribute("class");
-    assert.match(String(isActive || ""), /active/);
-    await page.locator("#importPanel:not(.hidden)").waitFor({ timeout: 500 });
-    await page.locator("#importWorkspaceTabImport").waitFor({ timeout: 500 });
-  }, 7000);
-  await page.locator(".import-compat-details").evaluate((el) => {
-    el.open = true;
-  });
-}
-
-async function postJson(baseUrl, urlPath, body) {
-  const response = await fetch(`${baseUrl}${urlPath}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body)
-  });
-  const payload = await response.json();
-  return { status: response.status, payload };
-}
-
-test("prototype import create-project action uses 项目 wording", async (t) => {
+test("a permanent-only receipt leads to ordinary organizing without silently creating a writing project", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -36,55 +13,33 @@ test("prototype import create-project action uses 项目 wording", async (t) => 
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-  const recordId = "imp_browser_project_copy";
+  const { apiBase, page } = stack;
 
   const created = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Imported Project Copy Seed\n\nAn imported permanent note ready to become a project seed."
+    body: "# 待整理的观点\n\n这条记录仍需要用户核对判断和依据。"
   });
-  assert.equal(created.status, 201, JSON.stringify(created.payload));
-  const noteId = created.payload.item.id;
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openImportsModule(page);
-  await page.evaluate(
-    ({ noteId, recordId }) => {
-      window.__prototypeImport?.showResult?.({
-        stage: "confirm",
-        importRecordId: recordId,
-        status: "completed",
-        result: {
-          created: { sources: 0, literatureNotes: 0, permanentNotes: 1 },
-          skipped: { conflicted: 0, invalid: 0 },
-          selection: {
-            mode: "subset",
-            candidateIds: [noteId],
-            totalCandidates: 1,
-            selectedCandidates: 1,
-            counts: { sources: 0, literatureNotes: 0, permanentNotes: 1 }
-          },
-          createdFiles: [{ noteId, noteType: "permanent", title: "Imported Project Copy Seed", path: `notes/original/${noteId}.md` }]
-        }
-      });
-    },
-    { noteId, recordId }
-  );
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes("Imported Project Copy Seed");
-  });
-
-  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-  const importResultText = await page.locator("#importResult").textContent();
-  assert.match(String(importResultText || ""), /直接创建项目/);
-  assert.doesNotMatch(String(importResultText || ""), /直接创建写作项目/);
-  await page.locator('[data-import-writing-action="create-writing-project"]').click();
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从导入结果创建项目：wp_/);
-    assert.doesNotMatch(String(statusText || ""), /已从导入结果创建写作项目/);
-  }, 10000);
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  const id = created.json.item.id;
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await page.locator('[data-settings-item="import-export"]').click();
+  // Presentation coverage for a permanent-only receipt; real default import is covered separately.
+  await page.evaluate(id => window.__prototypeImport.showResult({
+    stage: "confirm", status: "completed", importRecordId: "receipt-presentation",
+    result: { createdFiles: [{ noteId: id, noteType: "permanent" }] }
+  }), id);
+  const next = page.locator('#importResult [data-import-writing-action="open-today"]');
+  await next.waitFor();
+  assert.equal(await page.locator("#importResult [data-import-writing-action]:visible").count(), 1);
+  assert.equal(await next.innerText(), "去首页整理");
+  await next.click();
+  assert.equal(await page.locator("#importOperationResultModal").isVisible(), false);
+  assert.match(await page.locator('.rail-btn[data-module="today"]').getAttribute("class"), /active/);
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  assert.equal(await page.locator("#importOperationResultModal").isVisible(), false);
+  const projects = await fetchJson(apiBase, "/api/v1/writing-projects?limit=20");
+  assert.equal(projects.json.items.length, 0);
+  const note = await fetchJson(apiBase, `/api/v1/notes/${id}`);
+  assert.equal(note.json.item.authorship.user_confirmed, false);
 });

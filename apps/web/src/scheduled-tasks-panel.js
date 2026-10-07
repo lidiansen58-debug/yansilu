@@ -85,7 +85,7 @@ function renderControls(state = {}) {
       </label>
       <button class="mini-btn" id="btnScheduledTasksApplyFilters" type="button">筛选</button>
       <button class="mini-btn" id="btnScheduledTasksRefresh" type="button">刷新</button>
-      <button class="mini-btn primary" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>立即整理到期内容</button>
+      <button class="mini-btn" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>整理到期内容</button>
     </div>
   `;
 }
@@ -99,7 +99,7 @@ function renderTaskForm(state = {}) {
   });
   const form = { ...fallbackForm, ...(state.form || {}) };
   const editing = Boolean(String(form.scheduledTaskId || "").trim());
-  const showHead = !state.compact || editing || state.templatesLoading || state.templatesError;
+  const showHead = !state.compact;
   const noteScopeLabel = selectedScopeLabel(form.noteIdsText, {
     currentId: state.currentNoteId || "",
     currentLabel: state.currentNoteLabel || "",
@@ -119,12 +119,13 @@ function renderTaskForm(state = {}) {
             <div class="settings-card-note">整理结果会先进入待处理内容，确认后才会写入笔记。</div>
           </div>
           <div class="settings-stat-row">
-            ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
-            ${state.templatesLoading ? badge("整理类型加载中", "warn") : ""}
-            ${state.templatesError ? badge("整理类型加载失败", "bad") : ""}
+            ${editing ? badge("编辑中", "warn") : badge("草稿", "muted")}
           </div>
         </div>
       ` : ""}
+      ${state.templatesLoading ? '<p class="scheduled-task-feedback" role="status">整理类型加载中...</p>' : ""}
+      ${state.templatesError ? `<p class="scheduled-task-feedback is-bad" role="alert">整理类型加载失败：${escapeHtml(state.templatesError)}</p>` : ""}
+      <fieldset class="scheduled-task-fields" ${state.actionLoading ? "disabled" : ""}>
       <div class="scheduled-task-form-grid">
         <label>
           <span>整理类型</span>
@@ -133,7 +134,6 @@ function renderTaskForm(state = {}) {
               .map((template) => `<option value="${attr(template.value)}" ${template.value === form.templateId ? "selected" : ""}>${escapeHtml(template.label)}</option>`)
               .join("")}
           </select>
-          <small>决定这条规则要做什么；结果会先放到待处理。</small>
         </label>
         <label>
           <span>规则名称</span>
@@ -155,7 +155,7 @@ function renderTaskForm(state = {}) {
             <option value="manual_only" ${form.scheduleType === "manual_only" ? "selected" : ""}>仅手动</option>
           </select>
         </label>
-        <label>
+        <label data-schedule-types="weekly" ${form.scheduleType === "weekly" ? "" : "hidden"}>
           <span>星期</span>
           <select id="scheduledTaskDaySelect">
             ${[
@@ -171,12 +171,12 @@ function renderTaskForm(state = {}) {
               .join("")}
           </select>
         </label>
-        <label>
+        <label data-schedule-types="daily weekly" ${["daily", "weekly"].includes(form.scheduleType) ? "" : "hidden"}>
           <span>时间</span>
           <input id="scheduledTaskTimeInput" type="time" value="${attr(form.time)}" />
         </label>
-        <label>
-          <span>间隔时间</span>
+        <label data-schedule-types="interval" ${form.scheduleType === "interval" ? "" : "hidden"}>
+          <span>间隔（分钟）</span>
           <input id="scheduledTaskIntervalInput" type="number" min="5" step="5" value="${attr(form.intervalMinutes)}" />
       </label>
       <label>
@@ -202,14 +202,16 @@ function renderTaskForm(state = {}) {
           <span>包含私密笔记</span>
         </label>
       </div>
+      ${state.formError ? `<p class="scheduled-task-feedback is-bad" role="alert">${escapeHtml(state.formError)}</p>` : ""}
       <div class="scheduled-task-form-actions">
         <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentNote" type="button" ${state.currentNoteId ? "" : "disabled"}>使用当前笔记</button>
         <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentDirectory" type="button" ${state.currentDirectoryId ? "" : "disabled"}>使用当前目录</button>
         <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">新规则</button>
         <button class="mini-btn primary" id="btnScheduledTaskSave" type="button" ${state.actionLoading || !templates.length ? "disabled" : ""}>
-          ${editing ? "保存规则" : "创建规则"}
+          ${state.actionLoading ? "正在保存..." : editing ? "保存规则" : "创建规则"}
         </button>
       </div>
+      </fieldset>
     </form>
   `;
 }
@@ -323,8 +325,15 @@ export function renderScheduledTasksPanel(state = {}) {
       `}
       ${emptyCompact && !hasActiveFilters ? "" : renderControls(state)}
       ${renderTaskFormSlot(state)}
+      ${state.actionError ? `<p class="scheduled-task-feedback is-bad" role="alert">${escapeHtml(state.actionError)}</p>` : ""}
       ${renderRunSummary(state.runSummary)}
       ${renderList(state)}
     </div>
   `;
+}
+
+export function syncScheduledTaskScheduleFields(root, scheduleType) {
+  root?.querySelectorAll?.("[data-schedule-types]").forEach(node => {
+    node.hidden = !node.dataset.scheduleTypes.split(" ").includes(scheduleType);
+  });
 }

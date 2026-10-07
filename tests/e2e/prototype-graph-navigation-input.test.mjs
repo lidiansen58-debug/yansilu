@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
+import fs from "node:fs/promises";
+import os from "node:os";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, createWritingReadyPermanentNote, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 test("reading an endpoint returns to the original focused graph", async t => {
@@ -85,7 +87,18 @@ for (const input of ["keyboard", "touch"]) {
       assert.equal(await edge.count(), 1);
       assert.equal(await page.locator(`.graph-map-edge-group[data-edge-to="${counter.id}"]`).count(), 0);
     });
-    await activate(edge);
+    if (input === "touch") {
+      // A curved path's bounding-box center is not necessarily on the relation.
+      const hit = await edge.locator('.graph-map-edge-hit').evaluate(element => {
+        const local = element.getPointAtLength(element.getTotalLength() / 2);
+        const point = new DOMPoint(local.x, local.y).matrixTransform(element.getScreenCTM());
+        const target = document.elementFromPoint(point.x, point.y)?.closest('.graph-map-edge-group');
+        return { x: point.x, y: point.y, from: target?.dataset.edgeFrom, to: target?.dataset.edgeTo };
+      });
+      assert.equal(hit.from, source.id);
+      assert.equal(hit.to, target.id);
+      await page.touchscreen.tap(hit.x, hit.y);
+    } else await activate(edge);
     const panel = page.locator(".graph-selection-panel");
     await panel.waitFor();
     assert.match(await panel.textContent(), /导航来源/);
@@ -164,6 +177,82 @@ test(`graph directory scope saves the selected network as a theme${writingReady 
       for (const note of [source, target, descendant]) assert.ok(ids.includes(note.id), JSON.stringify(ids));
       assert.ok(!ids.includes(outside.id));
     });
+    // Re-entering the same module triggers ordinary background refresh while generation is pending.
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let entered;
+    const started = new Promise(resolve => { entered = resolve; });
+    let scaffoldRequests = 0;
+    const endpoint = '**/api/v1/draft-scaffolds';
+    await page.route(endpoint, async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      scaffoldRequests++;
+      entered();
+      await gate;
+      if (scaffoldRequests === 1) return route.fulfill({ status: 503, contentType: 'application/json',
+        body: JSON.stringify({ error: { message: '临时生成故障' } }) });
+      await route.continue();
+    });
+    try {
+      await page.locator('#btnWritingCreateScaffold').click();
+      await started;
+      await page.locator('.rail-btn[data-module="writing"]').click();
+      await waitFor(async () => {
+        assert.equal(await page.locator('#btnWritingCreateScaffold').isDisabled(), true);
+        assert.equal(await page.locator('#btnWritingCreateScaffold').textContent(), '正在生成...');
+      });
+      await page.locator('#btnWritingCreateScaffold').press('Enter');
+      assert.equal(scaffoldRequests, 1);
+    } finally { release(); }
+    await waitFor(async () => {
+      assert.match(await page.locator('#writingActionFeedback').textContent(), /临时生成故障/);
+      assert.equal(await page.locator('#btnWritingCreateScaffold').isDisabled(), false);
+    });
+    await page.locator('#btnWritingCreateScaffold').click();
+    await page.locator('#writingScaffoldPanel:visible').waitFor({ timeout: 15000 });
+    await page.unroute(endpoint);
+    assert.equal(scaffoldRequests, 2, 'Only the explicit retry may send another generation request');
+    const projects = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=100')).json.items;
+    const project = projects.find(item => item.scaffold_id);
+    assert.ok(project);
+    const versions = await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}/scaffolds?limit=100`);
+    assert.equal(versions.status, 200);
+    assert.equal(versions.json.items.length, 1);
+    assert.equal(await page.locator('#btnWritingCreateScaffold').isDisabled(), false);
+    await page.locator('[data-writing-tab="theme"]').click();
+    const otherVault = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-scaffold-context-'));
+    let releaseLate, held;
+    const lateGate = new Promise(resolve => { releaseLate = resolve; });
+    const responseHeld = new Promise(resolve => { held = resolve; });
+    await page.route(endpoint, async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      assert.equal(path.resolve(route.request().postDataJSON().expectedVaultPath), path.resolve(vaultPath));
+      const response = await route.fetch();
+      assert.equal(response.status(), 201);
+      held(); await lateGate; await route.fulfill({ response });
+    });
+    const isGenerationRequest = request => request.url().endsWith('/api/v1/draft-scaffolds') && request.method() === 'POST';
+    const returned = Promise.race([
+      page.waitForResponse(response => isGenerationRequest(response.request())),
+      page.waitForEvent('requestfailed', { predicate: isGenerationRequest })
+    ]);
+    try {
+      await page.locator('#btnWritingCreateScaffold').click();
+      await responseHeld;
+      await page.locator('.rail-btn[data-module="settings"]').click();
+      await page.locator('[data-settings-item="current-vault"]').click();
+      await page.locator('#settingsVaultPath').fill(otherVault);
+      await page.locator('#settingsSwitchVault').click();
+      await waitFor(async () => assert.match(await page.locator('#statusText').textContent(), /已打开笔记库/));
+    } finally { releaseLate(); }
+    await returned;
+    await page.unroute(endpoint);
+    await page.locator('.rail-btn[data-module="writing"]').click();
+    await waitFor(async () => assert.equal(await page.locator('.writing-shell').getAttribute('data-writing-has-topic'), 'false'));
+    assert.equal(await page.locator('#writingScaffoldPanel').isVisible(), false);
+    assert.equal((await fetchJson(apiBase, '/api/v1/writing-projects?limit=100')).json.items.length, 0);
+    assert.equal((await postJson(apiBase, '/api/v1/vault', { vaultPath })).status, 200);
+    assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}/scaffolds?limit=100`)).json.items.length, 2);
   }
 });
 }

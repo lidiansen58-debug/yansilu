@@ -5,6 +5,9 @@ function parseScalar(value) {
   if (!trimmed) return "";
   if (trimmed === "true") return true;
   if (trimmed === "false") return false;
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try { return JSON.parse(trimmed); } catch {}
+  }
   if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
     try {
       const parsed = JSON.parse(trimmed);
@@ -23,7 +26,7 @@ function serializeScalar(value) {
   if (value === null || value === undefined) return "";
   if (typeof value === "object") return JSON.stringify(value);
   const text = String(value);
-  return /[:#[\]{},"'\n\r]/.test(text) ? JSON.stringify(text) : text;
+  return /[:#[\]{},"'\n\r]/.test(text) || /^(?:true|false)$/.test(text) ? JSON.stringify(text) : text;
 }
 
 export function parseMarkdownWithFrontmatter(markdown) {
@@ -65,7 +68,7 @@ export function parseMarkdownWithFrontmatter(markdown) {
           continue;
         }
         if (!/^\s+-\s+/.test(next)) break;
-        values.push(nextTrimmed.replace(/^-\s+/, "").replace(/^["']|["']$/g, ""));
+        values.push(String(parseScalar(nextTrimmed.replace(/^-\s+/, ""))));
         cursor += 1;
       }
       if (values.length) {

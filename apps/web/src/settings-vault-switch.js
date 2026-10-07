@@ -3,9 +3,16 @@ import { switchVaultWithNoteMoveRecovery } from "./vault-switch-recovery.js";
 export async function loadSettingsVaultSnapshot(state, { fetchDirectories, fetchDirectoryNotes, mapDirectoryItem, mapNoteItem }, { signal, isCurrent }) {
   const directories = await fetchDirectories(true, { signal });
   if (!isCurrent()) throw new Error("笔记库加载已失效");
-  const items = await fetchDirectoryNotes("dir_original_default", { signal });
-  if (!isCurrent()) throw new Error("笔记库加载已失效");
   const folders = directories.map(mapDirectoryItem);
+  const knownIds = new Set(folders.map(folder => folder.id));
+  const rootIds = [...new Set(folders.filter(folder => !folder.parentId || !knownIds.has(folder.parentId)).map(folder => folder.id).filter(Boolean))];
+  const batches = await Promise.all(rootIds.map(async id => {
+    if (!isCurrent()) throw new Error("笔记库加载已失效");
+    const notes = await fetchDirectoryNotes(id, { signal, includeDescendants: true });
+    if (!isCurrent()) throw new Error("笔记库加载已失效");
+    return notes;
+  }));
+  const items = batches.flat();
   const notes = items.map(item => mapNoteItem(item, { mappingState: { ...state, folders } }));
   return { folders, notes };
 }

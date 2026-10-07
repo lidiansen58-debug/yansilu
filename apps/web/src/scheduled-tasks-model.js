@@ -128,11 +128,13 @@ export function scheduledTaskScheduleLabel(schedule = {}) {
   if (schedule.intervalHours) return `每 ${normalizeCount(schedule.intervalHours)} 小时`;
   if (schedule.intervalDays) return `每 ${normalizeCount(schedule.intervalDays)} 天`;
   if (type === "weekly") {
-    const day = cleanText(schedule.dayOfWeek || schedule.day_of_week) || "weekly";
+    const dayKey = cleanText(schedule.dayOfWeek || schedule.day_of_week);
+    const day = { monday: "周一", tuesday: "周二", wednesday: "周三", thursday: "周四", friday: "周五", saturday: "周六", sunday: "周日" }[dayKey] || "每周";
     const time = cleanText(schedule.time);
     return `${day}${time ? ` ${time}` : ""}`;
   }
   if (type === "daily") return cleanText(schedule.time) ? `每天 ${schedule.time}` : "每天";
+  if (type === "manual_only") return "仅手动";
   return type.replaceAll("_", " ");
 }
 
@@ -148,14 +150,17 @@ export function scheduledTaskScopeSummary(scope = {}) {
   if (tags.length) parts.push(`${tags.length} 个标签`);
   if (projectIds.length) parts.push(`${projectIds.length} 个项目`);
   if (keywords.length) parts.push(`${keywords.length} 个关键词`);
-  if (scope.includePrivateNotes || scope.include_private_notes) parts.push("包含私密内容");
-  return parts.join(" / ") || "未设置范围";
+  const includesPrivate = scope.includePrivateNotes || scope.include_private_notes;
+  if (!parts.length) return includesPrivate ? "所有笔记（包括私密笔记）" : "所有非私密笔记";
+  if (includesPrivate) parts.push("包含私密内容");
+  return parts.join(" / ");
 }
 
 export function scheduledTaskBudgetSummary(budget = {}) {
   const maxRuns = normalizeCount(budget.maxRunsPerPeriod ?? budget.max_runs_per_period);
   const runs = normalizeCount(budget.runsThisPeriod ?? budget.runs_this_period);
-  const period = cleanText(budget.period) || "周期";
+  const periodKey = cleanText(budget.period);
+  const period = { day: "天", week: "周", month: "月", year: "年" }[periodKey] || periodKey || "周期";
   const cost = budget.maxEstimatedCostPerPeriod ?? budget.max_estimated_cost_per_period;
   const runPart = maxRuns ? `${runs}/${maxRuns} 次 / ${period}` : `${period}内已运行 ${runs} 次`;
   return cost === null || cost === undefined || cost === "" ? runPart : `${runPart}，上限 ${cost}`;
@@ -314,7 +319,7 @@ export function scheduledTaskPayloadFromForm(form = {}) {
   return {
     ...(cleanText(form.scheduledTaskId) ? { scheduledTaskId: cleanText(form.scheduledTaskId) } : {}),
     templateId: cleanText(form.templateId) || "reflection_reminder",
-    name: cleanText(form.name) || "计划代理任务",
+    name: cleanText(form.name) || "整理规则",
     status: cleanText(form.status) || "active",
     schedule,
     scope: {

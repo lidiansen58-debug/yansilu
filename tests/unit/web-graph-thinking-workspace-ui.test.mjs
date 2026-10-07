@@ -936,7 +936,7 @@ test("graph clusters are selectable research objects with their own summary pane
 
   assert.match(source, /function graphClusterResearchMeta\(cluster = \{\}, \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
   assert.match(source, /function renderGraphClusterSelectionPanel\(\{ selection = null, clusterMeta = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
-  assert.match(source, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges \}/);
+  assert.match(source, /renderGraphClusterSelectionPanelView\(\{ selection, clusterMeta, nodeMap, edges, disclosureState: graphState\.sectionOpen \|\| \{\} \}/);
   assert.equal(renderGraphSelectionByKind(
     { selection: { kind: "cluster", clusterKey: "cluster-alpha" }, clusterMeta: [{ clusterKey: "cluster-alpha" }] },
     { renderClusterPanel: ({ selection }) => `cluster:${selection.clusterKey}` }
@@ -946,8 +946,9 @@ test("graph clusters are selectable research objects with their own summary pane
   assert.match(clusterGlow, /aria-label="View cluster summary: Alpha"/);
   assert.match(graphCanvasEventRouterSource, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
   assert.match(clusterSelectionPanelSource, /kicker: "笔记组"/);
-  assert.match(clusterSelectionPanelSource, /roleLabel: meta\.label/);
-  assert.match(clusterSelectionPanelSource, /补主题关系/);
+  assert.doesNotMatch(clusterSelectionPanelSource, /roleLabel: meta\.label|下一步判断|阅读首条笔记/);
+  assert.match(clusterSelectionPanelSource, /添加关联/);
+  assert.match(clusterSelectionPanelSource, /meta\.coreNotes\.slice\(5\)/);
 
   assert.match(html, /\.graph-map-cluster-glows \{[\s\S]*pointer-events: auto;/);
   assert.match(html, /\.graph-map-cluster-glow \{[\s\S]*cursor: pointer;[\s\S]*pointer-events: visiblePainted;/);
@@ -982,7 +983,8 @@ test("graph research details cover nodes and relation gravity lines with next ac
 });
 
 test("graph AI analysis opens the question workbench instead of navigating away", () => {
-  const source = readGraphRouteRuntime();
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/graph-analysis-runtime-controller.js"), "utf8");
+  assert.match(readGraphRouteRuntime(), /createGraphAnalysisRuntimeController/);
   const match = source.match(/async function runGraphAiAnalysis\(\) \{([\s\S]*?)\n  \}/);
   assert.ok(match, "expected runGraphAiAnalysis() to exist");
 
@@ -990,7 +992,7 @@ test("graph AI analysis opens the question workbench instead of navigating away"
   assert.match(match[1], /graphState\.thinkingPanelOpen = true;/);
   assert.match(match[1], /graphState\.thinkingFilter = "all";/);
   assert.match(match[1], /graphState\.workbenchPanelOpen = true;/);
-  assert.match(match[1], /if \(graphState\.workbenchPanelTab !== "clues"\) \{[\s\S]*graphState\.workbenchPanelTab = "questions";/);
+  assert.match(match[1], /if \(graphState\.workbenchPanelTab !== "clues"\) graphState\.workbenchPanelTab = "questions";/);
   assert.doesNotMatch(match[1], /addSystemMessage\(\{/);
   assert.match(match[1], /graphState\.aiReviewSystemMessageId = "";/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
@@ -2260,10 +2262,10 @@ test("note box and graph tree sync all notes under the selected root", async () 
   const calls = [];
 
   assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId\) \{/);
-  assert.match(source, /const directoryIds = descendantDirectoryIds\(rootId\)\.filter\(\(id\) => folderById\(state, id\)\);[\s\S]*for \(const directoryId of directoryIds\) \{[\s\S]*await syncNotesForDirectory\(directoryId\);/);
+  assert.match(source, /return syncDirectoryTreeNotes\(rootDirectoryId, \{[\s\S]*state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory/);
   assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
   assert.match(settingsEventSource, /createSettingsVaultSwitcher/);
-  assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-vault-switch.js"), "utf8"), /await fetchDirectories\(true, \{ signal \}\);[\s\S]*await fetchDirectoryNotes\("dir_original_default", \{ signal \}\);/);
+  assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-vault-switch.js"), "utf8"), /await fetchDirectories\(true, \{ signal \}\);[\s\S]*Promise\.all\(rootIds\.map\(async id => \{[\s\S]*await fetchDirectoryNotes\(id, \{ signal, includeDescendants: true \}\);/);
   assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
   await refreshDirectoryGraphForRuntime({
     graphScopeDirectoryId: () => "selected-dir",
@@ -2317,7 +2319,8 @@ test("starfield graph keeps relation lines hairline and arrows quiet", () => {
   assert.match(defsMarkup, /markerWidth="4\.2" markerHeight="4\.2"/);
   assert.match(defsMarkup, /stroke-opacity="0\.48" stroke-width="0\.52"/);
   assert.match(html, /\.graph-map-svg \{[\s\S]*border-radius: 28px;[\s\S]*linear-gradient\(135deg, #040912 0%, #07111e 48%, #0b1828 100%\);/);
-  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 0\.3;[\s\S]*opacity: 0\.1;/);
+  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: var\(--graph-edge-overview-width, 0\.3\);[\s\S]*opacity: var\(--graph-edge-overview-opacity, 0\.1\);/);
+  assert.match(html, /\.graph-map-edge-group\.is-sparse-edge \{[\s\S]*--graph-edge-overview-opacity: 0\.68;[\s\S]*--graph-edge-overview-width: 1\.1;/);
   assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 0\.82;[\s\S]*opacity: 0\.065;/);
   assert.match(html, /\.graph-map-edge-label \{[\s\S]*display: none;/);
   assert.match(html, /\.graph-map-svg\[data-graph-zoom="fit"\] \.graph-map-edge \{[\s\S]*marker-end: none;/);

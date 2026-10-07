@@ -21,6 +21,7 @@ export function installWritingBookOutputEvents({ $ = () => null, depsProvider = 
     const button = $("btnWritingExportBook");
     if (button) button.disabled = true;
     try {
+      const menu = $("writingMoreMenu"); if (menu) menu.open = false;
       assertWritingDraftCanLeave(writingState);
       if (!projectId || !vault) throw new Error("请先打开书稿。");
       const chapters = (writingState.project.book_structure?.parts || []).flatMap(part => part.chapters || []);
@@ -34,7 +35,6 @@ export function installWritingBookOutputEvents({ $ = () => null, depsProvider = 
       const result = await exportWritingBook({ targetPath: picked.path, expectedVaultPath: vault, projectId, expectedBookStructure: JSON.parse(structure) });
       if (result?.status !== "completed" || !result.bookPath || result.chapterCount !== chapters.length) throw new Error("未确认整稿导出结果，请检查目标目录后重试。");
       if (stillCurrent()) {
-        const menu = $("writingMoreMenu"); if (menu) menu.open = false;
         setStatus(`已导出 ${result.chapterCount} 章及 ${result.assetCount || 0} 个附件：${result.bookPath}`, "ok", { notify: true, force: true, holdMs: 8000 });
       }
       return result;

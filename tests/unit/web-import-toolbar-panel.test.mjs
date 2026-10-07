@@ -25,13 +25,13 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   });
 
   assert.match(html, /导入/);
-  assert.match(html, /从 Obsidian 导入/);
+  assert.doesNotMatch(html, /import-card-head|import-card-kicker/);
   assert.match(html, /Obsidian 仓库/);
   assert.doesNotMatch(html, /普通导入只需要填写来源仓库和导入位置/);
   assert.doesNotMatch(html, /当前任务/);
   assert.match(html, /来源仓库/);
   assert.match(html, /导入到/);
-  assert.match(html, /默认进入永久笔记目录/);
+  assert.match(html, /先预览确认，默认不修改原 Vault/);
   assert.match(html, /高级导入设置/);
   assert.match(html, /覆盖请求（可选）/);
   assert.match(html, /兼容规则（可选）/);
@@ -50,9 +50,9 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.match(html, /<details class="import-compat-details">/);
   assert.match(html, /id="importRecordId"/);
   assert.match(html, /id="btnImportPreview"/);
-  assert.match(html, />第 2 步：生成预览</);
-  assert.match(html, /id="btnImportConfirm" disabled/);
-  assert.match(html, /确认导入（0\/3）/);
+  assert.match(html, />预览笔记</);
+  assert.doesNotMatch(html, /id="btnImportConfirm"/);
+  assert.ok(html.indexOf('id="btnImportPreview"') < html.indexOf('<details class="import-compat-details">'));
   assert.doesNotMatch(html, /导入参数 JSON/);
   assert.doesNotMatch(html, /导入选项 JSON/);
   assert.doesNotMatch(html, /id="importAdvanced"/);

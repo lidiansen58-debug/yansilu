@@ -125,8 +125,9 @@ export async function optionalPlaywright(t) {
   }
 }
 
-export async function startPrototypeStack(t, playwright, { apiEnv = {} } = {}) {
+export async function startPrototypeStack(t, playwright, { apiEnv = {}, prepareVault = null, beforeNavigate = null } = {}) {
   const vaultPath = await makeTempDir("yansilu-browser-e2e-vault-");
+  if (prepareVault) await prepareVault(vaultPath);
   const apiPort = await findFreePort();
   const webPort = await findFreePort();
   const apiBase = `http://127.0.0.1:${apiPort}`;
@@ -175,6 +176,7 @@ export async function startPrototypeStack(t, playwright, { apiEnv = {} } = {}) {
   });
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+  if (beforeNavigate) await beforeNavigate(page);
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
 
   return { apiBase, page, vaultPath, webBase };

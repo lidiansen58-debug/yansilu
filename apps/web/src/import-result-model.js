@@ -1,4 +1,5 @@
 import { importConnectorLabel } from "./import-connector-labels.js";
+import { candidatePreviewItems, isConfirmableCandidate } from "./import-candidate-preview-model.js";
 
 function compactValue(value) {
   if (value === null || value === undefined || value === "") return "未知";
@@ -78,7 +79,7 @@ function warningSummaryText(code, fallback = "") {
     IMPORT_ROLLBACK_RESTORE_CONFLICT: "回滚时发现原路径已有新内容。",
     IMPORT_ORIGINALITY_BLOCKED: "永久笔记因原创性检查被阻止。",
     ORIGINALITY_GUARD_WARNING: "有永久笔记需要先处理原创性警告。",
-    ORIGINALITY_GUARD_BLOCKED: "有永久笔记被原创性检查阻止。",
+    ORIGINALITY_GUARD_BLOCKED: "有永久笔记未通过原创性检查。",
     ORIGINALITY_WARNING: "有永久笔记需要补充原创性信息。"
   };
   return labels[String(code || "").trim()] || String(fallback || "").trim() || compactValue(code);
@@ -87,6 +88,7 @@ function warningSummaryText(code, fallback = "") {
 function warningDetailText(code, message = "") {
   const detail = String(message || "").trim();
   if (!detail) return "";
+  if (["ORIGINALITY_GUARD_BLOCKED", "ORIGINALITY_GUARD_WARNING"].includes(code)) return "";
   const summary = warningSummaryText(code, "");
   return detail && detail !== summary ? detail : "";
 }
@@ -134,8 +136,9 @@ export function resultTone(payload = {}) {
   if (stage.includes("error")) return "bad";
   const importRecordStatus = String(payload.importRecord?.status || payload.importRecord?.state || "").trim();
   if (importRecordStatus === "failed") return "bad";
-  if (Array.isArray(payload.warnings) && payload.warnings.length) return "warn";
+  if (["interrupted", "confirming"].includes(importRecordStatus)) return "warn";
   if (payload.status === "blocked" || payload.status === "failed") return "bad";
+  if ((payload.warnings || payload.importRecord?.warnings || []).length) return "warn";
   if (Number(payload.result?.skipped || 0) > 0) return "warn";
   if (Number(payload.result?.skipped?.invalid || 0) > 0 || Number(payload.result?.skipped?.conflicted || 0) > 0) return "warn";
   return "ok";
@@ -244,9 +247,10 @@ export function warningItems(payload = {}) {
       message: `${file.status === "verified" ? "内容已核对" : file.status === "changed" ? "内容已变化" : "文件已缺失"}：${file.relativePath}` });
     if (recovery.pending) warnings.push({ code: "IMPORT_RECOVERY_PENDING", message: `结果未确认：${recovery.pending.noteId}` });
   }
-  if (Array.isArray(payload.warnings)) {
+  const sourceWarnings = payload.warnings || payload.importRecord?.warnings;
+  if (Array.isArray(sourceWarnings)) {
     warnings.push(
-      ...payload.warnings.map((item) => ({
+      ...sourceWarnings.map((item) => ({
         ...item,
         message: warningSummaryText(item?.code, item?.message),
         detail: warningDetailText(item?.code, item?.message)
@@ -267,14 +271,16 @@ export function warningItems(payload = {}) {
       detail: warningDetailText(payload.importRecord.failureResult.code || "IMPORT_FAILED", payload.importRecord.failureResult.message || "")
     });
   }
-  const evaluations = payload.originalityGuard?.evaluations;
+  const evaluations = payload.originalityGuard?.evaluations || payload.importRecord?.originalityGuard?.evaluations;
+  const previewNotes = payload.candidatePreview?.permanentNotes || payload.importRecord?.candidatePreview?.permanentNotes || [];
+  const titleById = new Map(previewNotes.map(note => [String(note.id || ""), String(note.title || "")]));
   if (Array.isArray(evaluations)) {
     for (const item of evaluations) {
       if (item?.status && item.status !== "pass") {
         const joinedReasons = (item.reasons || []).map(reasonText).join("、") || statusValue(item.status);
         warnings.push({
           code: `ORIGINALITY_${String(item.status).toUpperCase()}`,
-          message: `${item.id || "note"}：${joinedReasons}`
+          message: `${titleById.get(String(item.permanentId || item.id || "")) || item.permanentId || item.id || "永久笔记"}：${joinedReasons}`
         });
       }
     }
@@ -330,11 +336,14 @@ function previewCandidateTotal(payload = {}) {
 
 export function actionItems(payload = {}, warnings = []) {
   const actions = [];
+  const deferredOriginality = previewHasDeferredOriginality(payload);
+  if (deferredOriginality) actions.push("先导入来源和文献笔记，再用自己的话整理成观点。");
   if (payload.code) {
     const text = actionableTextForCode(payload.code);
     if (text) actions.push(text);
   }
   for (const warning of warnings) {
+    if (deferredOriginality && String(warning?.code || "").startsWith("ORIGINALITY_")) continue;
     if (String(warning?.code || "").trim() === "IMPORT_EMPTY_PAYLOAD") {
       actions.push("补充 Payload JSON。");
     }
@@ -342,8 +351,10 @@ export function actionItems(payload = {}, warnings = []) {
     if (text) actions.push(text);
   }
 
-  const evaluations = Array.isArray(payload.originalityGuard?.evaluations) ? payload.originalityGuard.evaluations : [];
+  const rawEvaluations = payload.originalityGuard?.evaluations || payload.importRecord?.originalityGuard?.evaluations;
+  const evaluations = Array.isArray(rawEvaluations) ? rawEvaluations : [];
   for (const item of evaluations) {
+    if (deferredOriginality) continue;
     for (const reason of item?.reasons || []) {
       const text = actionableTextForReason(reason);
       if (text) actions.push(text);
@@ -370,8 +381,19 @@ export function resultSubtitle(data = {}) {
   return data.importRecordId || data.exportJobId || data.writingProjectId || data.draftScaffoldId || data.code || data.status || "";
 }
 
-export function resultStatusLabel(tone) {
+export function resultStatusLabel(tone, payload = {}) {
+  if (tone !== "bad" && payload.stage === "preview") return "待确认";
+  if (payload.stage === "record") return statusValue(payload.importRecord?.status);
+  if (payload.stage === "confirm_pending") return "待核查";
   return tone === "bad" ? "失败" : tone === "warn" ? "注意" : "完成";
+}
+
+function previewHasDeferredOriginality(payload = {}) {
+  if (payload.stage !== "preview" && !(payload.stage === "record" && payload.importRecord?.status === "preview")) return false;
+  const items = candidatePreviewItems(payload.candidatePreview || payload.importRecord?.candidatePreview);
+  const guard = payload.originalityGuard || payload.importRecord?.originalityGuard;
+  return items.some(item => !isConfirmableCandidate(item, guard))
+    && items.some(item => item.candidateGroup !== "PermanentNote");
 }
 
 export function resultBrief(payload = {}, tone = resultTone(payload)) {
@@ -383,12 +405,29 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
   if (stage === "preview" && previewCandidateTotal(payload) === 0) {
     return "当前没有可确认导入的内容，请先处理警告里的文件问题。";
   }
+  if (previewHasDeferredOriginality(payload)) return "未通过检查的永久笔记暂不导入；仍可导入来源和文献笔记，之后再整理。";
+  if (stage === "preview" && Number(payload.summary?.permanentNotes || 0) > 0) return "已有永久笔记按草稿保留，导入后确认自己的观点。";
+  if (stage === "record") {
+    const status = payload.importRecord?.status || payload.importRecord?.state;
+    if (status === "interrupted") return "这次导入曾中断，请先核对已写入和未确认的文件，不要重复导入。";
+    if (status === "confirming") return "这次导入仍在进行，请等待并核查结果，不要重复确认。";
+    if (status === "cancelled") return "这次导入已取消，没有新增笔记。";
+    if (status === "completed") return "这次导入已完成，可查看明细或继续整理。";
+    if (status === "preview") return "检查可导入内容，确认后再导入。";
+    return "核对这次记录的实际状态与文件。";
+  }
+  if (stage === "confirm" && (Number(payload.result?.skipped?.invalid || 0) + Number(payload.result?.skipped?.conflicted || 0)) > 0) {
+    return "有笔记未写入，请展开“跳过与保留”核对。";
+  }
+  if (stage === "confirm" && Number(payload.result?.selection?.selectedCandidates) < Number(payload.result?.selection?.totalCandidates)) {
+    return "已导入所选内容，未选择的笔记没有写入。";
+  }
+  if (stage === "confirm" && Number(payload.result?.created?.permanentNotes || 0) > 0) return "已有永久笔记已保留为草稿，确认观点后再用于写作。";
   if (tone === "warn") return "可以继续，但建议先处理警告。";
   const briefs = {
     preview: "检查可导入内容，确认后再导入。",
     confirm: "内容已经写入，可继续整理或写作。",
     cancel: "这次导入没有写入任何新内容。",
-    record: "你可以继续确认、回滚，或仅查看这次记录。",
     rollback: "系统已完成可安全回滚的部分。",
     export_markdown: "导出文件已经写到目标目录。",
     writing_project: "可写主题已确定。下一步可以生成文章提纲。",

@@ -1,6 +1,7 @@
 import {
   graphClusterAnchorAngles
 } from "./graph-visual-map-view.js";
+import { buildGraphLayoutClusters } from "./graph-layout-clusters.js";
 
 export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, deps = {}) {
   const {
@@ -68,6 +69,7 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
   });
 
   const nodeTotal = nodeMap.size;
+  const smallGraph = nodeTotal <= 12 && edges.length < 140;
   const width = nodeTotal > 48 ? 1560 : nodeTotal > 28 ? 1320 : 1080;
   const height = nodeTotal > 48 ? 820 : nodeTotal > 28 ? 700 : 560;
   const centerX = width / 2;
@@ -85,93 +87,19 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
   const outerCount = Math.max(0, layoutNodes.length - 1);
   const innerCount = outerCount > 12 ? Math.ceil(outerCount * 0.58) : outerCount;
   const outerRingCount = Math.max(1, outerCount - innerCount);
-  const anchorCount = focusedNoteId ? 1 : Math.min(4, layoutNodes.filter((node) => Number(node.degree || 0) > 0).length);
-  const anchorIds = new Set(layoutNodes.slice(0, anchorCount).map((node) => node.id));
-  const anchorOrder = [...anchorIds];
-  const anchorAngles = graphClusterAnchorAngles(anchorOrder.length || anchorCount || 1);
+  const { anchorOrder, clusterAssignments, clusterMembers } = buildGraphLayoutClusters(layoutNodes, adjacencyMap, { focusedNoteId });
+  const anchorIds = new Set(anchorOrder);
+  const anchorAngles = graphClusterAnchorAngles(anchorOrder.length || 1);
   const clusterCenters = anchorOrder.map((anchorId, anchorIndex) => {
-    const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorOrder.length || 1));
+    const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorOrder.length));
     const radialScaleX = width * (anchorOrder.length > 2 ? 0.22 + (anchorIndex % 2) * 0.02 : 0.21);
     const radialScaleY = height * (anchorOrder.length > 2 ? 0.17 + ((anchorIndex + 1) % 2) * 0.024 : 0.165);
-    return {
-      angle,
-      x: Math.round(centerX + Math.cos(angle) * radialScaleX),
-      y: Math.round(centerY + Math.sin(angle) * radialScaleY)
-    };
+    return { angle, x: Math.round(centerX + Math.cos(angle) * radialScaleX),
+      y: Math.round(centerY + Math.sin(angle) * radialScaleY) };
   });
-  const clusterAssignments = new Map();
-  const clusterMembers = Array.from({ length: Math.max(1, anchorOrder.length || 3) }, () => []);
   const clusterMemberOrder = new Map();
-  const isolatedLayoutNodes = layoutNodes.filter((node) => node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
+  const isolatedLayoutNodes = layoutNodes.filter(node => node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
   const isolatedIndexById = new Map(isolatedLayoutNodes.map((node, index) => [node.id, index]));
-
-  if (!focusedNoteId && anchorOrder.length) {
-    const eligibleIds = new Set(
-      layoutNodes
-        .filter((node, index) => index && !anchorIds.has(node.id) && !node.isGraphIsolatedCandidate && node.graphVisualState !== "isolated")
-        .map((node) => node.id)
-    );
-    eligibleIds.forEach((nodeId) => {
-      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
-        anchorIndex,
-        score: adjacencyMap.get(nodeId)?.has(anchorId) ? 1 : 0,
-        load: clusterMembers[anchorIndex]?.length || 0
-      }));
-      const connectedAnchors = rankedAnchors.filter((item) => item.score > 0);
-      if (!connectedAnchors.length) return;
-      const clusterIndex = connectedAnchors.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
-      clusterAssignments.set(nodeId, clusterIndex);
-      clusterMembers[clusterIndex].push(nodeId);
-    });
-    let assignedInPass = true;
-    while (assignedInPass) {
-      assignedInPass = false;
-      eligibleIds.forEach((nodeId) => {
-        if (clusterAssignments.has(nodeId)) return;
-        const neighborScores = new Map();
-        (adjacencyMap.get(nodeId) || new Set()).forEach((neighborId) => {
-          if (!clusterAssignments.has(neighborId)) return;
-          const clusterIndex = clusterAssignments.get(neighborId);
-          neighborScores.set(clusterIndex, (neighborScores.get(clusterIndex) || 0) + 1);
-        });
-        if (!neighborScores.size) return;
-        const rankedClusters = [...neighborScores.entries()].map(([anchorIndex, score]) => ({
-          anchorIndex,
-          score,
-          load: clusterMembers[anchorIndex]?.length || 0
-        }));
-        const clusterIndex = rankedClusters.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
-        clusterAssignments.set(nodeId, clusterIndex);
-        clusterMembers[clusterIndex].push(nodeId);
-        assignedInPass = true;
-      });
-    }
-    const visited = new Set();
-    eligibleIds.forEach((nodeId) => {
-      if (clusterAssignments.has(nodeId) || visited.has(nodeId)) return;
-      const component = [];
-      const queue = [nodeId];
-      visited.add(nodeId);
-      while (queue.length) {
-        const currentId = queue.shift();
-        component.push(currentId);
-        (adjacencyMap.get(currentId) || new Set()).forEach((neighborId) => {
-          if (!eligibleIds.has(neighborId) || clusterAssignments.has(neighborId) || visited.has(neighborId)) return;
-          visited.add(neighborId);
-          queue.push(neighborId);
-        });
-      }
-      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
-        anchorIndex,
-        load: clusterMembers[anchorIndex]?.length || 0
-      }));
-      const clusterIndex = rankedAnchors.sort((a, b) => a.load - b.load || a.anchorIndex - b.anchorIndex)[graphHash(component[0] || nodeId) % rankedAnchors.length].anchorIndex;
-      component.forEach((componentId) => {
-        clusterAssignments.set(componentId, clusterIndex);
-        clusterMembers[clusterIndex].push(componentId);
-      });
-    });
-  }
 
   clusterMembers.forEach((memberIds, clusterIndex) => {
     const orderedMembers = [...new Set(memberIds)].sort((leftId, rightId) => {
@@ -203,7 +131,7 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
     node.isAnchor = isAnchor;
     node.isGraphIsolatedCandidate = isVisualIsolated;
     node.starTier = graphNodeStarTier(node);
-    node.radius = graphNodeRadiusByTier(node.starTier, node.degree);
+    node.radius = Math.max(smallGraph ? 8 : 0, graphNodeRadiusByTier(node.starTier, node.degree));
     node.clusterArmDepth = 0;
     node.clusterIndex = !focusedNoteId && !isVisualIsolated ? clusterAssignments.get(node.id) ?? (node.isAnchor ? anchorOrder.indexOf(node.id) : -1) : -1;
     node.auraRadius =
@@ -228,7 +156,7 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
       return;
     }
 
-    if (!outerCount || isHub) {
+    if (!outerCount || isFocused || (isHub && !isAnchor)) {
       node.x = centerX;
       node.y = centerY;
       return;
@@ -265,7 +193,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
         const nucleusCount = Math.min(memberCount > 12 ? 4 : 3, Math.max(1, Math.ceil(memberCount * 0.16)));
         if (localIndex < nucleusCount) {
           const nucleusAngle = anchorAngle + armDirection * 0.36 + (Math.PI * 2 * localIndex) / Math.max(1, nucleusCount) + jitter * 0.012;
-          const nucleusRadius = 16 + tierWeight * 3.8 + localIndex * 2.4 + Math.max(0, node.radius - 3) * 1.2;
+          const nucleusRadius = Math.max(memberCount <= 3 ? (smallGraph ? 120 : 64) : 16,
+            16 + tierWeight * 3.8 + localIndex * 2.4 + Math.max(0, node.radius - 3) * 1.2);
           node.clusterArmDepth = Math.min(0.16, 0.06 + localIndex * 0.04);
           node.x = Math.round(clusterCenter.x + Math.cos(nucleusAngle) * nucleusRadius * 1.04);
           node.y = Math.round(clusterCenter.y + Math.sin(nucleusAngle) * nucleusRadius * 0.82);
@@ -292,8 +221,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
           Math.max(0, node.radius - 3) * 1.4;
         const tangentAngle = spiralAngle + Math.PI / 2;
         const laneSpread = armOffset * (26 + armDepth * 24) + jitter * (0.82 + armDepth * 0.4);
-        const radialX = Math.cos(spiralAngle) * radialDistance;
-        const radialY = Math.sin(spiralAngle) * radialDistance * 0.8;
+        const radialX = Math.cos(spiralAngle) * radialDistance * (smallGraph ? 1.5 : 1);
+        const radialY = Math.sin(spiralAngle) * radialDistance * (smallGraph ? 1.2 : 0.8);
         const tangentX = Math.cos(tangentAngle) * laneSpread;
         const tangentY = Math.sin(tangentAngle) * laneSpread * 0.78;
         node.x = Math.round(clusterCenter.x + radialX + tangentX);
@@ -373,5 +302,5 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
         .filter(Boolean)
     : [];
 
-  return { width, height, nodes: layoutNodes, nodeMap, clusterMeta };
+  return { width, height, nodes: layoutNodes, nodeMap, clusterMeta, smallGraph };
 }

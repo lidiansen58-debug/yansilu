@@ -96,22 +96,21 @@ test("simplified Obsidian import preview, confirm, and export works end-to-end",
     assert.equal(preview.payload.status, "preview");
     assert.deepEqual(preview.payload.summary, {
       sources: 2,
-      literatureNotes: 2,
+      literatureNotes: 1,
       permanentNotes: 1,
-      warnings: 1
+      warnings: 0
     });
 
     const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.payload.importRecordId}/confirm`, {
       confirm: true,
-      directoryId: "dir_literature_default",
-      overrideOriginality: true
+      directoryId: "dir_literature_default"
     });
 
     assert.equal(confirm.response.status, 200, JSON.stringify(confirm.payload));
     assert.equal(confirm.payload.status, "completed");
     assert.deepEqual(confirm.payload.result.created, {
       sources: 2,
-      literatureNotes: 2,
+      literatureNotes: 1,
       permanentNotes: 1
     });
     assert.ok(confirm.payload.result.createdFiles.some((item) => item.noteType === "asset"));

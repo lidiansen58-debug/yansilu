@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { getNoteById, listMarkdownFiles, listNotesInDirectoryScope } from "../../domain/src/index.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "../../domain/src/frontmatter.mjs";
 import { findVaultAssetLinks, rewriteVaultAssetLinks } from "../../domain/src/markdown-asset-links.mjs";
+import { portableNoteMetadata } from "./portable-note-metadata.mjs";
 
 const INTERNAL_EXPORT_FRONTMATTER_KEYS = new Set([
   "id",
@@ -117,7 +118,7 @@ function cleanExportFrontmatter(frontmatter, body) {
     if (!hasMeaningfulFrontmatterValue(value)) continue;
     cleaned[key] = value;
   }
-  return cleaned;
+  return portableNoteMetadata(cleaned, metadata);
 }
 
 function rewriteExportMarkdown(markdown, sourcePath, targetPath, noteTargetMap) {

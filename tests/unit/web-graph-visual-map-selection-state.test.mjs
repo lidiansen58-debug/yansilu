@@ -63,3 +63,17 @@ test("graph visual map selection state derives edge theme and bridge highlights"
   assert.equal(themeState.selectedThemeNoteIds.has("n2"), true);
   assert.deepEqual([...bridgeState.selectedBridgeNoteIds].sort(), ["n1", "n2"]);
 });
+
+test("graph cluster highlights use the current normalized members and clear for a missing cluster", () => {
+  const clusterMeta = [{ clusterKey: "group", memberIds: ["n1", "n2", "n3"] }];
+  const deps = { normalizeGraphSelectionForVisibleItems: (selection, context) => {
+    const cluster = context.clusterMeta.find(item => item.clusterKey === selection.clusterKey);
+    return cluster ? { ...selection, memberIds: cluster.memberIds } : null;
+  } };
+  const state = buildGraphVisualMapSelectionState({ graphSelection: { kind: "cluster", clusterKey: "group", memberIds: ["stale"] }, clusterMeta }, deps);
+  assert.deepEqual([...state.selectedThemeNoteIds].sort(), ["n1", "n2", "n3"]);
+  assert.equal(state.selectedThemeNoteIds.has("stale"), false);
+  const removed = buildGraphVisualMapSelectionState({ graphSelection: state.activeSelection, clusterMeta: [] }, deps);
+  assert.equal(removed.activeSelection, null);
+  assert.equal(removed.selectedThemeNoteIds.size, 0);
+});

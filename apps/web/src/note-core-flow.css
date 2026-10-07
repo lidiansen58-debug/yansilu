@@ -1,4 +1,26 @@
 /* Note workspaces share a readable measure, quiet chrome and one scroll owner. */
+.editor-heading-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.editor-heading-row .tabs { flex: 1; min-width: 0; }
+.editor-note-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 0; }
+.editor-note-actions:not(:has(button:not(.hidden))) { display: none; }
+#editorWorkspace .editor-note-actions .tb:not(.hidden) {
+  width: auto !important; min-width: 44px !important; height: 44px !important;
+  padding: 0 12px !important; gap: 6px !important; border-radius: 6px !important;
+  border: 1px solid #b7cbc5 !important; background: #fff !important;
+  color: #24443c !important; box-shadow: none !important;
+  font-size: 13px; font-weight: 600;
+}
+#editorWorkspace .editor-note-actions #btnRecordPermanent:not(.hidden) {
+  border-color: #0f766e !important; background: #0f766e !important; color: #fff !important;
+}
+#editorWorkspace .editor-note-actions .tb:not(.hidden) span { display: inline !important; white-space: nowrap; }
+#editorWorkspace .editor-note-actions .tb:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+@media (max-width: 920px) {
+  .editor-heading-row { flex-wrap: wrap; gap: 0; }
+  .editor-heading-row .tabs { flex-basis: 100%; }
+  .editor-note-actions { flex-wrap: wrap; min-width: 0; max-width: 100%; gap: 4px; }
+  #editorWorkspace .editor-note-actions .tb:not(.hidden) { font-size: 12px; padding: 0 8px !important; }
+}
 #relatedPanel.inspector-panel {
   z-index: 3000;
   inset: 7vh 24px auto auto;
@@ -61,6 +83,9 @@
 }
 #relatedPanel .inspector-deferred-body { padding-top: 24px; }
 #relatedPanel [data-permanent-workspace-pane][hidden] { display: none; }
+#relatedPanel [data-permanent-workspace-context][hidden] { display: none; }
+#writingWorkbenchActive .writing-outline-heading { field-sizing: content; min-height: 44px; resize: vertical; overflow-wrap: anywhere; }
+#writingDraftTitle { min-width: 0; overflow-wrap: anywhere; }
 #relatedPanel .semantic-relation-form { gap: 20px; }
 #relatedPanel .semantic-relation-form label { font-size: 14px; line-height: 1.6; }
 #relatedPanel :is(textarea, input:not([type="checkbox"]), select),
@@ -190,7 +215,161 @@ body:has(#relatedPanel:not(.hidden)) .app { pointer-events: none; }
 }
 .distillation-shell { max-width: 920px; margin-inline: auto; }
 .distillation-queue-item { min-height: 64px; }
+#moduleWorkspace.graph-mode .graph-side-stack:has(> .graph-selection-panel.is-cluster) {
+  display: block;
+  width: min(360px, calc(100% - 36px));
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  backdrop-filter: none;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster {
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  gap: 12px;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
+  gap: 8px;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid #e2e8ed;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-head > div { min-width: 0; }
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-head strong { font-size: 16px; white-space: normal; overflow-wrap: anywhere; }
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-close {
+  position: static;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #dce4e8;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  box-shadow: none;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-body {
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-theme-notes {
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-theme-note {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 0;
+  gap: 4px;
+  border: 0;
+  border-bottom: 1px solid #e2e8ed;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-theme-note span {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-theme-note small { color: #52627a; font-size: 12px; }
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-theme-note:hover { background: #f0f7f5; }
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 12px;
+}
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster .graph-selection-action { min-height: 44px; border-radius: 8px; font-size: 14px; }
+#moduleWorkspace.graph-mode .graph-cluster-disclosure { border: 0; border-radius: 0; background: transparent; }
+#moduleWorkspace.graph-mode .graph-cluster-disclosure > summary { min-height: 44px; padding: 12px 22px 12px 0; color: #334155; font-size: 14px; }
+#moduleWorkspace.graph-mode .graph-cluster-disclosure > summary::after {
+  content: "+";
+  min-width: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 400;
+}
+#moduleWorkspace.graph-mode .graph-cluster-disclosure[open] > summary::after { content: "-"; }
+#moduleWorkspace.graph-mode .graph-cluster-note-list { display: grid; }
+#moduleWorkspace.graph-mode .graph-cluster-relations dl { margin: 0; font-size: 13px; line-height: 1.7; }
+#moduleWorkspace.graph-mode .graph-cluster-relations dl > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; }
+#moduleWorkspace.graph-mode .graph-cluster-relations dd { margin: 0; white-space: nowrap; color: #52627a; }
+#moduleWorkspace.graph-mode .graph-selection-panel.is-cluster :is(button, summary):focus-visible { outline: 2px solid #0f766e; outline-offset: -2px; }
 @media (max-width: 700px) {
+  #writingWorkbenchActive :is(.writing-outline-section-actions, .writing-chapter-tools) button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  #writingDraftTarget { min-height: 44px; }
+  #moduleWorkspace.graph-mode .graph-map-panel:not(.is-expanded) .graph-map-stage.has-side-panel .graph-map-canvas {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel:not(.is-expanded) .graph-map-viewport { flex: none; }
+  #moduleWorkspace.graph-mode .graph-map-panel:not(.is-expanded) .graph-side-stack {
+    position: static;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-side-stack {
+    top: auto;
+    bottom: 12px;
+    max-height: min(40dvh, calc(var(--graph-map-height) - 80px));
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-side-stack:has(> .graph-selection-panel.is-cluster) { height: min(40dvh, calc(var(--graph-map-height) - 80px)); }
+  #moduleWorkspace.graph-mode .graph-map-panel:not(.is-expanded) .graph-side-stack:has(> .graph-selection-panel.is-cluster) { width: 100%; }
+  #moduleWorkspace.graph-mode .graph-map-panel:not(.is-expanded) .graph-selection-panel.is-cluster { height: auto; max-height: min(60dvh, 520px); }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-map-svg:is([data-graph-zoom="read"], [data-graph-zoom="detail"]) {
+    width: max(100%, var(--graph-zoom-width));
+    height: max(calc(100dvh - 150px), var(--graph-zoom-height));
+  }
+  #moduleWorkspace.graph-mode .graph-pan-hint,
+  #moduleWorkspace.graph-mode .graph-zoom-btn span { display: none; }
+  #writingWorkbenchActive .writing-section-head { flex-direction: column; align-items: stretch; }
+  #writingWorkbenchActive .writing-section-head > div { min-width: 0; }
+  #writingWorkbenchActive .writing-section-head-actions { width: 100%; justify-content: flex-start; }
+  .main > #statusBar.is-visible {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0;
+    max-height: min(200px, 30dvh);
+    box-sizing: border-box;
+    flex-direction: row;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #statusBar [data-dismiss-status] { min-width: 44px; min-height: 44px; }
   #relatedPanel.inspector-panel {
     inset: 12px;
     width: auto;

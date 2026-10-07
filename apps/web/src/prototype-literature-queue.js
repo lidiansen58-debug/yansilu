@@ -1,27 +1,18 @@
-export const REQUIRED_LITERATURE_QUEUE_CITATION_FIELDS = ["sourceTitle", "authors", "year", "locator", "identifier"];
+import { literatureCitationReadiness, literatureSourceCompletion } from "./literature-source-readiness.js";
 
-export function hasRequiredLiteratureCitation(citation = {}, { normalizeFieldText = String } = {}) {
-  return REQUIRED_LITERATURE_QUEUE_CITATION_FIELDS.every((key) => Boolean(normalizeFieldText(citation?.[key])));
+export function hasRequiredLiteratureCitation(citation = {}) {
+  return literatureCitationReadiness(citation).complete;
 }
 
 export function literatureQueueLaneForNote(
   note,
   {
     literatureTemplateSectionLabelCandidates = () => [],
-    normalizeFieldText = String,
     parseLiteratureWorkspace = () => ({})
   } = {}
 ) {
   const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabelCandidates: literatureTemplateSectionLabelCandidates() });
-  const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
-  const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
-  const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
-  const hasQuestion = Boolean(normalizeFieldText(fields.question));
-  const hasSource = hasOriginalText && hasRequiredLiteratureCitation(fields.citation, { normalizeFieldText });
-  if (!hasSource) return "refine";
-  if (!hasParaphrase) return "pending";
-  if (!hasJudgmentSeed && !hasQuestion) return "refine";
-  return "ready";
+  return literatureSourceCompletion(fields).lane;
 }
 
 export function rankedLiteratureQueueNotes(notes = [], deps = {}) {
