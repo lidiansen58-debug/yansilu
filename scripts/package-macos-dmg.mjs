@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { macosDmgLayout } from "./macos-runtime-layout.mjs";
+import { runHdiutil } from "./macos-dmg-command.mjs";
 
 function parseArgs(argv = []) {
   const options = {};
@@ -26,17 +26,11 @@ function parseArgs(argv = []) {
   return options;
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit", shell: false });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`${command} exited with code ${result.status ?? 1}.`);
-}
-
 async function verifyMacosDmg(layout) {
   const mountPoint = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-dmg-check-"));
   let attached = false;
   try {
-    run("hdiutil", ["attach", layout.outputPath, "-nobrowse", "-readonly", "-mountpoint", mountPoint]);
+    await runHdiutil(["attach", layout.outputPath, "-nobrowse", "-readonly", "-mountpoint", mountPoint]);
     attached = true;
     const appStat = await fs.stat(path.join(mountPoint, path.basename(layout.appPath))).catch(() => null);
     const applicationsStat = await fs.lstat(path.join(mountPoint, layout.applicationsLinkName)).catch(() => null);
@@ -46,7 +40,7 @@ async function verifyMacosDmg(layout) {
       throw new Error("Packaged DMG Applications shortcut points to an unexpected location.");
     }
   } finally {
-    if (attached) run("hdiutil", ["detach", mountPoint]);
+    if (attached) await runHdiutil(["detach", mountPoint]);
     await fs.rm(mountPoint, { recursive: true, force: true });
   }
 }
@@ -67,7 +61,7 @@ export async function packageMacosDmg(options = {}) {
     await fs.mkdir(path.dirname(layout.outputPath), { recursive: true });
     await fs.rm(layout.outputPath, { force: true });
     await fs.rm(`${layout.outputPath}.sig`, { force: true });
-    run("hdiutil", [
+    await runHdiutil([
       "create",
       "-volname",
       layout.volumeName,
