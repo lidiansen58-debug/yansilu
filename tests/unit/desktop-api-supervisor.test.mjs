@@ -43,7 +43,6 @@ test("desktop API supervisor exposes status and recovery loop", () => {
   assert.match(source, /writeln!\(log_file, "\[\{\}\] \{message\}", now_string\(\)\)/);
   assert.match(source, /port 3000 is occupied by an unverified service; trying another port/);
   assert.doesNotMatch(source, /port 3000 is occupied; reusing/);
-  assert.match(source, /api_health_matches_vault/);
   assert.match(source, /fn comparable_vault_path/);
   assert.match(source, /json\.get\("app"\)[\s\S]*Some\("yansilu"\)/);
   assert.match(source, /json[\s\S]*\.get\("vaultPath"\)/);
@@ -84,14 +83,26 @@ test("desktop API supervisor blocks only on consecutive failures", () => {
 test("desktop startup selects vacant ports before slow HTTP probes and exposes a bounded readiness handshake", () => {
   const source = desktopLibSource();
   const portSelection = source.slice(source.indexOf("fn resolve_desktop_api_port"), source.indexOf("fn desktop_api_runtime_dir"));
-  assert.ok(portSelection.indexOf("api_port_is_available") < portSelection.indexOf("api_health_matches_vault"));
-  assert.match(source, /if api_port_is_open\(api_port\) && api_health_matches_vault/);
+  assert.ok(portSelection.indexOf("api_port_is_available") < portSelection.indexOf("api_health_is_yansilu"));
+  const launch = source.slice(source.indexOf("fn spawn_desktop_api"), source.indexOf("#[cfg(test)]"));
+  assert.doesNotMatch(launch, /managed: false/);
+  assert.match(launch, /\.stdin\(Stdio::piped\(\)\)/);
+  assert.match(launch, /\.env\("YANSILU_DESKTOP_PARENT_CHANNEL", "stdin-eof"\)/);
   assert.match(source, /http:\/\/127\.0\.0\.1:\{api_port\}/);
   assert.match(source, /async fn wait_for_desktop_api_ready/);
   assert.match(source, /spawn_blocking[\s\S]*wait_for_desktop_service_status\(status, Duration::from_secs\(30\)\)/);
   assert.match(source, /"startupWaitTimedOut"/);
   assert.match(source, /API startup process-created/);
   assert.match(source, /API startup ready elapsedMs/);
+});
+
+test("desktop port availability checks loopback conflicts before the wildcard bind", () => {
+  const source = desktopLibSource();
+  const availability = source.slice(source.indexOf("fn api_port_is_available"), source.indexOf("fn api_health_json"));
+  assert.match(availability, /if TcpListener::bind\(\("127\.0\.0\.1", port\)\)\.is_err\(\) \{\s*return false;/);
+  assert.ok(availability.indexOf('"127.0.0.1"') < availability.indexOf('"0.0.0.0"'));
+  assert.doesNotMatch(availability, /api_port_is_open|api_health_json/);
+  assert.match(source, /fn real_packaged_api_skips_unrelated_loopback_services/);
 });
 
 test("desktop health uses decoded HTTP and exit cancels startup and retries", () => {
@@ -103,6 +114,8 @@ test("desktop health uses decoded HTTP and exit cancels startup and retries", ()
   assert.doesNotMatch(source, /response\.split\("\\r\\n\\r\\n"\)/);
   assert.match(source, /shutdown\.swap\(true, Ordering::SeqCst\)/);
   assert.match(source, /Managed API shutdown completed elapsedMs/);
+  assert.match(source, /drop\(child\.stdin\.take\(\)\)/);
+  assert.match(source, /started.elapsed\(\) < Duration::from_secs\(2\)/);
   assert.match(source, /wait_unless_shutdown\(&shutdown, Duration::from_millis\(retry_ms\)\)/);
   assert.match(source, /health_failures >= API_MAX_HEALTH_FAILURES/);
 });
