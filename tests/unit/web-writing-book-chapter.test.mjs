@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { selectWritingDraftTarget, selectedWritingBookChapter, renderWritingBookChapterSelector } from "../../apps/web/src/writing-book-chapter-controller.js";
 import { assertWritingDraftCanLeave, recordWritingDraftInput, handleWritingSaveDraftClick } from "../../apps/web/src/writing-draft-save-controller.js";
 import { writingDraftContent } from "../../apps/web/src/writing-workbench-model.js";
+import { renderWritingPanelDom } from "../../apps/web/src/writing-panel-controller.js";
 const creationId = "12345678-1234-4234-8234-123456789abc";
 const createdNoteId = `note_${creationId}`;
 
@@ -54,6 +55,86 @@ function setup() {
   };
   return { deps, writingState, state, editor, select, messages, writes };
 }
+
+function usePanelRenderer(s, nodes = {}) {
+  const current = {};
+  s.deps.renderWritingPanel = () => renderWritingPanelDom({
+    ...s.deps,
+    $: id => id === "writingDraftEditor" ? s.editor : id === "writingCurrentNote" ? current : nodes[id] || null,
+    folderById: () => null,
+    rootBoxIdFromFolder: () => "",
+    writingCandidateNotes: () => [],
+    writingSourceIndexSummary: () => "",
+    writingBasketEntries: () => [],
+    parseWritingBasketIds: () => [],
+    buildWritingPanelState: () => ({
+      candidateFocusPlan: {}, candidates: [], basketReadiness: {},
+      hasProject: Boolean(s.writingState.project), hasScaffold: Boolean(s.writingState.scaffold), hasDraft: Boolean(s.writingState.project?.draft_note_id),
+      projectEntry: {}, projectPreflightSummary: {}, strongModelState: {},
+      openDraftButtonState: {}, scaffoldButtonState: {}, strongModelButtonState: {},
+      toplineMetrics: []
+    }),
+    selectedWritingThemeIndex: () => null,
+    clearWritingThemeRelationCounts: () => {},
+    escapeHtml: String
+  });
+}
+
+test("a chapter-only book retains its export menu without an article outline or article draft", () => {
+  const s = setup();
+  s.writingState.scaffold = null;
+  s.writingState.project.draft_note_id = "";
+  const menu = {}, exportButton = {};
+  usePanelRenderer(s, { writingMoreMenu: menu, btnWritingExportBook: exportButton });
+  s.deps.renderWritingPanel();
+  assert.equal(menu.hidden, false);
+  assert.equal(exportButton.hidden, false);
+  s.writingState.project.book_structure.parts = [];
+  s.deps.renderWritingPanel();
+  assert.equal(menu.hidden, true);
+  assert.equal(exportButton.hidden, true);
+});
+
+test("first chapter save through the panel preserves boundary whitespace without a false dirty warning", async () => {
+  const s = setup();
+  usePanelRenderer(s);
+  await selectWritingDraftTarget(s.deps, "first");
+  const body = "\n# First\n\nChapter prose with a Markdown hard break.  \n\n";
+  s.editor.value = body;
+  recordWritingDraftInput(s.deps, body);
+  await handleWritingSaveDraftClick(s.deps);
+  assert.equal(s.writes.length, 1);
+  assert.equal(s.writes[0][1].body, body);
+  assert.equal(s.editor.value, body);
+  assert.equal(s.writingState.bookChapter.markdown, body);
+  assert.equal(s.writingState.bookChapter.savedBody, body);
+  assert.equal(s.writingState.bookChapter.saveState, "saved");
+  assert.equal(s.messages.at(-1), "章节已保存");
+});
+
+test("panel rendering during first chapter binding preserves later input as genuinely dirty", async () => {
+  const s = setup();
+  usePanelRenderer(s);
+  await selectWritingDraftTarget(s.deps, "first");
+  const binding = deferred(), bindingStarted = deferred();
+  s.deps.fetchWritingProject = () => { bindingStarted.resolve(); return binding.promise; };
+  const body = "# First\n\nSubmitted prose.\n";
+  s.editor.value = body;
+  recordWritingDraftInput(s.deps, body);
+  const saving = handleWritingSaveDraftClick(s.deps);
+  await bindingStarted.promise;
+  const later = `${body}\nLater input.  \n`;
+  s.editor.value = later;
+  recordWritingDraftInput(s.deps, later);
+  binding.resolve(structuredClone(s.writingState.project));
+  await saving;
+  assert.equal(s.writes.length, 1);
+  assert.equal(s.writingState.bookChapter.savedBody, body);
+  assert.equal(s.editor.value, later);
+  assert.equal(s.writingState.bookChapter.markdown, later);
+  assert.equal(s.writingState.bookChapter.saveState, "dirty");
+  assert.match(s.messages.at(-1), /尚未保存/);
+});
 
 test("fresh chapter controller rechecks a lost save and preserves later prose", async () => {
   const records = new Map();

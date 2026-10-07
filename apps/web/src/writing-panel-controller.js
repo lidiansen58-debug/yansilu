@@ -378,8 +378,9 @@ export function renderWritingPanelDom(deps = {}) {
   renderWritingBookDirectoryTools(deps);
   const directoryPending = writingBookDirectoryPending(writingState);
   const bookExportButton = $("btnWritingExportBook");
+  const hasBookChapters = (writingState.project?.book_structure?.parts || []).some(part => part.chapters?.length);
   if (bookExportButton) {
-    bookExportButton.hidden = !(writingState.project?.book_structure?.parts || []).some(part => part.chapters?.length);
+    bookExportButton.hidden = !hasBookChapters;
     bookExportButton.disabled = directoryPending || writingState.bookExportPending?.projectId === writingState.project?.id || writingState.draftSaveState === "saving" || bookChapter?.saveState === "saving";
   }
   if ($("writingDraftTarget")) $("writingDraftTarget").disabled ||= directoryPending;
@@ -392,7 +393,7 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
   if (moreMenu) {
-    moreMenu.hidden = !hasScaffold && !hasDraft;
+    moreMenu.hidden = !hasScaffold && !hasDraft && !hasBookChapters;
     if (moreMenu.hidden) moreMenu.open = false;
   }
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
@@ -425,7 +426,7 @@ export function renderWritingPanelDom(deps = {}) {
   if (startDraftButton) startDraftButton.disabled = !hasScaffold || Boolean(bookChapter);
   if (draftEditor) draftEditor.disabled = directoryPending || (!hasScaffold && !bookChapter);
   if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
-    const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries })).trim();
+    const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries }));
     draftEditor.value = draftBody;
   }
   const strongModelBasketIds = renderWritingStrongModelSummaryDom({
