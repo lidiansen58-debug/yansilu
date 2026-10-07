@@ -37,6 +37,9 @@ jobs:
               - 'scripts/collect-release-assets.mjs'
               - 'scripts/desktop-*.mjs'
               - 'scripts/generate-update-manifest.mjs'
+              - 'scripts/macos-*.mjs'
+              - 'scripts/package-macos-dmg.mjs'
+              - 'scripts/prepare-universal-desktop-api-runtime.mjs'
 
   preflight:
     if: github.event_name == 'pull_request'
@@ -155,6 +158,10 @@ jobs:
             echo "::error::TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required for signed updater artifacts."
             exit 1
           fi
+
+      - name: Test macOS packaging regressions
+        if: runner.os == 'macOS'
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs
 
       - name: Prepare desktop API runtime
         run: npm run prepare:desktop:runtime

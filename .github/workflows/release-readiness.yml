@@ -115,6 +115,10 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Test macOS packaging regressions
+        if: runner.os == 'macOS'
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs
+
       - name: Prepare desktop API runtime
         run: npm run prepare:desktop:runtime
 

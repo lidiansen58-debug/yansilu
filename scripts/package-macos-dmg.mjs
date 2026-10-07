@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { macosDmgLayout } from "./macos-runtime-layout.mjs";
 import { runHdiutil } from "./macos-dmg-command.mjs";
+import { copyMacosBundleDirectory } from "./macos-bundle-copy.mjs";
 
 function parseArgs(argv = []) {
   const options = {};
@@ -56,7 +57,7 @@ export async function packageMacosDmg(options = {}) {
   const stagingRoot = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-dmg-"));
   const stagingApp = path.join(stagingRoot, path.basename(layout.appPath));
   try {
-    await fs.cp(layout.appPath, stagingApp, { recursive: true, force: true });
+    await copyMacosBundleDirectory(layout.appPath, stagingApp);
     await fs.symlink("/Applications", path.join(stagingRoot, layout.applicationsLinkName), "dir");
     await fs.mkdir(path.dirname(layout.outputPath), { recursive: true });
     await fs.rm(layout.outputPath, { force: true });

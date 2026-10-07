@@ -43,5 +43,16 @@ for (const workflow of ["desktop-bundles.yml", "release-readiness.yml", "desktop
     assert.match(source, /rustup target add aarch64-apple-darwin x86_64-apple-darwin/);
     assert.ok(source.indexOf("rustup target add") < source.indexOf("- name: Build desktop bundles"));
     assert.match(source, /apps\/desktop\/src-tauri\/target\/\*\*\/release\/bundle\/\*\*/);
+    const regression = source.indexOf("- name: Test macOS packaging regressions");
+    const build = source.indexOf("- name: Build desktop bundles");
+    assert.ok(regression >= 0 && regression < build);
+    assert.match(source, /node --test tests\/unit\/macos-bundle-copy\.test\.mjs tests\/unit\/macos-dmg-command\.test\.mjs/);
   });
 }
+
+test("changes to macOS packaging scripts trigger full PR bundles", () => {
+  const source = fs.readFileSync(new URL("../../.github/workflows/desktop-bundles.yml", import.meta.url), "utf8");
+  for (const file of ["scripts/macos-*.mjs", "scripts/package-macos-dmg.mjs", "scripts/prepare-universal-desktop-api-runtime.mjs"]) {
+    assert.ok(source.includes(`- '${file}'`));
+  }
+});
