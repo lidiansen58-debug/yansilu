@@ -167,7 +167,11 @@ fn api_port_is_open(port: u16) -> bool {
 }
 
 fn api_port_is_available(port: u16) -> bool {
-    // Match API_HOST: a loopback bind can succeed beside a wildcard listener on Windows.
+    // Windows permits overlapping wildcard/loopback binds; check both endpoints.
+    // Drop the first probe before the second so vacant ports also work on Unix.
+    if TcpListener::bind(("127.0.0.1", port)).is_err() {
+        return false;
+    }
     TcpListener::bind(("0.0.0.0", port)).is_ok()
 }
 
@@ -218,20 +222,6 @@ fn comparable_vault_path(path: &str) -> String {
     {
         trimmed
     }
-}
-
-fn api_health_matches_vault(port: u16, vault_path: &PathBuf, app_data_dir: &PathBuf) -> bool {
-    let Some(json) = api_health_json(port) else {
-        return false;
-    };
-    api_json_is_reusable(&json, vault_path, app_data_dir)
-}
-
-fn api_json_is_reusable(json: &serde_json::Value, vault_path: &PathBuf, app_data_dir: &PathBuf) -> bool {
-    api_json_is_ready(json, vault_path)
-        && json.get("desktopVaultRecoveryPath").and_then(|value| value.as_str())
-            .map(|value| comparable_vault_path(value) == comparable_vault_path(&desktop_vault_recovery_path(app_data_dir).to_string_lossy()))
-            .unwrap_or(false)
 }
 
 fn api_json_is_ready(json: &serde_json::Value, vault_path: &PathBuf) -> bool {
@@ -308,19 +298,17 @@ fn wait_for_api_port(
     ))
 }
 
-fn resolve_desktop_api_port(app_data_dir: &PathBuf, vault_path: &PathBuf) -> Option<u16> {
+fn resolve_desktop_api_port(app_data_dir: &PathBuf) -> Option<u16> {
     for port in DEFAULT_API_PORT..=API_PORT_SEARCH_END {
         // Bind first: HTTP probes of a vacant Windows port can each wait for a timeout.
         if api_port_is_available(port) {
             return Some(port);
         }
-        if api_health_matches_vault(port, vault_path, app_data_dir) {
-            return Some(port);
-        }
+        // A listener we did not spawn has no owned exit channel; never adopt it.
         if api_health_is_yansilu(port) {
             append_desktop_api_log(
                 app_data_dir,
-                &format!("Yansilu desktop API port {port} has a different Vault or recovery context; trying another port."),
+                &format!("Yansilu desktop API port {port} belongs to another process; leaving it untouched and trying another port."),
             );
             continue;
         }
@@ -567,18 +555,10 @@ fn spawn_desktop_api(
         return Err("Desktop API startup cancelled during application exit.".to_string());
     }
     let started = Instant::now();
-    let api_port = resolve_desktop_api_port(&config.app_data_dir, &config.vault_path)
+    let api_port = resolve_desktop_api_port(&config.app_data_dir)
         .ok_or_else(|| "No available API port between 3000 and 3020.".to_string())?;
     append_desktop_api_log(&config.app_data_dir, &format!("API startup port-selected port={api_port} elapsedMs={}", started.elapsed().as_millis()));
     let base_url = format!("http://127.0.0.1:{api_port}");
-    if api_port_is_open(api_port) && api_health_matches_vault(api_port, &config.vault_path, &config.app_data_dir) {
-        return Ok(DesktopApiLaunch {
-            base_url,
-            pid: api_health_json(api_port).and_then(|json| json.get("pid").and_then(|value| value.as_u64()).map(|value| value as u32)),
-            managed: false,
-        });
-    }
-
     let runtime_dir = match config.runtime_dir.clone() {
         Some(value) => value,
         None => {
@@ -624,6 +604,8 @@ fn spawn_desktop_api(
         .env("VAULT_PATH", &config.vault_path)
         .env("YANSILU_DESKTOP_VAULT_RECOVERY_PATH", desktop_vault_recovery_path(&config.app_data_dir))
         .env("YANSILU_DESKTOP_API", "1")
+        .env("YANSILU_DESKTOP_PARENT_CHANNEL", "stdin-eof")
+        .stdin(Stdio::piped())
         .env_remove("NODE_OPTIONS");
 
     if let Ok(log_file) = OpenOptions::new().create(true).append(true).open(log_path) {
@@ -668,6 +650,8 @@ fn spawn_desktop_api(
 #[cfg(test)]
 mod startup_tests {
     use super::*;
+
+    static NATIVE_API_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     struct RunningApiFixture {
         shutdown: Arc<AtomicBool>,
@@ -721,7 +705,80 @@ mod startup_tests {
     }
 
     #[test]
+    fn port_availability_rejects_loopback_and_wildcard_listeners() {
+        for host in ["127.0.0.1", "0.0.0.0"] {
+            let listener = TcpListener::bind((host, 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            assert!(!api_port_is_available(port), "Occupied {host}:{port} must not be selected");
+            drop(listener);
+            assert!(api_port_is_available(port));
+        }
+    }
+
+    #[test]
+    fn real_packaged_api_skips_unrelated_loopback_services() {
+        let _guard = NATIVE_API_TEST_LOCK.lock().unwrap();
+        let listeners: Vec<_> = (DEFAULT_API_PORT..=DEFAULT_API_PORT + 1)
+            .map(|port| TcpListener::bind(("127.0.0.1", port)).expect("Conflict regression requires free ports 3000 and 3001"))
+            .collect();
+        let fixture = RunningApiFixture::start("loopback-occupied");
+        let api = fixture.wait_for_healthy(None);
+        let port: u16 = api["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
+        assert_eq!(port, DEFAULT_API_PORT + 2);
+        assert_eq!(api["restartCount"], 0);
+        assert_ne!(resolve_desktop_api_port(&fixture.recovery_path.parent().unwrap().to_path_buf()), Some(port), "Do not adopt an API without owning its parent channel");
+        assert_eq!(api_health_json(port).unwrap()["pid"], api["pid"]);
+        println!("Packaged API skipped occupied loopback ports 3000/3001 and became healthy on {port}");
+        drop(fixture);
+        assert!(api_port_is_available(port));
+        for listener in &listeners {
+            assert!(!api_port_is_available(listener.local_addr().unwrap().port()), "Unrelated listeners must remain untouched");
+        }
+        drop(listeners);
+        assert!(api_port_is_available(DEFAULT_API_PORT));
+        assert!(api_port_is_available(DEFAULT_API_PORT + 1));
+    }
+
+    #[test]
+    fn managed_api_exits_cleanly_when_parent_channel_closes() {
+        let _guard = NATIVE_API_TEST_LOCK.lock().unwrap();
+        let fixture = RunningApiFixture::start("graceful-exit");
+        let api = fixture.wait_for_healthy(None);
+        let port: u16 = api["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
+        fixture.shutdown.store(true, Ordering::SeqCst);
+        let mut guard = fixture.child.lock().unwrap();
+        let child = guard.as_mut().unwrap();
+        drop(child.stdin.take());
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() { break status; }
+            assert!(started.elapsed() < Duration::from_secs(2), "API did not exit through its parent channel");
+            thread::sleep(Duration::from_millis(20));
+        };
+        assert!(status.success(), "Normal parent-channel close must drain and exit successfully");
+        drop(guard);
+        drop(fixture);
+        assert!(api_port_is_available(port));
+    }
+
+    #[test]
+    fn shutdown_force_stops_a_child_that_ignores_parent_eof() {
+        let node = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("desktop-api-runtime/node")
+            .join(if cfg!(windows) { "node.exe" } else { "node" });
+        let mut command = Command::new(node);
+        command.arg("-e").arg("setInterval(() => {}, 1000)").stdin(Stdio::piped());
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+        let child = Arc::new(Mutex::new(Some(command.spawn().unwrap())));
+        let started = Instant::now();
+        stop_desktop_api(&child);
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert!(child.lock().unwrap().is_none());
+    }
+
+    #[test]
     fn real_packaged_api_starts_recovers_and_exits_without_residual_listener() {
+        let _guard = NATIVE_API_TEST_LOCK.lock().unwrap();
         let started = Instant::now();
         let fixture = RunningApiFixture::start("lifecycle");
         let api = fixture.wait_for_healthy(None);
@@ -985,19 +1042,6 @@ mod startup_tests {
     }
 
     #[test]
-    fn reuse_requires_the_same_desktop_recovery_context() {
-        let directory = std::env::temp_dir().join("yansilu-reuse-context");
-        let vault = directory.join("vault");
-        let mut health = serde_json::json!({"app": "yansilu", "service": "api", "ok": true, "ready": true, "vaultPath": vault});
-        assert!(!api_json_is_reusable(&health, &vault, &directory));
-        health["desktopVaultRecoveryPath"] = serde_json::json!(desktop_vault_recovery_path(&directory));
-        assert!(api_json_is_reusable(&health, &vault, &directory));
-        assert!(!api_json_is_reusable(&health, &vault, &directory.join("other-instance")));
-        health["ready"] = serde_json::json!(false);
-        assert!(!api_json_is_reusable(&health, &vault, &directory));
-    }
-
-    #[test]
     fn recovery_rejects_missing_or_invalid_vault_without_creating_it() {
         let directory = std::env::temp_dir().join(format!("yansilu-recovery-unavailable-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
         fs::create_dir_all(&directory).unwrap();
@@ -1050,6 +1094,16 @@ mod startup_tests {
 fn stop_desktop_api(api_child: &Arc<Mutex<Option<Child>>>) {
     if let Ok(mut guard) = api_child.lock() {
         if let Some(mut child) = guard.take() {
+            // EOF requests a graceful stop and also fires if the desktop crashes.
+            drop(child.stdin.take());
+            let started = Instant::now();
+            while started.elapsed() < Duration::from_secs(2) {
+                match child.try_wait() {
+                    Ok(Some(_)) => return,
+                    Ok(None) => thread::sleep(Duration::from_millis(20)),
+                    Err(_) => break,
+                }
+            }
             let _ = child.kill();
             let _ = child.wait();
         }

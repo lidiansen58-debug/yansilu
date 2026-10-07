@@ -10,6 +10,7 @@ import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
+import { bindDesktopParentLifecycle } from "./desktop-parent-lifecycle.mjs";
 import { exportArticle, exportBook } from "../../../packages/export-engine/src/index.mjs";
 
 const noteMoveOperations = createNoteMoveOperations();
@@ -6865,6 +6866,8 @@ const server = http.createServer(async (req, res) => {
     releaseWrite?.();
   }
 });
+
+bindDesktopParentLifecycle({ server });
 
 server.listen(PORT, HOST, async () => {
   console.log(`API running on http://${HOST}:${PORT}`);
