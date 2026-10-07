@@ -6101,6 +6101,8 @@ installWritingDraftActionEventHandlers({
     checkNoteSave,
     mapNoteItem,
     openWritingDraftNoteById,
+    openWritingSourceNote: createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNoteById, activateModule,
+      unavailableMessage: "来源笔记已不可用，请重新载入提纲后核对。" }),
     renderAll,
     setStatus
   })

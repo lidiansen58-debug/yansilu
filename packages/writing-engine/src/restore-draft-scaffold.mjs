@@ -31,7 +31,7 @@ export async function restoreDraftScaffoldRecord(vaultPath, projectId, input, de
       const source = mapScaffoldRow(sourceRow);
       scaffold = { ...source, id, generated_by: `restored:${sourceId}`, version_note: "恢复历史提纲", created_at: now, updated_at: now };
       const noteIds = [...new Set([...project.basket_note_ids, ...source.sections.flatMap(section => section.evidence_note_ids || [])])];
-      const notes = await loadBasketNotes(vaultPath, noteIds);
+      const notes = await loadBasketNotes(vaultPath, noteIds, { tolerateMissing: true, tolerateTypeChanges: true });
       const indexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
       scaffold.markdown = renderMarkdown(project, scaffold, notes, { preflight: buildScaffoldPreflight(project, notes), indexCards });
       db.prepare(`INSERT INTO draft_scaffolds

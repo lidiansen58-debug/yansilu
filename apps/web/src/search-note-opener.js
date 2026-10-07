@@ -1,6 +1,7 @@
 import { applyLoadedNoteToClientState } from "./loaded-note-client-state.js";
 
-export function createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNoteById, activateModule }) {
+export function createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNoteById, activateModule,
+  unavailableMessage = "这条笔记已不可用，请刷新搜索结果" }) {
   return async (id, { isCurrent = () => true } = {}) => {
     const scope = state.noteMoveVaultScope ||= {};
     const current = () => isCurrent() && state.noteMoveVaultScope === scope &&
@@ -14,14 +15,14 @@ export function createSearchNoteOpener({ state, fetchNote, mapNoteItem, openNote
     if (!dirty() && !existing?.isLocalOnly) {
       const fetched = await fetchNote(id, { timeoutMs: 15000 });
       if (!current()) return;
-      if (!fetched) throw new Error("这条笔记已不可用，请刷新搜索结果");
+      if (!fetched) throw new Error(unavailableMessage);
       if (!dirty() && state.notes.find(note => note.id === id) === existing && snapshot() === before) {
         const mapped = mapNoteItem(fetched);
         applyLoadedNoteToClientState(state, mapped, { refreshLoaded: true });
       }
     }
     if (!current()) return;
-    if (!openNoteById(id)) throw new Error("这条笔记已不可用，请刷新搜索结果");
+    if (!openNoteById(id)) throw new Error(unavailableMessage);
     activateModule("explorer");
   };
 }

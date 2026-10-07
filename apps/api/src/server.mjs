@@ -5572,10 +5572,15 @@ const server = http.createServer(async (req, res) => {
 
     const permanentNoteDistillationId = parsePermanentNoteDistillationPath(url.pathname);
     if (req.method === "PATCH" && permanentNoteDistillationId) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const item = await updatePermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationId, {
+        if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次观点保存未执行。请在原笔记库核对后重试。", rid));
+        }
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次观点保存未执行。", rid));
+        const item = await updatePermanentNoteDistillation(vaultPath, permanentNoteDistillationId, {
           title: body.title,
           expectedRevision: body.expectedRevision,
           thesis: body.thesis,
@@ -5601,12 +5606,18 @@ const server = http.createServer(async (req, res) => {
 
     const permanentNoteDistillationConfirmId = parsePermanentNoteDistillationConfirmPath(url.pathname);
     if (req.method === "POST" && permanentNoteDistillationConfirmId) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const note = await getNoteById(VAULT_PATH, permanentNoteDistillationConfirmId);
+        if (VAULT_PATH !== vaultPath || (body.expectedVaultPath !== undefined && path.relative(vaultPath, path.resolve(String(body.expectedVaultPath))) !== "")) {
+          return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次观点确认未执行。请在原笔记库核对后重试。", rid));
+        }
+        await initVault(vaultPath);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次观点确认未执行。", rid));
+        const note = await getNoteById(vaultPath, permanentNoteDistillationConfirmId);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("VAULT_CHANGED", "笔记库已切换，本次观点确认未执行。", rid));
         assertPermanentNoteReadyToConfirm(note, body);
-        const item = await confirmPermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationConfirmId, {
+        const item = await confirmPermanentNoteDistillation(vaultPath, permanentNoteDistillationConfirmId, {
           aiAssisted: body.aiAssisted ?? body.ai_assisted,
           expectedRevision: body.expectedRevision
         });

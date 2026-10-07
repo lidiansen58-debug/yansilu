@@ -6,6 +6,7 @@ import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { selectWritingDraftTarget, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
 import { changeWritingBookDirectory } from "./writing-book-directory-controller.js";
 import { resizeWritingOutlineHeading } from "./writing-scaffold-preview-panel.js";
+import { handleWritingOutlineSourceClick } from "./writing-outline-source-notices.js";
 import { persistWritingOutline } from "./writing-outline-save.js";
 import { handleWritingReloadScaffoldClick } from "./writing-scaffold-open-controller.js";
 import { openWritingHistory } from "./writing-history-controller.js";
@@ -280,6 +281,10 @@ export function installWritingDraftActionEventHandlers(options = {}) {
     handleWritingOutlineInput(event, deps());
   });
   add("writingScaffoldPreview", "click", async (event) => {
+    if (event?.target?.closest?.("[data-writing-outline-source-note]")) {
+      await handleWritingOutlineSourceClick(event, deps());
+      return;
+    }
     if (!handleWritingOutlineClick(event, deps())) return;
     await persistWritingOutline(deps());
   });

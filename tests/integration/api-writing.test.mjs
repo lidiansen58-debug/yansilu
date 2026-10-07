@@ -10,6 +10,7 @@ import { once } from "node:events";
 import { createSqliteArtifactStore } from "../../packages/ai-orchestrator/src/sqlite-artifact-store.mjs";
 import { fileURLToPath } from "node:url";
 import { syncWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
+import { moveNoteToDirectory } from "../../packages/domain/src/index.mjs";
 import { saveNoteWithReadback } from "../../apps/web/src/note-save-readback.js";
 import { createNoteCreationController } from "../../apps/web/src/note-creation-controller.js";
 import { createWritingNoteWithRecovery } from "../../apps/web/src/writing-note-creation-recovery.js";
@@ -18,6 +19,139 @@ import { randomUUID } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+test("historical restore preserves the outline when an evidence file is missing", async t => {
+  const vaultPath = await makeTempDir("yansilu-history-missing-evidence-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const note = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# Evidence\n\nKeep this historical reference."
+  })).json.item;
+  const draft = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# Article\n\nKeep my article unchanged."
+  })).json.item;
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Missing evidence", basketNoteIds: [note.id] })).json.item.id;
+  const source = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const current = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const articlePath = path.join(vaultPath, draft.markdownPath), articleBytes = await fs.readFile(articlePath);
+  const evidencePath = path.join(vaultPath, note.markdownPath);
+  await fs.rename(evidencePath, `${evidencePath}.missing-fixture`);
+  const payload = { sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`,
+    expectedScaffoldId: current.id, expectedScaffoldUpdatedAt: current.updated_at,
+    expectedProjectUpdatedAt: project.updated_at, expectedSourceUpdatedAt: source.updated_at, expectedVaultPath: vaultPath };
+  const route = `/api/v1/writing-projects/${projectId}/scaffold-restore`;
+  const restored = await postJson(baseUrl, route, payload);
+  assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assert.deepEqual(restored.json.item.sections, source.sections);
+  assert.deepEqual(restored.json.item.open_questions, source.open_questions);
+  assert.match(restored.json.item.markdown, /缺失笔记/);
+  assert.ok(restored.json.item.markdown.includes(note.id));
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item.scaffold_id, payload.restorationId);
+  const readback = (await getJson(baseUrl, `/api/v1/draft-scaffolds/${payload.restorationId}`)).json.item;
+  assert.deepEqual(readback.sections, source.sections);
+  assert.ok(readback.preflight.checks.some(check => check.id === "source_files" && check.status !== "pass"));
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item.sections, source.sections);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`)).json.item.sections, current.sections);
+  const retried = await postJson(baseUrl, route, payload);
+  assert.equal(retried.status, 201);
+  assert.equal(retried.json.item.id, payload.restorationId);
+  assert.equal((await getJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffolds?limit=50`)).json.items.length, 3);
+  const sections = structuredClone(readback.sections);
+  sections[0].heading = "Edited after restoring missing evidence";
+  const editPayload = { sections, openQuestions: readback.open_questions,
+    expectedCurrentScaffoldId: readback.id, expectedVaultPath: vaultPath,
+    expectedOutline: { sections: readback.sections, openQuestions: readback.open_questions } };
+  const edited = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${readback.id}`, editPayload);
+  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  assert.deepEqual(edited.json.item.sections, sections);
+  assert.match(edited.json.item.markdown, /缺失笔记/);
+  assert.ok(edited.json.item.markdown.includes(note.id));
+  const editedReadback = (await getJson(baseUrl, `/api/v1/draft-scaffolds/${readback.id}`)).json.item;
+  assert.deepEqual(editedReadback.sections, sections);
+  assert.ok(editedReadback.preflight.checks.some(check => check.id === "source_files" && check.status !== "pass"));
+  const staleEdit = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${readback.id}`, editPayload);
+  assert.equal(staleEdit.status, 409);
+  assert.equal(staleEdit.json.error.code, "WRITING_OUTLINE_CONFLICT");
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${readback.id}`)).json.item.sections, sections);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item.sections, source.sections);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${current.id}`)).json.item.sections, current.sections);
+  assert.deepEqual(await fs.readFile(articlePath), articleBytes);
+  await assert.rejects(fs.access(evidencePath), { code: "ENOENT" });
+});
+
+test("restored outline edits retain historical evidence outside the current basket", async t => {
+  const vaultPath = await makeTempDir("yansilu-history-outside-basket-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const evidence = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# Historical evidence title\n\nOriginal material."
+  })).json.item;
+  const other = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: "# Current basket\n\nDifferent material."
+  })).json.item;
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Historical basket", basketNoteIds: [evidence.id] })).json.item.id;
+  const source = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const synced = await patchJson(baseUrl, `/api/v1/writing-projects/${projectId}`, { basketNoteIds: [other.id], expectedVaultPath: vaultPath });
+  assert.equal(synced.status, 200, JSON.stringify(synced.json));
+  const current = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const legacyProject = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "Existing basket", basketNoteIds: [evidence.id] })).json.item;
+  const movedEvidence = await moveNoteToDirectory(vaultPath, evidence.id, "dir_literature_default");
+  assert.equal(movedEvidence.noteType, "literature");
+  const legacyRead = await getJson(baseUrl, `/api/v1/writing-projects/${legacyProject.id}`);
+  assert.equal(legacyRead.status, 200, JSON.stringify(legacyRead.json));
+  const historicalRead = await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`);
+  assert.equal(historicalRead.status, 200, JSON.stringify(historicalRead.json));
+  assert.ok(historicalRead.json.item.preflight.checks.some(check => check.id === "source_note_types"
+    && check.status === "warning" && check.targetNoteIds.includes(evidence.id)));
+  const rejectedBasket = await postJson(baseUrl, "/api/v1/writing-projects", { title: "Invalid new basket", basketNoteIds: [evidence.id] });
+  assert.equal(rejectedBasket.status, 400);
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const restored = await postJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffold-restore`, {
+    sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`, expectedVaultPath: vaultPath,
+    expectedScaffoldId: current.id, expectedScaffoldUpdatedAt: current.updated_at,
+    expectedProjectUpdatedAt: project.updated_at, expectedSourceUpdatedAt: source.updated_at
+  });
+  assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  let outline = restored.json.item;
+  const edit = async heading => {
+    const sections = structuredClone(outline.sections);
+    sections[0].heading = heading;
+    const response = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${outline.id}`, {
+      sections, openQuestions: outline.open_questions, expectedVaultPath: vaultPath, expectedCurrentScaffoldId: outline.id,
+      expectedOutline: { sections: outline.sections, openQuestions: outline.open_questions }
+    });
+    assert.equal(response.status, 200, JSON.stringify(response.json));
+    outline = response.json.item;
+  };
+  await edit("Keep historical source title");
+  assert.ok(outline.markdown.includes(evidence.title));
+  assert.ok(outline.sections.some(section => section.evidence_note_ids.includes(evidence.id)));
+  assert.ok(outline.preflight.checks.some(check => check.id === "source_note_types" && check.status === "warning"));
+  const unrelatedLiterature = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_literature_default", body: "# Not historical evidence\n\nNew literature."
+  })).json.item;
+  const invalidSections = structuredClone(outline.sections);
+  invalidSections[0].evidence_note_ids.push(unrelatedLiterature.id);
+  const invalidEdit = await patchJson(baseUrl, `/api/v1/draft-scaffolds/${outline.id}`, {
+    sections: invalidSections, expectedVaultPath: vaultPath, expectedCurrentScaffoldId: outline.id,
+    expectedOutline: { sections: outline.sections, openQuestions: outline.open_questions }
+  });
+  assert.equal(invalidEdit.status, 400);
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${outline.id}`)).json.item.sections, outline.sections);
+  const evidencePath = path.join(vaultPath, movedEvidence.markdownPath);
+  await fs.rename(evidencePath, `${evidencePath}.missing-fixture`);
+  const readback = (await getJson(baseUrl, `/api/v1/draft-scaffolds/${outline.id}`)).json.item;
+  assert.ok(readback.preflight.checks.some(check => check.id === "source_files" && check.status !== "pass"));
+  await edit("Edit with missing historical source");
+  assert.match(outline.markdown, /缺失笔记/);
+  assert.ok(outline.markdown.includes(evidence.id));
+  assert.deepEqual((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item.sections, source.sections);
+});
 
 test("historical restore rejects a request whose Vault switches while the body is incomplete", async t => {
   const initialVault = await makeTempDir("yansilu-history-request-old-");

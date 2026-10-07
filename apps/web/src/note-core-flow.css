@@ -85,6 +85,15 @@
 #relatedPanel [data-permanent-workspace-pane][hidden] { display: none; }
 #relatedPanel [data-permanent-workspace-context][hidden] { display: none; }
 #writingWorkbenchActive .writing-outline-heading { field-sizing: content; min-height: 44px; resize: vertical; overflow-wrap: anywhere; }
+.writing-outline-source-notices { list-style: none; margin: 0 0 12px; padding: 0; font-size: 14px; line-height: 1.6; }
+.writing-outline-source-notices li { padding: 8px 0; border-bottom: 1px solid #dce4e8; }
+.writing-outline-source-notices p { margin: 0; color: #855216; overflow-wrap: anywhere; }
+.writing-outline-source-links { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; }
+.writing-outline-source-links > span { color: #52627a; }
+.writing-outline-source-note { min-height: 44px; max-width: 100%; padding: 4px 0; border: 0; border-radius: 0; background: transparent; color: #0f766e; font: inherit; text-align: left; text-decoration: underline; overflow-wrap: anywhere; cursor: pointer; }
+.writing-outline-source-note:hover { color: #115e59; }
+.writing-outline-source-note:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.writing-outline-source-note:disabled { opacity: .65; cursor: wait; }
 #writingDraftTitle { min-width: 0; overflow-wrap: anywhere; }
 #relatedPanel .semantic-relation-form { gap: 20px; }
 #relatedPanel .semantic-relation-form label { font-size: 14px; line-height: 1.6; }

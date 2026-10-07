@@ -212,6 +212,19 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+test("viewpoint save and both confirmation paths send the captured vault", async () => {
+  const state = distillationFixture(), calls = [];
+  const deps = {
+    state, getVaultPath: () => "original-vault",
+    updatePermanentNoteDistillation: async (id, payload) => { calls.push(payload); return savedDraft; },
+    confirmPermanentNoteDistillation: async (id, payload) => { calls.push(payload); return savedDraft; }
+  };
+  await handleSaveNoteDistillationStateChange({ noteId: "n1", distillationStatus: "confirmed" }, deps);
+  await handleConfirmNoteDistillationStateChange({ noteId: "n1" }, deps);
+  assert.equal(calls.length, 3);
+  for (const payload of calls) assert.equal(payload.expectedVaultPath, "original-vault");
+});
+
 function distillationFixture() {
   return {
     noteMoveVaultScope: {},
@@ -222,6 +235,32 @@ function distillationFixture() {
 }
 
 const savedDraft = { id: "n1", title: "Saved", body: "saved body", fileRevision: "draft" };
+
+for (const phase of ["draft", "confirmation", "explicit-confirmation", "partial-confirmation"]) {
+  test(`${phase} preserves body and title already unsaved when the request starts`, async () => {
+    const state = distillationFixture();
+    Object.assign(state.tabs[0], { body: "already unsaved body", title: "Already unsaved title", dirty: true });
+    const deps = {
+      state,
+      updatePermanentNoteDistillation: async () => savedDraft,
+      confirmPermanentNoteDistillation: async () => {
+        if (phase === "partial-confirmation") throw new Error("confirmation failed");
+        return savedDraft;
+      }
+    };
+    const result = phase === "explicit-confirmation"
+      ? await handleConfirmNoteDistillationStateChange({ noteId: "n1" }, deps)
+      : await handleSaveNoteDistillationStateChange({ noteId: "n1", distillationStatus: phase === "draft" ? "draft" : "confirmed" }, deps);
+    assert.equal(state.tabs[0].body, "already unsaved body");
+    assert.equal(state.tabs[0].title, "Already unsaved title");
+    assert.equal(state.tabs[0].savedBody, "old body");
+    assert.equal(state.tabs[0].savedTitle, "Old");
+    assert.equal(state.tabs[0].savedFileRevision, "old");
+    assert.equal(state.tabs[0].saveConflict, true);
+    assert.equal(state.tabs[0].dirty, true);
+    assert.equal(Boolean(result.distillationSaveIncomplete), phase === "partial-confirmation");
+  });
+}
 
 for (const phase of ["draft", "confirmation", "explicit-confirmation"]) {
   for (const outcome of ["success", "failure"]) {
@@ -259,7 +298,7 @@ for (const phase of ["draft", "confirmation", "explicit-confirmation"]) {
 }
 
 for (const phase of ["draft", "confirmation", "explicit-confirmation"]) {
-  test(`${phase} preserves newer body and title while updating the saved baseline`, async () => {
+  test(`${phase} preserves conflicting input and the old revision guard`, async () => {
     const state = distillationFixture();
     const waiting = deferred(), started = deferred();
     const wait = () => { started.resolve(); return waiting.promise; };
@@ -278,9 +317,10 @@ for (const phase of ["draft", "confirmation", "explicit-confirmation"]) {
     assert.equal((await operation).fileRevision, "draft");
     assert.equal(state.tabs[0].title, "Newer title");
     assert.equal(state.tabs[0].body, "newer unsaved body");
-    assert.equal(state.tabs[0].savedTitle, "Saved");
-    assert.equal(state.tabs[0].savedBody, "saved body");
-    assert.equal(state.tabs[0].savedFileRevision, "draft");
+    assert.equal(state.tabs[0].savedTitle, "Old");
+    assert.equal(state.tabs[0].savedBody, "old body");
+    assert.equal(state.tabs[0].savedFileRevision, "old");
+    assert.equal(state.tabs[0].saveConflict, true);
     assert.equal(state.tabs[0].dirty, true);
   });
 }
@@ -300,8 +340,9 @@ test("partial confirmation failure preserves newer input in a background tab", a
   assert.equal((await operation).distillationSaveIncomplete, true);
   assert.equal(state.tabs[0].body, "newer unsaved body");
   assert.equal(state.tabs[0].title, "Newer title");
-  assert.equal(state.tabs[0].savedBody, "saved body");
-  assert.equal(state.tabs[0].savedFileRevision, "draft");
+  assert.equal(state.tabs[0].savedBody, "old body");
+  assert.equal(state.tabs[0].savedFileRevision, "old");
+  assert.equal(state.tabs[0].saveConflict, true);
   assert.equal(state.tabs[0].dirty, true);
 });
 

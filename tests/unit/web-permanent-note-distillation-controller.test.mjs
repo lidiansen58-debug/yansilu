@@ -13,6 +13,7 @@ import {
 } from "../../apps/web/src/permanent-note-distillation-model.js";
 import { PermanentNoteDistillationController } from "../../apps/web/src/permanent-note-distillation-controller.js";
 import { syncDistillationEditorResult } from "../../apps/web/src/distillation-editor-result.js";
+import { handleConfirmNoteDistillationStateChange, handleSaveNoteDistillationStateChange } from "../../apps/web/src/app-shell-distillation-state-actions.js";
 import { renderPermanentNoteDistillationSection } from "../../apps/web/src/permanent-note-distillation-view.js";
 
 function field(value = "") {
@@ -489,6 +490,50 @@ test("saving the current viewpoint refreshes the actual editor, without replacin
     assert.equal(warnings.length, typingDuringSave ? 1 : 0);
   }
 });
+
+for (const action of ["save", "confirm"]) {
+  test(`${action} retains typing during the preceding autosave through the real state actions`, async () => {
+    const note = { id: "pn1", noteType: "permanent", title: "Note", body: "# Note\n\nSaved body", fileRevision: "saved" };
+    const tab = { noteId: note.id, body: note.body, title: note.title, savedBody: note.body,
+      savedTitle: note.title, savedFileRevision: note.fileRevision, dirty: false };
+    const state = { notes: [note], tabs: [tab], noteMoveVaultScope: 1 };
+    const form = distillationForm({ thesis: "Claim" });
+    let editorBody = note.body, fills = 0;
+    const warnings = [];
+    const savedBody = `# Note\n\n## 提炼观点\n\nClaim\n\nSaved body`;
+    const deps = { state, getVaultPath: () => "vault-a",
+      updatePermanentNoteDistillation: async () => ({ ...note, thesis: "Claim", fileRevision: "draft" }),
+      confirmPermanentNoteDistillation: async () => ({ ...note, thesis: "Claim", body: savedBody, fileRevision: "confirmed" }) };
+    const controller = new PermanentNoteDistillationController({
+      els: { result: { querySelector: () => form } },
+      activeNote: () => note, activeTab: () => tab, resolvedNoteType: () => "permanent",
+      isActiveNoteId: () => true, vaultScope: () => "vault-a",
+      autoSaveActiveNote: async () => {
+        editorBody += "\n\nNew text typed during autosave.";
+        tab.body = editorBody;
+        tab.dirty = true;
+        return true;
+      },
+      getEditorValue: () => editorBody,
+      fillEditorFromTab: () => { fills++; editorBody = tab.body; },
+      updateActiveTabFromEditor: () => { tab.body = editorBody; tab.dirty = tab.body !== tab.savedBody; },
+      onStateChange: (event, payload) => event === "save-note-distillation"
+        ? handleSaveNoteDistillationStateChange(payload, deps) : handleConfirmNoteDistillationStateChange(payload, deps),
+      onStatus: message => warnings.push(message), renderThinkingStatus: () => {}, renderRelated: () => {},
+      readTemplateVariantPreference: () => "", templateVariantPreferenceMeta: () => ({})
+    });
+    if (action === "save") await controller.handleForm(form);
+    else await controller.confirm();
+    assert.match(editorBody, /New text typed during autosave/);
+    assert.equal(tab.body, editorBody);
+    assert.equal(tab.savedBody, savedBody);
+    assert.equal(tab.savedFileRevision, "confirmed");
+    assert.equal(tab.dirty, true);
+    assert.match(editorBody, /## 提炼观点/);
+    assert.ok(fills >= 1);
+    assert.notEqual(tab.saveConflict, true);
+  });
+}
 
 test("a refreshed body keeps keyboard focus in the open viewpoint panel without stealing outside focus", () => {
   for (const panelFocused of [false, true]) {

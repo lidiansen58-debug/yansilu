@@ -1,3 +1,4 @@
+import { reconcileDistillationTab } from "./distillation-body-merge.js";
 
 function captureDistillationContext(state, note, getVaultPath) {
   const scope = state.noteMoveVaultScope;
@@ -6,10 +7,10 @@ function captureDistillationContext(state, note, getVaultPath) {
   const tab = (state.tabs || []).find((item) => item.noteId === note.id);
   const snapshot = tab && {
     body: tab.body, title: tab.title, savedBody: tab.savedBody,
-    savedTitle: tab.savedTitle, savedFileRevision: tab.savedFileRevision
+    savedTitle: tab.savedTitle, savedFileRevision: tab.savedFileRevision, dirty: tab.dirty
   };
   return {
-    tab, snapshot,
+    tab, snapshot, vaultPath,
     isCurrent: () => state.noteMoveVaultScope === scope
       && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain
       && getVaultPath?.() === vaultPath
@@ -24,14 +25,20 @@ function syncDistillationTabFromNote(state, context, updated) {
   if (tab.savedFileRevision !== snapshot.savedFileRevision
     || tab.savedBody !== snapshot.savedBody || tab.savedTitle !== snapshot.savedTitle) return;
   const hasNewerInput = tab.body !== snapshot.body || tab.title !== snapshot.title;
-  if (!hasNewerInput) {
+  const hasUnsavedInput = (typeof snapshot.savedBody === "string" && snapshot.body !== snapshot.savedBody)
+    || (typeof snapshot.savedTitle === "string" && snapshot.title !== snapshot.savedTitle)
+    || (snapshot.dirty === true && typeof snapshot.savedBody !== "string");
+  if (!hasNewerInput && !hasUnsavedInput) {
     tab.body = updated.body;
     tab.title = updated.title || tab.title;
+  } else {
+    return reconcileDistillationTab(tab, updated, snapshot);
   }
   tab.savedBody = updated.body;
   tab.savedFileRevision = updated.fileRevision;
   tab.savedTitle = updated.title || snapshot.title;
   tab.dirty = tab.body !== tab.savedBody || tab.title !== tab.savedTitle;
+  return true;
 }
 
 export async function handleSaveNoteDistillationStateChange(payload = {}, deps = {}) {
@@ -56,6 +63,7 @@ export async function handleSaveNoteDistillationStateChange(payload = {}, deps =
     const requestedStatus = String(payload.distillationStatus || "draft").trim();
     const shouldConfirm = requestedStatus === "confirmed";
     const updatePayload = {
+      ...(context.vaultPath ? { expectedVaultPath: context.vaultPath } : {}),
       thesis: payload.thesis || "",
       threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
       boundaryOrCounterpoint: payload.boundaryOrCounterpoint || "",
@@ -80,28 +88,33 @@ export async function handleSaveNoteDistillationStateChange(payload = {}, deps =
     let finalUpdated = updated;
     if (shouldConfirm) {
       finalUpdated = await confirmPermanentNoteDistillation(note.id, {
+        ...(context.vaultPath ? { expectedVaultPath: context.vaultPath } : {}),
         aiAssisted: Boolean(payload.authorship?.ai_assisted ?? note.authorship?.ai_assisted),
         ...(updated?.fileRevision ? { expectedRevision: updated.fileRevision } : {})
       });
     }
     if (!context.isCurrent()) return false;
+    let reconciled;
     if (finalUpdated) {
       Object.assign(note, mapNoteItem(finalUpdated), { bodyLoaded: true });
-      syncDistillationTabFromNote(state, context, finalUpdated);
+      reconciled = syncDistillationTabFromNote(state, context, finalUpdated);
     }
-    setStatus(shouldConfirm ? "当前观点已保存" : "观点草稿已保存", "ok");
+    setStatus(reconciled === false ? "观点已保存；正文修改冲突，请保留修改后重新打开核对。"
+      : shouldConfirm ? "当前观点已保存" : "观点草稿已保存", reconciled === false ? "warn" : "ok");
     renderDistillationPanel();
     renderAll();
-    return finalUpdated || true;
+    return finalUpdated ? { ...finalUpdated,
+      ...(reconciled !== undefined ? { distillationEditorBaseline: context.snapshot } : {}) } : true;
   } catch (error) {
     if (!context.isCurrent()) return false;
     if (updated) {
       Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-      syncDistillationTabFromNote(state, context, updated);
+      const reconciled = syncDistillationTabFromNote(state, context, updated);
       setStatus(`观点草稿已保存，但确认失败：${String(error?.message || error)}。请重试保存。`, "bad");
       renderDistillationPanel();
       renderAll();
-      return { ...updated, distillationSaveIncomplete: true };
+      return { ...updated, distillationSaveIncomplete: true,
+        ...(reconciled !== undefined ? { distillationEditorBaseline: context.snapshot } : {}) };
     }
     setStatus(`当前观点保存失败：${String(error?.message || error)}`, "bad");
     return false;
@@ -125,17 +138,21 @@ export async function handleConfirmNoteDistillationStateChange(payload = {}, dep
 
   try {
     const updated = await confirmPermanentNoteDistillation(note.id, {
+      ...(context.vaultPath ? { expectedVaultPath: context.vaultPath } : {}),
       aiAssisted: Boolean(note.authorship?.ai_assisted),
       ...(note.fileRevision ? { expectedRevision: note.fileRevision } : {})
     });
     if (!context.isCurrent()) return false;
+    let reconciled;
     if (updated) {
       Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-      syncDistillationTabFromNote(state, context, updated);
+      reconciled = syncDistillationTabFromNote(state, context, updated);
     }
-    setStatus("提炼内容已整理到正文", "ok");
+    setStatus(reconciled === false ? "观点已保存；正文修改冲突，请保留修改后重新打开核对。"
+      : "提炼内容已整理到正文", reconciled === false ? "warn" : "ok");
     renderAll();
-    return updated || true;
+    return updated ? { ...updated,
+      ...(reconciled !== undefined ? { distillationEditorBaseline: context.snapshot } : {}) } : true;
   } catch (error) {
     if (!context.isCurrent()) return false;
     setStatus(`整理到正文失败：${String(error?.message || error)}`, "bad");

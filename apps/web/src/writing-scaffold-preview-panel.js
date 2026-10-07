@@ -3,6 +3,7 @@ import {
 } from "./writing-workbench-model.js";
 
 import { observeWritingOutlineSize, resizeWritingOutlineHeading } from "./writing-outline-layout.js";
+import { renderWritingOutlineSourceNotices } from "./writing-outline-source-notices.js";
 export { resizeWritingOutlineHeading };
 
 export function renderWritingScaffoldPreviewDom(deps = {}) {
@@ -21,7 +22,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
   }
 
   const sections = normalizeWritingOutlineSections(writingState.scaffold);
-  el.innerHTML = sections.length
+  el.innerHTML = renderWritingOutlineSourceNotices(writingState, escapeHtml) + (sections.length
     ? `<div class="writing-outline-section-list">${sections
         .map((section, index) => `
           <article class="writing-outline-section" data-writing-outline-index="${escapeHtml(index)}">
@@ -39,7 +40,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
           </article>
         `)
         .join("")}</div>`
-    : `<div class="writing-empty">还没有章节。</div><button class="mini-btn" type="button" data-writing-outline-action="add" data-writing-outline-index="0">添加第一节</button>`;
+    : `<div class="writing-empty">还没有章节。</div><button class="mini-btn" type="button" data-writing-outline-action="add" data-writing-outline-index="0">添加第一节</button>`);
   el.ownerDocument?.defaultView?.requestAnimationFrame(() => {
     el.querySelectorAll('.writing-outline-heading').forEach(resizeWritingOutlineHeading);
   });

@@ -6,10 +6,67 @@ import os from "node:os";
 import net from "node:net";
 import http from "node:http";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { fileURLToPath } from "node:url";
+import { initVault, createNoteInDirectory } from "../../packages/domain/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+for (const action of ["save", "confirm"]) {
+  test(`viewpoint ${action} rejects delayed and stale requests across cloned vaults`, async t => {
+    const root = await makeTempDir("yansilu-viewpoint-vault-");
+    const vaultPath = path.join(root, "original"), otherVault = path.join(root, "copy");
+    await initVault(vaultPath);
+    const note = await createNoteInDirectory(vaultPath, { directoryId: "dir_original_default",
+      body: "# Original\n\nKeep this original evidence.", thesis: "A judgment needs traceable evidence." });
+    await fs.cp(vaultPath, otherVault, { recursive: true });
+    const files = [vaultPath, otherVault].map(vault => path.join(vault, note.markdownPath));
+    const before = await Promise.all(files.map(file => fs.readFile(file)));
+    const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+    const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+      cwd: REPO_ROOT, env: { ...process.env, API_PORT: String(port), VAULT_PATH: vaultPath }, stdio: "ignore"
+    });
+    t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+    await waitForHealth(baseUrl);
+    const original = (await getJson(baseUrl, `/api/v1/notes/${note.id}`)).json.item;
+    const route = `/api/v1/permanent-notes/${note.id}/distillation${action === "confirm" ? "/confirm" : ""}`;
+    const method = action === "confirm" ? "POST" : "PATCH";
+    const payload = { title: "Saved in original vault", thesis: original.thesis, expectedRevision: original.fileRevision };
+    let pending;
+    const response = new Promise((resolve, reject) => {
+      pending = http.request(`${baseUrl}${route}`, { method, headers: { "Content-Type": "application/json" } }, res => {
+        let text = "";
+        res.on("data", chunk => { text += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(text) }));
+      });
+      pending.on("error", reject);
+      pending.write("{");
+    });
+    t.after(() => pending.destroy());
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal((await postJson(baseUrl, "/api/v1/vault", { vaultPath: otherVault })).status, 200);
+    const copied = (await getJson(baseUrl, `/api/v1/notes/${note.id}`)).json.item;
+    assert.equal(copied.fileRevision, original.fileRevision);
+    // Even an older client without expectedVaultPath must not cross the request's initial vault.
+    pending.end(JSON.stringify(payload).slice(1));
+    const denied = await response;
+    assert.equal(denied.status, 409, JSON.stringify(denied.json));
+    assert.equal(denied.json.error.code, "VAULT_CHANGED");
+    const request = method === "POST" ? postJson : patchJson;
+    const stale = await request(baseUrl, route, { ...payload, expectedVaultPath: vaultPath });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.json.error.code, "VAULT_CHANGED");
+    for (const [index, file] of files.entries()) assert.deepEqual(await fs.readFile(file), before[index]);
+    await postJson(baseUrl, "/api/v1/vault", { vaultPath });
+    const retried = await request(baseUrl, route, { ...payload, expectedVaultPath: vaultPath });
+    assert.equal(retried.status, 200, JSON.stringify(retried.json));
+    assert.equal(retried.json.item.id, note.id);
+    assert.equal(action === "confirm" ? retried.json.item.distillationStatus : retried.json.item.title,
+      action === "confirm" ? "confirmed" : payload.title);
+    assert.deepEqual(await fs.readFile(files[1]), before[1]);
+  });
+}
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
