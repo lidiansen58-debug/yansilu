@@ -2,6 +2,7 @@ import { normalizeWysiwygMarkdownValue } from "./editor-markdown-commands.js";
 import { createWritingDocumentLinkOpener } from "./writing-document-links.js";
 import { createWritingSaveShortcutHandler } from "./editor-save-shortcuts.js";
 import { createWritingDocumentSession } from "./writing-document-session.js";
+import { reconcileWritingDocumentValue } from "./writing-document-reconcile.js";
 
 const controllers = new WeakMap();
 
@@ -35,7 +36,8 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
       if (current !== rich) { rich = current; rendered = source.value; }
       if (source.value !== rendered) {
         suppress = true;
-        try { rich.setValue(source.value); rendered = source.value; } finally { suppress = false; }
+        try { reconcileWritingDocumentValue(rich, host, rendered, source.value); rendered = source.value; }
+        finally { suppress = false; }
       }
       for (const editable of host.querySelectorAll('.ProseMirror[contenteditable]')) editable.setAttribute("contenteditable", String(!source.disabled));
       host.querySelector('.toastui-editor-ww-container .ProseMirror')?.setAttribute("aria-label", "正文内容");

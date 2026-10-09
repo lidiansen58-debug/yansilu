@@ -6,6 +6,15 @@ import { initVault, createNoteInDirectory } from "../../packages/domain/src/inde
 import { createIndexCard } from "../../packages/domain/src/index-card-store.mjs";
 import { createWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 
+async function moveWritingCaretToEnd(page) {
+  await page.keyboard.press("Control+End");
+  // Native selectionchange reaches ProseMirror after the browser's caret moves.
+  await page.waitForFunction(() => {
+    const state = document.querySelector("#writingDocumentEditor").__wysiwygMarkdownEditor.editor.wwEditor.view.state;
+    return state.selection.to === state.doc.content.size - 1;
+  });
+}
+
 test("writing uses shared controls, one heading, dismissible chapter tools and truthful save feedback", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
@@ -89,10 +98,11 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
     await page.screenshot({ path: `output/main-flow-design-system/writing-${width}.png` });
   }
   await proseEditor.click();
-  await page.keyboard.press("Control+End");
+  await moveWritingCaretToEnd(page);
   await page.keyboard.press("Enter");
   await page.keyboard.insertText("解释能帮助发现遗漏，也需要回到原文核对。");
   const prose = await editor.inputValue();
+  assert.equal(await proseEditor.locator("h1").innerText(), "第一章：检验理解");
   assert.ok(prose.includes(`[[${source.id}|${source.title}]]`));
   assert.match(prose, /解释能帮助发现遗漏/);
   assert.doesNotMatch(prose, /\$\$widget/);
@@ -123,7 +133,7 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
   const noteId = savedProject.book_structure.parts[0].chapters[0].draft_note_id;
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${noteId}`)).json.item.body.trimEnd(), prose.trimEnd());
   await proseEditor.click();
-  await page.keyboard.press("Control+End");
+  await moveWritingCaretToEnd(page);
   await page.keyboard.press("Enter");
   await page.keyboard.insertText("格式检查");
   await page.keyboard.press("Shift+Home");
@@ -140,7 +150,7 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
     await proseEditor.click();
     await page.keyboard.press("Control+s");
     await waitFor(() => assert.ok(requested));
-    await page.keyboard.press("Control+End");
+    await moveWritingCaretToEnd(page);
     await page.keyboard.press("Enter");
     await page.keyboard.insertText("保存期间继续写下的内容。");
     release();

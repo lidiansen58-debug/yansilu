@@ -5,7 +5,7 @@ import { initVault, createNoteInDirectory } from "../../packages/domain/src/inde
 import { createIndexCard } from "../../packages/domain/src/index-card-store.mjs";
 import { createWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 
-async function setup(t, { delayEditor = false, openSource = false } = {}) {
+async function setup(t, { delayEditor = false, openSource = false, draftBody = "# 第一章\n\n已经保存的章节内容。" } = {}) {
   const pw = await optionalPlaywright(t);
   if (!pw) return null;
   let index, project, release, source, draft;
@@ -16,7 +16,7 @@ async function setup(t, { delayEditor = false, openSource = false } = {}) {
     prepareVault: async vault => {
       await initVault(vault);
       source = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "来源", body: "# 来源\n\n资料。", thesis: "资料有用。" });
-      draft = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "第一章", body: "# 第一章\n\n已经保存的章节内容。" });
+      draft = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "第一章", body: draftBody });
       index = await createIndexCard(vault, { directoryId: "dir_original_default", indexType: "topic", title: "继续写作", centralQuestion: "如何继续输入？", items: [{ noteId: source.id, shortLabel: "来源", rationale: "理由" }] });
       project = await createWritingProject(vault, { title: index.title, basketNoteIds: [source.id], relatedIndexIds: [index.id],
         bookStructure: { schema_version: 1, parts: [{ id: "part", title: "正文", chapters: [
@@ -193,4 +193,75 @@ test("writing workspace shortcuts save once when the mode button owns focus", as
     assert.ok((await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body.includes(token));
   }
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
+});
+
+for (const width of [1366, 390]) test(`saving mid-paragraph preserves caret, scroll and continued input (${width}px)`, async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const draftBody = `# 第一章\n\n已经保存的章节内容。\n\n${Array.from({ length: 30 }, (_, i) => `第${i + 1}段内容用于验证长正文中的位置。`).join("\n\n")}`;
+  const stack = await setup(t, { draftBody });
+  if (!stack) return;
+  const { page, apiBase, draft } = stack;
+  await page.setViewportSize({ width, height: 900 });
+  const rich = page.locator("#writingDocumentEditor .toastui-editor-ww-container .ProseMirror");
+  const feedback = page.locator("#writingDraftSaveFeedback"), source = page.locator("#writingDraftEditor");
+  await rich.waitFor({ state: "visible" });
+  const position = () => rich.evaluate(el => {
+    const selection = window.getSelection();
+    return { text: selection.anchorNode?.textContent, offset: selection.anchorOffset,
+      scrollTop: el.scrollTop, scrollLeft: el.scrollLeft, focused: document.activeElement === el };
+  });
+  for (const [index, shortcut] of ["Control+s", "Meta+s"].entries()) {
+    await rich.evaluate(el => {
+      el.focus();
+      window.getSelection().setPosition(el.querySelectorAll("p")[12].firstChild, 3);
+    });
+    const token = `MID${index}`, continuation = `NEXT${index}`;
+    await page.keyboard.insertText(token);
+    await waitFor(async () => assert.equal(await feedback.innerText(), "有未保存的修改"));
+    const before = await position();
+    assert.ok(before.scrollTop > 0, "The caret must be in a scrolled document");
+    await page.keyboard.press(shortcut);
+    await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+    assert.deepEqual(await position(), before);
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body, await source.inputValue());
+    await page.keyboard.insertText(continuation);
+    assert.ok((await source.inputValue()).includes(`${token}${continuation}`));
+    await page.keyboard.press(shortcut);
+    await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+    assert.ok((await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body.includes(`${token}${continuation}`));
+  }
+});
+
+test("a real body refresh maps the focused caret across preceding note widgets", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const stack = await setup(t, { draftBody: "# 第一章\n\n已经保存的章节内容。\n\n参考：[[n_example|来源示例]]\n\n继续编辑这段正文。" });
+  if (!stack) return;
+  const { page, apiBase, draft } = stack;
+  const rich = page.locator("#writingDocumentEditor .toastui-editor-ww-container .ProseMirror");
+  await rich.waitFor({ state: "visible" });
+  await rich.evaluate(el => {
+    el.focus();
+    const paragraph = Array.from(el.querySelectorAll("p")).find(node => node.textContent === "继续编辑这段正文。");
+    window.getSelection().setPosition(paragraph.firstChild, 3);
+  });
+  await page.keyboard.insertText("MID");
+  const before = await rich.evaluate(() => ({ text: window.getSelection().anchorNode.textContent, offset: window.getSelection().anchorOffset }));
+  // Exercise the canonical bridge used by background renders with a real change.
+  await page.evaluate(async () => {
+    const source = document.querySelector("#writingDraftEditor");
+    source.value = `# 前言\n\n${source.value}`;
+    const { syncWritingDocumentEditor } = await import("/writing-document-editor.js");
+    syncWritingDocumentEditor({ $: id => document.getElementById(id) });
+  });
+  assert.deepEqual(await rich.evaluate(() => ({ text: window.getSelection().anchorNode.textContent, offset: window.getSelection().anchorOffset })), before);
+  assert.equal(await rich.locator("[data-wikilink]").innerText(), "来源示例");
+  await page.keyboard.insertText("NEXT");
+  assert.match(await page.locator("#writingDraftEditor").inputValue(), /MIDNEXT/);
+  await page.keyboard.press("Control+s");
+  await waitFor(async () => assert.equal(await page.locator("#writingDraftSaveFeedback").innerText(), "已保存"));
+  const saved = (await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body;
+  assert.match(saved, /^# 前言\n\n/);
+  assert.match(saved, /MIDNEXT/);
+  assert.ok(saved.includes("[[n_example|来源示例]]"));
+  assert.doesNotMatch(saved, /\$\$widget/);
 });

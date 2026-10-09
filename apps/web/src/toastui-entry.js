@@ -172,17 +172,17 @@ export function createWysiwygMarkdownEditor({
       if (editor.isWysiwygMode()) return toastuiMarkdownSelection(editor);
       return normalizeSelection(editor.getMarkdown(), editor.getSelection());
     },
-    setSelectionRange(from, to = from) {
+    setSelectionRange(from, to = from, { focus = true } = {}) {
       if (editor.isWysiwygMode()) {
         const selection = toastuiWysiwygSelection(editor, from, to);
         if (!selection) return;
         editor.setSelection(selection.from, selection.to);
-        editor.focus();
+        if (focus) editor.focus();
         return;
       }
       const markdown = editor.getMarkdown();
       editor.setSelection(offsetToMdPos(markdown, from), offsetToMdPos(markdown, to));
-      editor.focus();
+      if (focus) editor.focus();
     },
     replaceRange(from, to, insertText = "") {
       const markdown = editor.getMarkdown();
