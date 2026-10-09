@@ -3787,6 +3787,7 @@ async function autoPrepareLocalAiOnStartup() {
 
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
+  if (normalizedModule !== "graph") graphModuleActivationGuardUntil = 0;
   let returningFromReading = false;
   if (state.module === "today" && normalizedModule !== "today") {
     state.todayNoticeMessage = "";

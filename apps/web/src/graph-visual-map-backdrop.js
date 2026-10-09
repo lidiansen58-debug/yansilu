@@ -1,18 +1,13 @@
 export function buildGraphVisualMapBackdropMarkup({
-  runtimeState = {},
-  graphState = {},
-  relationType = "meaningful"
+  runtimeState = {}
 } = {}, deps = {}) {
   const {
     graphThemeBoundaryMeta = () => null,
     renderGraphThemeBoundary = () => "",
-    renderGraphStarfield = () => "",
-    renderGraphNebulaField = () => "",
     renderGraphClusterGlow = () => ""
   } = deps;
   const {
     layout = { nodes: [], width: 0, height: 0, clusterMeta: [] },
-    zoom = { key: "fit" },
     activeSelection = null
   } = runtimeState;
 
@@ -27,12 +22,11 @@ export function buildGraphVisualMapBackdropMarkup({
         })
       : null
   );
-  const visualSeed = `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`;
-
   return {
     themeBoundaryMarkup,
-    starfieldMarkup: renderGraphStarfield(layout.width, layout.height, visualSeed),
-    nebulaMarkup: renderGraphNebulaField(layout.width, layout.height, visualSeed),
+    // Keep the layer contract without generating decorative background objects.
+    starfieldMarkup: "",
+    nebulaMarkup: "",
     clusterGlowMarkup: renderGraphClusterGlow(layout.clusterMeta)
   };
 }

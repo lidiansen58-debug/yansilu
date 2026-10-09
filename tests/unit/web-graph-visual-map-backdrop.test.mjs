@@ -5,7 +5,7 @@ import {
   buildGraphVisualMapBackdropMarkup
 } from "../../apps/web/src/graph-visual-map-backdrop.js";
 
-test("graph visual map backdrop builds theme boundary and seeded visual fields", () => {
+test("graph visual map backdrop preserves meaningful groups without decorative visual fields", () => {
   const calls = [];
   const result = buildGraphVisualMapBackdropMarkup({
     graphState: { lastLoadedAt: "loaded" },
@@ -26,14 +26,14 @@ test("graph visual map backdrop builds theme boundary and seeded visual fields",
       return { title: input.title, count: input.noteIds.length };
     },
     renderGraphThemeBoundary: (meta) => `<theme title="${meta.title}" count="${meta.count}" />`,
-    renderGraphStarfield: (width, height, seed) => `<stars width="${width}" height="${height}" seed="${seed}" />`,
-    renderGraphNebulaField: (_width, _height, seed) => `<nebula seed="${seed}" />`,
+    renderGraphStarfield: () => assert.fail("Decorative stars should not be generated"),
+    renderGraphNebulaField: () => assert.fail("Decorative nebulae should not be generated"),
     renderGraphClusterGlow: (clusters) => `<clusters count="${clusters.length}" />`
   });
 
   assert.equal(result.themeBoundaryMarkup, '<theme title="Theme" count="2" />');
-  assert.match(result.starfieldMarkup, /seed="loaded:index:read"/);
-  assert.match(result.nebulaMarkup, /loaded:index:read/);
+  assert.equal(result.starfieldMarkup, "");
+  assert.equal(result.nebulaMarkup, "");
   assert.equal(result.clusterGlowMarkup, '<clusters count="1" />');
   assert.deepEqual(calls, [["meta", ["n1", "n2"], 800, 400]]);
 });

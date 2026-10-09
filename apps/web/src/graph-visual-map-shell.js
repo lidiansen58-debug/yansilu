@@ -189,23 +189,24 @@ export function renderGraphVisualMapShellView({
               <div class="graph-map-body${sidePanelMarkup ? " has-side-panel" : ""}">
                 <div class="graph-map-canvas">
                   <div class="graph-map-viewport" data-graph-zoom="${escapeHtml(zoomKey)}" aria-label="${escapeHtml(labels.canvas)}">
-                    <div class="graph-map-floater" aria-label="${escapeHtml(labels.tools)}">
-                      <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${escapeHtml(expanded ? labels.collapse : labels.expand)}" aria-label="${escapeHtml(expanded ? labels.collapse : labels.expand)}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
-                      <button class="graph-floater-toggle graph-pan-hint" type="button" disabled aria-disabled="true" title="${escapeHtml(labels.panCanvasHint)}" aria-label="${escapeHtml(labels.panCanvas)}">${renderGraphIcon("hand")}</button>
-                      <div class="graph-zoom-controls" aria-label="${escapeHtml(labels.zoomControls)}">
-                        ${zoomStepperMarkup}
+                    <div class="graph-map-tools">
+                      <div class="graph-map-floater" aria-label="${escapeHtml(labels.tools)}">
+                        <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${escapeHtml(expanded ? labels.collapse : labels.expand)}" aria-label="${escapeHtml(expanded ? labels.collapse : labels.expand)}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
+                        <div class="graph-zoom-controls" aria-label="${escapeHtml(labels.zoomControls)}">
+                          ${zoomStepperMarkup}
+                        </div>
                       </div>
-                    </div>
-                    <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
-                      <strong>${escapeHtml(labels.hoverTitle)}</strong>
-                      <span>${escapeHtml(labels.hoverDetail)}</span>
+                      <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
+                        <strong>${escapeHtml(labels.hoverTitle)}</strong>
+                        <span>${escapeHtml(labels.hoverDetail)}</span>
+                      </div>
                     </div>
                     ${canvasHelpHintVisible ? `<div class="graph-canvas-help-hint" role="status">${escapeHtml(labels.canvasHelpHint)}</div>` : ""}
                     <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoomKey)}" viewBox="${escapeHtml(viewBox || `0 0 ${layoutWidth} ${layoutHeight}`)}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="${escapeHtml(labels.mapImage)}">
                       <defs>${svgDefsMarkup}</defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layoutWidth}" height="${layoutHeight}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
                       <g class="graph-map-nebulae" filter="url(#graph-nebula-blur)">${nebulaMarkup}</g>
-                      <g class="graph-map-cluster-glows" filter="url(#graph-nebula-blur)">${clusterGlowMarkup}</g>
+                      <g class="graph-map-cluster-glows">${clusterGlowMarkup}</g>
                       <g class="graph-map-stars">${starfieldMarkup}</g>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>

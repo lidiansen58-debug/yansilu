@@ -1,0 +1,121 @@
+/* A quiet reading surface; layout, relation colours and selection routing stay local. */
+#moduleWorkspace.graph-mode :is(.graph-map-canvas, .graph-map-viewport, .graph-map-svg) {
+  background: var(--ui-surface-muted);
+  border-radius: var(--ui-control-radius);
+}
+#moduleWorkspace.graph-mode .graph-map-viewport { border: 1px solid var(--ui-border); }
+#moduleWorkspace.graph-mode .graph-map-backdrop { fill: var(--ui-surface-muted); }
+#moduleWorkspace.graph-mode :is(.graph-map-node-aura, .graph-map-node-glint, .graph-map-edge-underlay, .graph-map-empty-orbit) { display: none; }
+#moduleWorkspace.graph-mode :is(.graph-map-node circle, .graph-map-edge, .graph-theme-boundary-line, .graph-map-cluster-glow) {
+  filter: none;
+  animation: none;
+}
+#moduleWorkspace.graph-mode .graph-map-node-core { fill: var(--ui-brand); stroke: var(--ui-surface); stroke-width: 1.5; }
+#moduleWorkspace.graph-mode .graph-theme-boundary-line { stroke: var(--ui-brand); }
+#moduleWorkspace.graph-mode .graph-map-node.is-literature .graph-map-node-core { fill: #9a6700; }
+#moduleWorkspace.graph-mode .graph-map-node.is-fleeting .graph-map-node-core { fill: #2563eb; }
+#moduleWorkspace.graph-mode .graph-map-node:is(.is-selected, :focus-visible) .graph-map-node-core { stroke: var(--ui-text); stroke-width: 2.5; }
+#moduleWorkspace.graph-mode .graph-map-node-label {
+  fill: var(--ui-text);
+  stroke: var(--ui-surface-muted);
+  stroke-width: 3px;
+  font-family: var(--ui-font);
+  font-weight: 600;
+}
+#moduleWorkspace.graph-mode :is(.graph-map-node-meta, .graph-map-edge-label, .graph-theme-boundary-label) {
+  fill: var(--ui-text-muted);
+  stroke: var(--ui-surface-muted);
+  font-family: var(--ui-font);
+  font-weight: 500;
+}
+#moduleWorkspace.graph-mode .graph-map-svg { --graph-workspace-edge: #64748b; }
+#moduleWorkspace.graph-mode :is(.is-support, #graph-arrow-support) { --graph-workspace-edge: var(--ui-brand); }
+#moduleWorkspace.graph-mode :is(.is-conflict, #graph-arrow-conflict) { --graph-workspace-edge: var(--ui-danger); }
+#moduleWorkspace.graph-mode :is(.is-boundary, #graph-arrow-boundary) { --graph-workspace-edge: #9a6700; }
+#moduleWorkspace.graph-mode :is(.is-bridge, #graph-arrow-bridge) { --graph-workspace-edge: #7c3aed; }
+#moduleWorkspace.graph-mode :is(.is-flow, #graph-arrow-flow) { --graph-workspace-edge: #2563eb; }
+#moduleWorkspace.graph-mode .graph-map-edge { stroke: var(--graph-workspace-edge); }
+#moduleWorkspace.graph-mode .graph-map-edge-pin { fill: var(--graph-workspace-edge); }
+#moduleWorkspace.graph-mode marker path { stroke: var(--graph-workspace-edge); stroke-opacity: 1; }
+#moduleWorkspace.graph-mode .graph-map-cluster-glow {
+  fill: var(--ui-brand-soft);
+  stroke: var(--ui-border);
+  stroke-width: 1;
+  opacity: .7;
+}
+#moduleWorkspace.graph-mode .graph-map-cluster-glows { mix-blend-mode: normal; opacity: 1; }
+#moduleWorkspace.graph-mode .graph-map-cluster-glow:focus-visible { stroke: var(--ui-brand); stroke-width: 2; }
+#moduleWorkspace.graph-mode .graph-map-mode-hint span { white-space: normal; overflow: visible; text-overflow: clip; }
+#moduleWorkspace.graph-mode .graph-map-tools {
+  position: sticky;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 12px 0 calc(-1 * var(--ui-control-height) - 12px) 12px;
+  pointer-events: none;
+}
+#moduleWorkspace.graph-mode .graph-map-floater {
+  position: static;
+  height: auto;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+}
+#moduleWorkspace.graph-mode .graph-hover-card {
+  top: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+#moduleWorkspace.graph-mode .graph-zoom-controls {
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+#moduleWorkspace.graph-mode :is(.graph-expand-btn, .graph-zoom-step, .graph-zoom-btn) {
+  min-width: var(--ui-control-height);
+  height: var(--ui-control-height);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-control-font-size);
+  font-weight: 600;
+  box-shadow: none;
+  transform: none;
+}
+#moduleWorkspace.graph-mode .graph-expand-btn { border-color: var(--ui-border); }
+#moduleWorkspace.graph-mode .graph-zoom-preset-group { background: transparent; border-radius: var(--ui-control-radius); }
+#moduleWorkspace.graph-mode .graph-zoom-btn span { display: inline; max-width: none; opacity: 1; font-size: 13px; transition: none; }
+#moduleWorkspace.graph-mode .graph-zoom-btn svg { display: none; }
+#moduleWorkspace.graph-mode .graph-zoom-btn.is-active { background: var(--ui-brand-soft); color: var(--ui-brand); }
+#moduleWorkspace.graph-mode :is(.graph-expand-btn, .graph-zoom-step, .graph-zoom-btn):hover:not(:disabled) { background: var(--ui-surface-muted); color: var(--ui-brand); }
+#moduleWorkspace.graph-mode :is(.graph-expand-btn, .graph-zoom-step, .graph-zoom-btn):focus-visible { outline: 2px solid var(--ui-brand); outline-offset: 2px; }
+#moduleWorkspace.graph-mode :is(.graph-hover-card, .graph-canvas-help-hint, .graph-map-empty-card) {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text-muted);
+  box-shadow: var(--ui-shadow-popover);
+  backdrop-filter: none;
+}
+#moduleWorkspace.graph-mode :is(.graph-hover-card, .graph-map-empty-card) strong { color: var(--ui-text); }
+#moduleWorkspace.graph-mode :is(.graph-hover-card, .graph-map-empty-card) span { color: var(--ui-text-muted); }
+#moduleWorkspace.graph-mode .graph-canvas-help-hint { font-size: 12px; font-weight: 400; box-shadow: none; animation: none; }
+#moduleWorkspace.graph-mode .graph-map-empty-canvas { background: var(--ui-surface-muted); border-radius: var(--ui-control-radius); }
+@media (max-width: 700px) {
+  #moduleWorkspace.graph-mode .graph-map-tools { top: 8px; left: 8px; margin-left: 8px; max-width: calc(100% - 16px); }
+  #moduleWorkspace.graph-mode .graph-map-floater { gap: 6px; flex-wrap: wrap; }
+  #moduleWorkspace.graph-mode .graph-zoom-controls { flex-shrink: 0; }
+  #moduleWorkspace.graph-mode .graph-zoom-btn { padding-inline: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #moduleWorkspace.graph-mode :is(.graph-map-node *, .graph-map-edge, .graph-hover-card, .graph-expand-btn, .graph-zoom-step, .graph-zoom-btn) { transition: none; animation: none; }
+}
