@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { createNoteSaveShortcutHandler } from "./editor-save-shortcuts.js";
 import { aiErrorMessage } from "./ai-error-message.js";
 import { beginNoteAnalysisRequest, prepareNoteAnalysisRequest, isCurrentNoteAnalysisRequest, cancelRelationAnalysisRequest, discardNoteAnalysisRequest } from "./note-analysis-request.js";
 import { refreshRelationNetworkStatusesForHost } from "./relation-network-refresh.js";
@@ -7119,18 +7120,10 @@ export class EditorPane {
       this.handleEditorKeydown(e);
     });
 
-    const handleGlobalSaveShortcut = (e) => {
-      if (e.__yansiluSaveHandled) return;
-      if (this.state.pendingNoteMoveId) return;
-      if (document.getElementById("noteSearchDialog")?.hidden === false) return;
-      const mod = e.ctrlKey || e.metaKey;
-      if (!mod || String(e.key || "").toLowerCase() !== "s" || e.isComposing) return;
-      if (!this.activeTab()) return;
-      e.__yansiluSaveHandled = true;
-      e.preventDefault();
-      e.stopPropagation();
-      this.saveActiveNote();
-    };
+    const handleGlobalSaveShortcut = createNoteSaveShortcutHandler({
+      state: this.state, documentRef: document,
+      activeTab: () => this.activeTab(), saveActiveNote: () => this.saveActiveNote()
+    });
     window.addEventListener("keydown", handleGlobalSaveShortcut, true);
     document.addEventListener("keydown", handleGlobalSaveShortcut, true);
 

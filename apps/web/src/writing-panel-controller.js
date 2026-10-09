@@ -1,5 +1,8 @@
 import { renderWritingEntryPreparation } from "./writing-entry-preparation.js";
 import { renderWritingBookChapterSelector, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
+import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
+import { syncWritingDocumentEditor } from "./writing-document-editor.js";
+import { renderWritingChapterNavigation } from "./writing-chapter-navigation.js";
 import { renderWritingBookDirectoryTools, writingBookDirectoryPending } from "./writing-book-directory-controller.js";
 import {
   renderWritingMainlineGuideView,
@@ -35,10 +38,7 @@ import {
 import {
   renderWritingScaffoldPreviewDom
 } from "./writing-scaffold-preview-panel.js";
-import {
-  renderWritableThemeDiscoveryPanelDom
-} from "./writable-theme-discovery-panel.js";
-import { captureWritableThemeDiscoveryDrafts } from "./writable-theme-discovery-draft.js";
+import { syncWritingThemeDiscoveryView } from "./writing-theme-discovery-view.js";
 import {
   updateWritingRelatedNoteCounters
 } from "./writing-related-notes-panel.js";
@@ -242,6 +242,8 @@ export function renderWritingPanelDom(deps = {}) {
   }
   const selectedTheme = resolveWritingThemeSelectionForPanel(deps);
   const explicitSelectedTheme = writingState.selectedThemeIndexId ? selectedTheme : null;
+  const workspaceTitle = $("writingWorkspaceTitle");
+  if (workspaceTitle) workspaceTitle.textContent = writingState.project?.title || explicitSelectedTheme?.title || "写作";
   const themeRelatedEntries = explicitSelectedTheme
     ? writingThemeIndexNoteIds(explicitSelectedTheme)
         .map((noteId) => writingKnownNoteById(noteId) || null)
@@ -268,11 +270,8 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
   if (themeDiscoverySuggestions) {
-    captureWritableThemeDiscoveryDrafts(themeDiscoverySuggestions, writingState);
-    const discoverySuggestions = Array.isArray(writingState.themeDiscoverySuggestions) ? writingState.themeDiscoverySuggestions : [];
-    const showDiscoverySuggestions = Boolean(writingState.themeDiscoveryLoading || discoverySuggestions.length);
-    themeDiscoverySuggestions.hidden = !showDiscoverySuggestions;
-    themeDiscoverySuggestions.innerHTML = showDiscoverySuggestions ? renderWritableThemeDiscoveryPanelDom(deps) : "";
+    syncWritingThemeDiscoveryView(themeDiscoverySuggestions, deps);
+    $("btnWritingSaveThemeIndex")?.classList?.toggle?.("primary", themeDiscoverySuggestions.hidden);
   }
   if (themeDetailHint) {
     themeDetailHint.textContent = explicitSelectedTheme
@@ -375,6 +374,7 @@ export function renderWritingPanelDom(deps = {}) {
   if ($("btnWritingHistory")) $("btnWritingHistory").hidden = !hasScaffold;
   const bookChapter = selectedWritingBookChapter(writingState);
   renderWritingBookChapterSelector({ ...deps, escapeHtml });
+  renderWritingChapterNavigation({ ...deps, escapeHtml });
   renderWritingBookDirectoryTools(deps);
   const directoryPending = writingBookDirectoryPending(writingState);
   const bookExportButton = $("btnWritingExportBook");
@@ -397,14 +397,12 @@ export function renderWritingPanelDom(deps = {}) {
     if (moreMenu.hidden) moreMenu.open = false;
   }
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
+  let draftUnavailableReason = "";
   if (saveDraftButton) {
     const canSaveDraft = Boolean(bookChapter || writingState.scaffold?.id);
     const draftSaveState = String(bookChapter?.saveState || writingState.draftSaveState || "idle");
     saveDraftButton.disabled = directoryPending || !canSaveDraft || draftSaveState === "saving";
-    saveDraftButton.textContent = bookChapter
-      ? draftSaveState === "saving" ? "正在保存..." : draftSaveState === "error" ? bookChapter.saveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN" ? "核查后再保存" : "保存失败，重试" : draftSaveState === "saved" ? "已保存" : "保存章节"
-      : !writingState.scaffold?.id
-      ? !writingState.project?.id
+    if (!canSaveDraft) draftUnavailableReason = !writingState.project?.id
         ? projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
           : projectEntry?.actionLabel === "确定可写主题"
@@ -414,21 +412,20 @@ export function renderWritingPanelDom(deps = {}) {
           ? "先澄清主题问题"
           : projectPreflightSummary.level === "has_gaps"
             ? "先补主题缺口"
-            : "先生成文章提纲"
-      : draftSaveState === "saving"
-        ? "正在保存..."
-        : draftSaveState === "error"
-          ? "保存失败，重试"
-          : draftSaveState === "saved"
-            ? "已保存"
-            : hasDraft ? "保存草稿" : "保存为草稿笔记";
+            : "先生成文章提纲";
   }
+  renderWritingDraftFeedback(deps, {
+    saveState: bookChapter?.saveState || writingState.draftSaveState || "idle",
+    unavailableReason: draftUnavailableReason,
+    uncertain: bookChapter?.saveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN" || writingState.draftSaveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN"
+  });
   if (startDraftButton) startDraftButton.disabled = !hasScaffold || Boolean(bookChapter);
   if (draftEditor) draftEditor.disabled = directoryPending || (!hasScaffold && !bookChapter);
   if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
     const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries }));
     draftEditor.value = draftBody;
   }
+  syncWritingDocumentEditor(deps);
   const strongModelBasketIds = renderWritingStrongModelSummaryDom({
     writingState,
     panelState,

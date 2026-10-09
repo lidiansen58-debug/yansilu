@@ -23,6 +23,9 @@
   <link rel="stylesheet" href="./note-core-flow.css" />
   <link rel="stylesheet" href="./writing-history.css" />
   <link rel="stylesheet" href="./settings-workspace.css" />
+  <link rel="stylesheet" href="./ui-design-system.css" />
+  <link rel="stylesheet" href="./writing-workspace.css" />
+  <link rel="stylesheet" href="./main-flow-workspace.css" />
 </head>
 <body>
   <a class="skip-link" href="#editorWorkspace">跳到正文</a>
@@ -173,7 +176,7 @@
               <button class="tb tb-label has-icon hidden" id="btnModeSplit" title="" data-tip="" aria-label="保留"></button>
             </div>
             <button class="tb tb-label has-icon" id="btnFocusMode" title="专注模式：收起导航和关联，只保留当前笔记" data-tip="专注模式：收起导航和关联，只保留当前笔记" aria-label="专注模式" aria-pressed="false"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2c1.3 1.45 2.95 2.25 5 2.45-.25 4.25-1.95 6.9-5 9.1-3.05-2.2-4.75-4.85-5-9.1 2.05-.2 3.7-1 5-2.45z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.2 8.05c1.05-.2 1.9-.7 2.8-1.6.72.74 1.55 1.25 2.62 1.48" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>专注模式</span></button>
-            <button class="tb tb-label has-icon" id="btnShowRelated" title="打开打磨笔记" data-tip="打开打磨笔记" aria-label="打磨笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 3.15h7.1a1.7 1.7 0 0 1 1.7 1.7v6.3a1.7 1.7 0 0 1-1.7 1.7H3.1z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.05 6h4.5M5.05 8.05h3.55M5.05 10.1h2.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M12.45 1.9l.38.94.97.38-.97.38-.38.94-.38-.94-.97-.38.97-.38.38-.94zM12.9 8.75l.28.7.72.28-.72.28-.28.7-.28-.7-.72-.28.72-.28.28-.7z" fill="currentColor"/></svg><span>打磨笔记</span></button>
+            <button class="tb tb-label has-icon" id="btnShowRelated" title="打开观点与关联" data-tip="打开观点与关联" aria-label="观点与关联"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.1 3.15h7.1a1.7 1.7 0 0 1 1.7 1.7v6.3a1.7 1.7 0 0 1-1.7 1.7H3.1z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.05 6h4.5M5.05 8.05h3.55M5.05 10.1h2.2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><path d="M12.45 1.9l.38.94.97.38-.97.38-.38.94-.38-.94-.97-.38.97-.38.38-.94zM12.9 8.75l.28.7.72.28-.72.28-.28.7-.28-.7-.72-.28.72-.28.28-.7z" fill="currentColor"/></svg><span>观点与关联</span></button>
           </div>
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
@@ -462,7 +465,7 @@
             <div class="writing-shell" data-writing-active-tab="theme" data-writing-has-topic="false">
               <div class="writing-workbench-head">
                 <div>
-                  <div class="writing-page-title">写作</div>
+                  <div class="writing-page-title" id="writingWorkspaceTitle">写作</div>
                   <div class="writing-page-subtitle" id="writingScopeHint">选一个主题，写完一篇文章。</div>
                 </div>
                 <div class="writing-head-actions">
@@ -471,7 +474,7 @@
                   </button>
                   <button class="mini-btn writing-mobile-topic-picker" type="button" data-writing-topic-picker>主题库</button>
                   <button class="mini-btn icon-btn" type="button" data-writing-help-toggle aria-label="帮助" title="帮助" data-tip="帮助">?</button>
-                  <details class="writing-more-menu" id="writingMoreMenu">
+                  <details class="writing-more-menu" id="writingMoreMenu" data-ui-menu>
                     <summary class="mini-btn icon-btn" aria-label="更多" title="更多" data-tip="更多">⋯</summary>
                     <div class="writing-more-menu-panel">
                       <button class="mini-btn" id="btnWritingCopyArticle" type="button" title="复制当前编辑内容，不会保存草稿">复制正文</button>
@@ -555,24 +558,34 @@
                   <section class="writing-section writing-draft-panel" id="writingDraftPanel">
                     <div class="writing-section-head">
                       <div>
-                        <div class="writing-section-title" id="writingDraftTitle">草稿</div>
-                        <div class="writing-section-note">按提纲写正文。</div>
+                        <div class="writing-section-title" id="writingDraftTitle">正文</div>
+                      </div>
+                      <div class="writing-section-head-actions">
+                        <div id="writingDocumentTools" class="writing-document-tools" role="group" aria-label="正文格式">
+                          <button class="mini-btn icon-btn" type="button" data-writing-format="bold" aria-label="加粗" title="加粗"><strong>B</strong></button>
+                          <button class="mini-btn icon-btn" type="button" data-writing-format="italic" aria-label="斜体" title="斜体"><em>I</em></button>
+                        </div>
+                        <button class="mini-btn is-ghost" id="btnWritingEditorMode" type="button">Markdown</button>
                       </div>
                     </div>
-                    <label for="writingDraftTarget">选择正文</label>
                     <div class="writing-draft-target-row">
-                      <select id="writingDraftTarget" aria-label="选择正文"><option value="">文章正文</option></select>
-                      <div class="writing-chapter-tools" role="group" aria-label="章节目录操作">
-                        <button class="mini-btn icon-btn" id="btnWritingChapterAdd" type="button" title="新增章节" data-tip="新增章节" aria-label="新增章节">+</button>
-                        <button class="mini-btn icon-btn" id="btnWritingChapterUp" type="button" title="本部内上移章节" data-tip="本部内上移章节" aria-label="本部内上移章节">↑</button>
-                        <button class="mini-btn icon-btn" id="btnWritingChapterDown" type="button" title="本部内下移章节" data-tip="本部内下移章节" aria-label="本部内下移章节">↓</button>
-                        <button class="mini-btn icon-btn" id="btnWritingChapterRemove" type="button" title="移出目录，保留正文" data-tip="移出目录，保留正文" aria-label="移出目录，保留正文">−</button>
-                      </div>
+                      <select id="writingDraftTarget" aria-label="章节"><option value="">文章正文</option></select>
+                      <details class="writing-chapter-menu" id="writingChapterMenu" data-ui-menu>
+                        <summary class="mini-btn">管理章节</summary>
+                        <div class="writing-chapter-tools" role="group" aria-label="章节目录操作">
+                          <button class="mini-btn is-ghost" id="btnWritingChapterAdd" type="button">新增章节</button>
+                          <button class="mini-btn is-ghost" id="btnWritingChapterUp" type="button">上移</button>
+                          <button class="mini-btn is-ghost" id="btnWritingChapterDown" type="button">下移</button>
+                          <button class="mini-btn is-ghost" id="btnWritingChapterRemove" type="button">移出目录</button>
+                          <p class="writing-chapter-menu-note">移出目录会保留正文笔记。</p>
+                        </div>
+                      </details>
                     </div>
-                    <textarea class="writing-draft-editor" id="writingDraftEditor" placeholder="写下正文，保存后可继续修改。"></textarea>
-                    <div class="writing-actions-primary">
-                      <button class="mini-btn" type="button" data-writing-tab-jump="outline">返回提纲</button>
-                      <button class="mini-btn primary" id="btnWritingSaveDraft" type="button">保存草稿</button>
+                    <textarea class="writing-draft-editor" id="writingDraftEditor" aria-label="正文内容" placeholder="写下正文，保存后可继续修改。"></textarea>
+                    <div class="writing-document-editor wysiwyg-host" id="writingDocumentEditor" hidden></div>
+                    <div class="writing-actions-primary writing-draft-footer">
+                      <p class="writing-save-feedback" id="writingDraftSaveFeedback" role="status" aria-live="polite"></p>
+                      <button class="mini-btn primary" id="btnWritingSaveDraft" type="button" aria-describedby="writingDraftSaveFeedback">保存</button>
                     </div>
                   </section>
                 </div>
@@ -1233,10 +1246,10 @@
   </div>
   <div class="panel inspector-panel hidden" id="relatedPanel" role="dialog" aria-modal="true" aria-labelledby="notePolishTitle">
     <div class="panel-head">
-      <div><div class="panel-title" id="notePolishTitle">打磨笔记</div></div>
-      <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起打磨笔记" data-tip="收起打磨笔记" aria-label="收起打磨笔记">收起</button>
+      <div><div class="panel-title" id="notePolishTitle">观点与关联</div></div>
+      <button class="tb tb-icon" id="btnHideRelated" type="button" title="关闭观点与关联" data-tip="关闭观点与关联" aria-label="关闭观点与关联">关闭</button>
     </div>
-    <div id="resultArea">打开永久笔记后可打磨笔记。</div>
+    <div id="resultArea">打开永久笔记后，可编辑观点和关联笔记。</div>
   </div>
   <div id="systemMessageModal" class="modal-mask system-message-modal hidden" role="dialog" aria-modal="true" aria-labelledby="systemMessageModalTitle" aria-describedby="systemMessageModalNote">
     <div class="modal">

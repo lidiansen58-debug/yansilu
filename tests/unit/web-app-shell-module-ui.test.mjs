@@ -39,7 +39,7 @@ test("app shell module ui exposes today as a simple daily start entry", () => {
   assert.equal(ui.title, "今日整理");
   assert.equal(ui.sidebarTitle, "首页");
   assert.equal(ui.sidebarSubtitle, "让笔记生长为思想");
-  assert.match(ui.sidebarFoot, /今日小提示/);
+  assert.equal(ui.sidebarFoot, "");
   assert.match(ui.summary, /先做最重要的一步/);
   assert.equal(ui.sidebarHtml, "");
   assert.doesNotMatch(ui.sidebarHtml, /<ol class="module-sidebar-list">/);

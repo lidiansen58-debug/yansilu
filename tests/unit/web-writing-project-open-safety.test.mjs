@@ -168,6 +168,7 @@ test("genuinely empty saved body remains empty and replaces old project history"
   deps.fetchNote = async id => ({ id, body: "" });
   await controller.open("a");
   assert.equal(writingState.draftMarkdown, "");
+  assert.equal(writingState.draftSaveState, "saved");
   assert.deepEqual(writingState.scaffoldVersions, ["scaffold-version-a"]);
   assert.equal(writingState.loadingScaffoldVersions, false);
 });
@@ -179,6 +180,17 @@ test("a project without outline or draft cannot inherit the old ones", async () 
   assert.equal(writingState.scaffold, null);
   assert.equal(writingState.scaffoldMarkdown, "");
   assert.equal(writingState.draftMarkdown, "");
+  assert.equal(writingState.draftSaveState, "idle");
+});
+
+test("reopening a persisted article reports saved without blocking project navigation", async () => {
+  const s = setup();
+  await s.controller.open("a");
+  assert.equal(s.writingState.draftSaveState, "saved");
+  assert.equal(s.writingState.draftMarkdown, "Body d-a");
+  await s.controller.open("b");
+  assert.equal(s.writingState.project.id, "b");
+  assert.equal(s.writingState.draftSaveState, "saved");
 });
 
 test("slow outline does not mix the previous request into the next project", async () => {

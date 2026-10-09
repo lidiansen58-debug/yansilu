@@ -1,6 +1,7 @@
 import { acknowledgeWritingNoteBinding, createWritingNoteWithRecovery } from "./writing-note-creation-recovery.js";
 import { checkpointChapterInput, clearWritingInput, readWritingInput } from "./writing-input-recovery.js";
 import { saveEditorNoteWithRecovery } from "./editor-save-recovery.js";
+import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
 
 export function selectedWritingBookChapter(writingState = {}) {
   const chapter = writingState.bookChapter;
@@ -54,7 +55,7 @@ export async function selectWritingDraftTarget(deps, chapterId = "") {
     if (!chapter) throw new Error("这个章节已不存在，请重新打开主题。");
     const select = deps.$?.("writingDraftTarget");
     if (select) select.value = currentChapter?.id || "";
-    setStatus("正在打开章节...", "busy", { notify: true, force: true });
+    setStatus("正在打开章节...", "busy", { notify: false });
     let markdown, fileRevision;
     if (chapter.draft_note_id) {
       const note = await fetchNote(chapter.draft_note_id);
@@ -72,14 +73,14 @@ export async function selectWritingDraftTarget(deps, chapterId = "") {
     assertWritingDraftCanLeave(writingState);
     const recovered = readWritingInput(deps, JSON.stringify(["chapter", projectId, id]));
     writingState.bookChapter = { projectId, id, title: chapter.title, noteId: chapter.draft_note_id || "", markdown,
-      savedBody: chapter.draft_note_id ? markdown : undefined, savedFileRevision: fileRevision, saveState: "idle" };
+      savedBody: chapter.draft_note_id ? markdown : undefined, savedFileRevision: fileRevision, saveState: chapter.draft_note_id ? "saved" : "idle" };
     if (recovered) {
       Object.assign(writingState.bookChapter, { markdown: recovered.markdown, saveState: "dirty",
         savedBody: recovered.noteId === (chapter.draft_note_id || "") ? recovered.savedBody : undefined,
         savedFileRevision: recovered.noteId === (chapter.draft_note_id || "") ? recovered.savedFileRevision : undefined });
     }
     renderWritingPanel();
-    setStatus(recovered ? "已恢复本机未保存的章节内容，请核对后保存。" : `已打开：${chapter.title}`, recovered ? "warn" : "ok", { notify: true, force: true });
+    setStatus(recovered ? "已恢复本机未保存的章节内容，请核对后保存。" : `已打开：${chapter.title}`, recovered ? "warn" : "ok", { notify: recovered, force: recovered });
   } catch (error) {
     if (requestCurrent()) setStatus(`未切换正文：${String(error?.message || error)}`, "warn", { notify: true, force: true });
   } finally {
@@ -96,7 +97,8 @@ export function recordWritingBookChapterInput(deps, value) {
   try { checkpointChapterInput(deps, chapter); }
   catch { deps.setStatus?.("输入仍保留，但本机草稿保存失败，请勿刷新或关闭页面。", "warn", { notify: true, force: true }); }
   const button = deps.$?.("btnWritingSaveDraft");
-  if (button) { button.disabled = chapter.saveState === "saving"; button.textContent = button.disabled ? "正在保存..." : "保存章节"; }
+  if (button) button.disabled = chapter.saveState === "saving";
+  renderWritingDraftFeedback(deps, { saveState: chapter.saveState });
   return true;
 }
 
@@ -192,8 +194,6 @@ export function renderWritingBookChapterSelector(deps) {
   if (!select) return;
   const escape = deps.escapeHtml;
   const parts = deps.writingState.project?.book_structure?.parts || [];
-  const title = deps.$?.("writingDraftTitle");
-  if (title) title.textContent = selectedWritingBookChapter(deps.writingState)?.title || "草稿";
   select.innerHTML = `<option value="">文章正文</option>${parts.map((part) => `<optgroup label="${escape(part.title || part.label || "章节")}">${(part.chapters || []).map((chapter) => `<option value="${escape(chapter.id)}">${escape(chapter.title)}</option>`).join("")}</optgroup>`).join("")}`;
   select.value = selectedWritingBookChapter(deps.writingState)?.id || "";
   select.disabled = !deps.writingState.project?.id;

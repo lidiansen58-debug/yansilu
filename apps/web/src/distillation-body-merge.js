@@ -8,6 +8,15 @@ function changedSpan(base, value) {
   return { from, end, text: value.slice(from, valueEnd) };
 }
 
+export function mapDistillationSelection(before, after, selection) {
+  if (!selection || !Number.isFinite(selection.from) || !Number.isFinite(selection.to)) return null;
+  const change = changedSpan(before, after);
+  const offset = position => position < change.from ? position : position >= change.end
+    ? position + change.text.length - (change.end - change.from) : change.from + change.text.length;
+  return { from: Math.max(0, Math.min(after.length, offset(selection.from))),
+    to: Math.max(0, Math.min(after.length, offset(selection.to))) };
+}
+
 // Only merge disjoint edits. Ambiguous or overlapping changes keep the old revision guard.
 export function mergeDistillationText(base, local, remote) {
   if (local === remote || local === base) return remote;

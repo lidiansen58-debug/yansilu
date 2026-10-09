@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
 
 const longHeading = number => `第${number}节：先用自己的话说明读过的内容，检查判断成立的条件，再对照原文和反例修正遗漏，保留依据、适用范围及仍未解决的问题，以便在新的情境中继续检验和修改这条判断`;
 
@@ -424,6 +424,7 @@ for (const width of [1366, 390, 320]) {
       const draft = await page.locator("#writingDraftEditor").inputValue();
       for (let number = 1; number <= 24; number++) assert.ok(draft.includes(longHeading(number)));
       const article = `${draft}\n\n${Array.from({ length: 80 }, (_, i) => `第${i + 1}段：自己的解释需要与原始材料和反例一起检验，保留判断的依据和变化过程。`).join("\n\n")}`;
+      await useWritingMarkdown(page);
       await page.locator("#writingDraftEditor").fill(article);
       await page.locator("#btnWritingSaveDraft").click();
       await waitFor(async () => {
@@ -434,10 +435,11 @@ for (const width of [1366, 390, 320]) {
       stage = "long chapters";
       const chapterTitles = [1, 2, 3].map(number => `第${number}章：从阅读时产生的问题出发，用自己的话解释材料，检查证据与反例，在真实任务中逐步修正判断，并保留整个形成过程以支持后续的主题文章和书稿写作`);
       for (const title of chapterTitles) {
-        await page.locator("#btnWritingChapterAdd").click();
+        await page.locator("#writingChapterMenu > summary").click();
+    await page.locator("#btnWritingChapterAdd").click();
         await answer(page, title);
         await page.waitForFunction(title => document.querySelector("#writingDraftTarget")?.selectedOptions[0]?.textContent === title, title);
-        assert.equal(await page.locator("#writingDraftPanel .writing-section-title").innerText(), title);
+        assert.equal(await page.locator("#writingDraftTarget option:checked").innerText(), title);
         const body = `# ${title}\n\n${Array.from({ length: 35 }, (_, i) => `本章第${i + 1}段：先说明问题，再对照证据和反例，保留观点的变化理由。`).join("\n\n")}`;
         await page.locator("#writingDraftEditor").fill(body);
         await page.locator("#btnWritingSaveDraft").click();
@@ -465,7 +467,7 @@ for (const width of [1366, 390, 320]) {
         assert.equal(await page.locator("#writingDraftTarget").inputValue(), selectedId);
         assert.deepEqual(await page.locator("#writingDraftEditor").evaluate(field => [field === document.activeElement, field.selectionStart, field.selectionEnd]), [true, 150, 159]);
         assert.ok(await page.locator("#writingDraftEditor").evaluate(field => field.scrollTop > 0), "Resizing must not reset a long chapter to its beginning");
-        assert.equal(await page.locator("#writingDraftPanel .writing-section-title").innerText(), chapterTitles[2]);
+        assert.equal(await page.locator("#writingDraftTarget option:checked").innerText(), chapterTitles[2]);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
       }
       await page.screenshot({ path: path.join(directory, "long-chapter.png"), fullPage: true });
@@ -474,16 +476,17 @@ for (const width of [1366, 390, 320]) {
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title }).getByRole("button", { name: "继续草稿", exact: true }).click();
       await page.locator('.rail-btn[data-module="writing"]').click();
-      await page.locator("#writingDraftEditor:visible").waitFor();
+      await useWritingMarkdown(page);
       assert.match(await page.locator("#writingDraftEditor").inputValue(), /第80段/);
       const persisted = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
       assert.equal(persisted.sections.length, 24);
       for (const note of notes) assert.ok(persisted.sections.some(section => section.evidence_note_ids.includes(note.id)));
       const refreshed = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
       const chapter = refreshed.book_structure.parts.flatMap(part => part.chapters).find(item => item.id === selectedId);
-      await page.locator("#writingDraftTarget").selectOption(selectedId);
-      await page.waitForFunction(title => document.querySelector("#writingDraftPanel .writing-section-title")?.textContent === title, chapter.title);
+      await selectWritingChapter(page, selectedId);
+      await page.waitForFunction(title => document.querySelector("#writingDraftTarget option:checked")?.textContent === title, chapter.title);
       assert.match(await page.locator("#writingDraftEditor").inputValue(), /本章第35段/);
+      await page.locator("#writingChapterMenu > summary").click();
       await page.locator("#btnWritingChapterUp").click();
       await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /章节顺序已保存/));
       await page.locator("#writingMoreMenu > summary").click();

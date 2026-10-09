@@ -13,6 +13,7 @@ function deferred() {
 function setup() {
   const editor = { value: "# Article\n\nFirst text" };
   const button = { textContent: "保存草稿", disabled: false };
+  const feedback = { textContent: "" };
   const writingState = {
     project: { id: "project-a", draft_note_id: "draft-a", draft_note: { id: "draft-a", body: "# Article\n\nSaved text" } },
     scaffold: { id: "outline-a" }, scaffoldMarkdown: "Outline",
@@ -22,7 +23,7 @@ function setup() {
   const messages = [];
   const deps = {
     state, writingState,
-    $: id => id === "btnWritingSaveDraft" ? button : id === "writingDraftEditor" ? editor : null,
+    $: id => id === "btnWritingSaveDraft" ? button : id === "writingDraftEditor" ? editor : id === "writingDraftSaveFeedback" ? feedback : null,
     writingDraftDirectoryId: () => "dir_original_default",
     writingDraftTitle: () => "Article",
     writingDraftBody: () => editor.value,
@@ -31,7 +32,7 @@ function setup() {
     renderWritingPanel: () => { editor.value = writingState.draftMarkdown; },
     updateNote: async (id, payload) => ({ id, ...payload })
   };
-  return { deps, editor, button, writingState, state, messages };
+  return { deps, editor, button, feedback, writingState, state, messages };
 }
 
 test("fresh article controller rechecks a lost save and retains later input without another write", async () => {
@@ -84,7 +85,7 @@ test("failed local input checkpoint retains visible text and blocks the remote s
 });
 
 test("slow save preserves newer text and leaves it explicitly unsaved", async () => {
-  const { deps, editor, writingState, state, button } = setup();
+  const { deps, editor, writingState, state, button, feedback } = setup();
   const request = deferred();
   deps.updateNote = async (id, payload) => { await request.promise; return { id, ...payload }; };
   const saving = handleWritingSaveDraftClick(deps);
@@ -97,7 +98,8 @@ test("slow save preserves newer text and leaves it explicitly unsaved", async ()
   assert.match(writingState.draftMarkdown, /Later text/);
   assert.equal(writingState.draftSaveState, "dirty");
   assert.doesNotMatch(state.notes[0].body, /Later text/);
-  assert.equal(button.textContent, "保存草稿");
+  assert.equal(button.textContent, "保存");
+  assert.match(feedback.textContent, /未保存/);
 });
 
 test("duplicate save while an earlier request is pending writes only once", async () => {
@@ -132,7 +134,7 @@ for (const change of ["project", "vault", "draft"]) test(`late save success does
 });
 
 test("save failure retains input and retry updates the same note", async () => {
-  const { deps, editor, writingState, button } = setup();
+  const { deps, editor, writingState, button, feedback } = setup();
   const original = editor.value;
   const writes = [];
   deps.updateNote = async (id, payload) => {
@@ -143,10 +145,12 @@ test("save failure retains input and retry updates the same note", async () => {
   await handleWritingSaveDraftClick(deps);
   assert.equal(editor.value, original);
   assert.equal(writingState.draftSaveState, "error");
-  assert.equal(button.textContent, "保存失败，重试");
+  assert.equal(button.textContent, "重试保存");
+  assert.match(feedback.textContent, /保存失败.*保留/);
   await handleWritingSaveDraftClick(deps);
   assert.deepEqual(writes, ["draft-a", "draft-a"]);
   assert.equal(writingState.draftSaveState, "saved");
+  assert.equal(feedback.textContent, "已保存");
 });
 
 test("typing during save keeps the save button disabled and blocks theme replacement", async () => {

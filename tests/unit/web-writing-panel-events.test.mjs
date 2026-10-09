@@ -1090,6 +1090,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     ["btnWritingOpenDraft", {}],
     ["writingDraftEditor", {}],
     ["writingDraftTarget", {}],
+    ["moduleSidebar", {}],
     ["btnWritingChapterAdd", {}],
     ["btnWritingChapterRemove", {}],
     ["btnWritingChapterUp", {}],
@@ -1136,7 +1137,8 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 22);
+  assert.equal(registrations.length, 23);
+  assert.equal(typeof handlers.get("moduleSidebar:click"), "function");
   assert.equal(typeof handlers.get("btnWritingHistory:click"), "function");
   assert.equal(registrations.every((item) => item.installed), true);
 
@@ -1518,7 +1520,7 @@ test("writing save draft updates the current draft instead of creating another v
   assert.match(writingState.draftMarkdown, /updated body/);
   assert.equal(writingState.draftSaveState, "saved");
   assert.equal(saveButton.disabled, false);
-  assert.equal(saveButton.textContent, "已保存");
+  assert.equal(saveButton.textContent, "保存");
   assert.ok(calls.some((call) => Array.isArray(call) && call[0] === "status" && call[1] === "草稿已保存"));
 });
 
@@ -1547,7 +1549,7 @@ test("writing save draft keeps retry feedback on the button after failure", asyn
   });
 
   assert.equal(saveButton.disabled, false);
-  assert.equal(saveButton.textContent, "保存失败，重试");
+  assert.equal(saveButton.textContent, "重试保存");
   assert.equal(writingState.draftSaveState, "error");
   assert.ok(calls.some(([message, tone]) => message.includes("network down") && tone === "bad"));
 });

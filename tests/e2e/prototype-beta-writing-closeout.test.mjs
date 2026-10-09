@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
 
 async function answerInput(page, value) {
   await page.locator('[data-text-input-field]:visible').fill(value);
@@ -47,6 +47,7 @@ test("Beta writing closes manual theme, outline, article save, current-text expo
   await page.locator('#writingScaffoldPanel:visible').waitFor({ timeout: 15000 });
   await page.locator('#btnWritingStartDraft').click();
   const savedBody = "# 怎样检验读书后的理解\n\n文章正文已经写下，仍需人工修改。";
+  await useWritingMarkdown(page);
   await page.locator('#writingDraftEditor:visible').fill(savedBody);
   await page.locator('#btnWritingSaveDraft').click();
   let project;
@@ -74,6 +75,7 @@ test("Beta writing closes manual theme, outline, article save, current-text expo
   await waitFor(async () => assert.match((await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item.body, /尚未保存的正文也必须导出/));
   await waitFor(async () => assert.equal(await page.locator('#btnWritingSaveDraft').isDisabled(), false));
   for (const title of ["第一章 理解", "第二章 边界"]) {
+    await page.locator('#writingChapterMenu > summary').click();
     await page.locator('#btnWritingChapterAdd').click();
     await answerInput(page, title);
     await page.waitForFunction(title => document.querySelector('#writingDraftTarget')?.selectedOptions[0]?.textContent.includes(title), title);
@@ -87,6 +89,7 @@ test("Beta writing closes manual theme, outline, article save, current-text expo
     }, 15000);
     await waitFor(async () => assert.match(await page.locator('#statusText').textContent(), /章节已保存/), 15000);
   }
+  await page.locator('#writingChapterMenu > summary').click();
   await page.locator('#btnWritingChapterUp').click();
   await waitFor(async () => assert.match(await page.locator('#statusText').textContent(), /章节顺序已保存/));
   await page.locator('#writingMoreMenu > summary').click();

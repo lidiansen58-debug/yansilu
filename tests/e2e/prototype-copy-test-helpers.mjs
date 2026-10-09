@@ -125,7 +125,26 @@ export async function optionalPlaywright(t) {
   }
 }
 
-export async function startPrototypeStack(t, playwright, { apiEnv = {}, prepareVault = null, beforeNavigate = null } = {}) {
+// Tests that intentionally edit raw Markdown opt into the visible source mode.
+export async function useWritingMarkdown(page) {
+  const toggle = page.locator("#btnWritingEditorMode");
+  await toggle.waitFor({ state: "visible" });
+  await page.waitForFunction(() => !document.querySelector("#btnWritingEditorMode")?.disabled);
+  if (await toggle.getAttribute("aria-pressed") !== "true") await toggle.click();
+  await page.locator("#writingDraftEditor").waitFor({ state: "visible" });
+}
+
+export async function selectWritingChapter(page, id) {
+  const chapter = page.locator(`[data-writing-chapter="${id}"]`);
+  if (await chapter.isVisible()) await chapter.click();
+  else {
+    const select = page.locator("#writingDraftTarget");
+    await select.focus();
+    await select.selectOption(id);
+  }
+}
+
+export async function startPrototypeStack(t, playwright, { apiEnv = {}, prepareVault = null, beforeNavigate = null, navigateWaitUntil = "networkidle" } = {}) {
   const vaultPath = await makeTempDir("yansilu-browser-e2e-vault-");
   if (prepareVault) await prepareVault(vaultPath);
   const apiPort = await findFreePort();
@@ -177,7 +196,7 @@ export async function startPrototypeStack(t, playwright, { apiEnv = {}, prepareV
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
   if (beforeNavigate) await beforeNavigate(page);
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.goto(`${webBase}/prototype`, { waitUntil: navigateWaitUntil });
 
   return { apiBase, page, vaultPath, webBase };
 }

@@ -19,6 +19,7 @@ import {
 } from "./editor-markdown-commands.js";
 import { wikilinkLabelFromRaw, wikilinkTargetFromRaw } from "./editor-link-picker.js";
 import { escapeHtml } from "./editor-render-utils.js";
+import { markdownCodeRanges } from "./markdown-code-context.js";
 
 export function renderInlinePreview(text, options = {}) {
   const source = String(text || "");
@@ -109,7 +110,13 @@ export function renderInlinePreview(text, options = {}) {
 
 export function renderMarkdownPreview(markdown, options = {}) {
   const text = normalizeLooseMarkdownTables(markdown);
-  const lines = text.split("\n");
+  const code = markdownCodeRanges(text);
+  let offset = 0;
+  const lines = text.split("\n").map(line => {
+    const metadata = line === "<!-- yansilu:distillation:end -->" && !code.some(([from, to]) => offset >= from && offset < to);
+    offset += line.length + 1;
+    return metadata ? "" : line;
+  });
   const blocks = [];
   const noteMarkdownPath = String(options.noteMarkdownPath || "");
   let index = 0;

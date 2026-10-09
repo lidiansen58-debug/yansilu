@@ -36,7 +36,7 @@ test("permanent-note distillation renders only the compact editing form", () => 
   });
 
   assert.match(html, /name="thesis"/);
-  assert.match(html, /你现在认为是什么？/);
+  assert.match(html, /当前观点/);
   assert.match(html, /name="startingQuestion"/);
   assert.match(html, /data-viewpoint-change-reason hidden/);
   assert.match(html, /name="summary1"/);

@@ -8,19 +8,19 @@ function fieldValue(value = "", escapeHtml = (item) => String(item ?? "")) {
   return escapeHtml(cleanText(value));
 }
 
-function renderSuggestionNote(item = {}, escapeHtml = (value) => String(value ?? "")) {
+function renderSuggestionNote(item = {}, suggestionId = "", escapeHtml = (value) => String(value ?? "")) {
   const noteId = cleanText(item.noteId);
+  const fieldId = `themeDiscoveryRationale-${escapeHtml(suggestionId)}-${escapeHtml(noteId)}`;
   return `
     <article class="writing-note-card" data-theme-discovery-note-id="${escapeHtml(noteId)}">
       <div class="writing-note-card-head">
         <div>
-          <div class="writing-note-title">${escapeHtml(item.shortLabel || noteId)}</div>
-          <div class="writing-note-meta">${escapeHtml(noteId)}</div>
+          <div class="writing-note-title">${escapeHtml(item.shortLabel || "未命名笔记")}</div>
         </div>
       </div>
-      <label class="writing-section-note" for="themeDiscoveryRationale-${escapeHtml(noteId)}">为什么属于同一主题</label>
+      <label class="writing-section-note" for="${fieldId}">为什么属于同一主题</label>
       <textarea
-        id="themeDiscoveryRationale-${escapeHtml(noteId)}"
+        id="${fieldId}"
         data-theme-discovery-field="item-rationale"
         data-theme-discovery-note-id="${escapeHtml(noteId)}"
         rows="2"
@@ -43,43 +43,44 @@ function renderExplanationList(label = "", items = [], escapeHtml = (value) => S
 function renderSuggestionCard(suggestion = {}, escapeHtml = (value) => String(value ?? "")) {
   const disabled = suggestion.canSave ? "" : " disabled";
   const explanation = suggestion.explanation || {};
+  const fieldId = (name) => `themeDiscovery-${name}-${escapeHtml(suggestion.id)}`;
+  const noteLabels = (suggestion.items || []).map((item) => item.shortLabel || "未命名笔记");
   return `
     <article class="writing-theme-detail-card" data-theme-discovery-suggestion-id="${escapeHtml(suggestion.id)}">
       <div class="writing-theme-detail-head">
         <div>
           <div class="writing-note-title">可写主题建议</div>
-          <div class="writing-note-meta">${escapeHtml(suggestion.sourceLabel || "本地规则建议")} · ${escapeHtml(String(suggestion.noteIds?.length || 0))} 条关键笔记</div>
+          <div class="writing-note-meta">${escapeHtml(String(suggestion.noteIds?.length || 0))} 条相关笔记</div>
         </div>
       </div>
       <div class="import-grid" style="margin-top:12px;">
-        <label>建议主题名称</label>
-        <input data-theme-discovery-field="title" value="${fieldValue(suggestion.title, escapeHtml)}" />
-        <label>中心问题建议</label>
-        <textarea data-theme-discovery-field="centralQuestion" rows="2">${fieldValue(suggestion.centralQuestion, escapeHtml)}</textarea>
-        <label>为什么这些笔记属于同一主题</label>
-        <textarea data-theme-discovery-field="membershipReason" rows="3">${fieldValue(suggestion.membershipReason, escapeHtml)}</textarea>
+        <label for="${fieldId("title")}">主题名称</label>
+        <input id="${fieldId("title")}" data-theme-discovery-field="title" value="${fieldValue(suggestion.title, escapeHtml)}" />
+        <label for="${fieldId("question")}">要回答的问题</label>
+        <textarea id="${fieldId("question")}" data-theme-discovery-field="centralQuestion" rows="2">${fieldValue(suggestion.centralQuestion, escapeHtml)}</textarea>
+        <label for="${fieldId("reason")}">这些笔记为什么有关</label>
+        <textarea id="${fieldId("reason")}" data-theme-discovery-field="membershipReason" rows="3">${fieldValue(suggestion.membershipReason, escapeHtml)}</textarea>
       </div>
-      <div class="writing-note-list" style="margin-top:12px;">
-        ${renderExplanationList("关键笔记", explanation.keyNotes || suggestion.noteIds, escapeHtml)}
+      <details class="writing-theme-explanation">
+        <summary>查看推荐依据</summary>
+        <p class="writing-section-note">${escapeHtml(suggestion.sourceLabel || "本地规则建议")}</p>
+        ${renderExplanationList("关键笔记", explanation.keyNotes || noteLabels, escapeHtml)}
         ${renderExplanationList("共同信号", explanation.sharedSignals, escapeHtml)}
         <div class="writing-summary">
-          <strong>缺什么才更适合写</strong>
+          <strong>还需补充</strong>
           <div>${escapeHtml(explanation.gap || "保存前先确认中心问题、关键笔记和每条归属理由。")}</div>
         </div>
-        <div class="writing-summary">
-          <strong>确认后会保存什么</strong>
-          <div>${escapeHtml(explanation.confirmationSummary || "确认后会保存为主题索引笔记；未确认前不会创建任何主题。")}</div>
+      </details>
+      <details class="writing-theme-notes">
+        <summary>相关笔记（${escapeHtml(suggestion.items?.length || 0)}）</summary>
+        <div class="writing-note-list">
+          ${(suggestion.items || []).map((item) => renderSuggestionNote(item, suggestion.id, escapeHtml)).join("")}
         </div>
-      </div>
-      <div class="writing-summary" style="margin-top:12px;">
-        这些内容只是建议。忽略不会改动笔记；保存前可以编辑名称、中心问题和每条笔记的理由。
-      </div>
-      <div class="writing-note-list" style="margin-top:12px;">
-        ${(suggestion.items || []).map((item) => renderSuggestionNote(item, escapeHtml)).join("")}
-      </div>
+      </details>
+      <p class="writing-section-note">${escapeHtml(explanation.confirmationSummary || "保存后加入主题库，可用于生成提纲。")}</p>
       <div class="writing-note-actions" style="margin-top:12px;">
-        <button class="mini-btn primary" type="button" data-theme-discovery-action="save"${disabled}>确认并保存为可写主题</button>
-        <button class="mini-btn" type="button" data-theme-discovery-action="ignore">忽略这条建议</button>
+        <button class="mini-btn primary" type="button" data-theme-discovery-action="save"${disabled}>保存主题</button>
+        <button class="mini-btn is-ghost" type="button" data-theme-discovery-action="ignore">忽略建议</button>
       </div>
     </article>
   `;

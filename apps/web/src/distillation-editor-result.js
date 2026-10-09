@@ -1,4 +1,4 @@
-import { reconcileDistillationTab } from "./distillation-body-merge.js";
+import { reconcileDistillationEditorResult } from "./distillation-editor-reconcile.js";
 
 export function distillationPanelHasFocus(host) {
   const panel = host.els?.relatedPanel;
@@ -12,24 +12,8 @@ export function syncDistillationEditorResult(host, saved, previousBody, options 
   const tab = host.activeTab?.();
   const baseline = saved.distillationEditorBaseline;
   if (tab && baseline && typeof currentBody === "string") {
-    const matchesOriginal = tab.savedFileRevision === baseline.savedFileRevision
-      && tab.savedBody === baseline.savedBody && tab.savedTitle === baseline.savedTitle;
-    const matchesResult = tab.savedFileRevision === saved.fileRevision && tab.savedBody === saved.body
-      && tab.savedTitle === (saved.title || baseline.title);
-    if (!matchesOriginal && !matchesResult) return;
-    if (matchesResult && currentBody === tab.body) {
-      if (tab.dirty) host.writeDraft?.(tab);
-      if (panelFocused && !distillationPanelHasFocus(host)) host.permanentNoteWorkspace?.().focusWorkspace?.();
-      return;
-    }
-    if (!reconcileDistillationTab(tab, saved, baseline, currentBody)) {
-      host.writeDraft?.(tab);
-      host.onStatus?.("观点已保存；正文修改与它冲突，未覆盖任何输入。请保留修改后重新打开核对。", "warn");
-      return;
-    }
-    host.fillEditorFromTab?.();
-    if (tab.dirty) host.writeDraft?.(tab);
-    if (panelFocused && !distillationPanelHasFocus(host)) host.permanentNoteWorkspace?.().focusWorkspace?.();
+    if (reconcileDistillationEditorResult(host, saved, currentBody, tab, baseline)
+      && panelFocused && !distillationPanelHasFocus(host)) host.permanentNoteWorkspace?.().focusWorkspace?.();
     return;
   }
   const hasUnsavedBody = host.activeTab?.()?.dirty === true && currentBody !== saved.body;

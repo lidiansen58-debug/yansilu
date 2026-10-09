@@ -1,4 +1,7 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { installDisclosureMenus } from "./ui-disclosure-menu.js";
+import { installWritingDocumentEditor, syncWritingDocumentEditor } from "./writing-document-editor.js";
+import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
 import { syncWritingProjectForm } from "./writing-project-form-sync.js";
 import { recordWritableThemeDiscoveryInput } from "./writable-theme-discovery-draft.js";
 import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
@@ -230,6 +233,7 @@ export function installWritingProjectHistoryEventHandlers(options = {}) {
 
 export function installWritingDraftActionEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
+  installDisclosureMenus($("writingPanel"));
   const deps = () => depsProvider();
   const registrations = [];
   const add = (id, eventName, handler) => {
@@ -261,8 +265,18 @@ export function installWritingDraftActionEventHandlers(options = {}) {
   add("writingDraftEditor", "input", (event) => {
     recordWritingDraftInput(deps(), event?.target?.value);
   });
+  installWritingDocumentEditor({ $, depsProvider });
   add("writingDraftTarget", "change", async (event) => {
     await selectWritingDraftTarget({ ...deps(), assertWritingDraftCanLeave }, event.target.value);
+  });
+  add("moduleSidebar", "click", async event => {
+    const button = event.target.closest?.("[data-writing-chapter]");
+    if (!button || button.disabled) return;
+    const current = deps(), chapterId = button.dataset.writingChapter;
+    await selectWritingDraftTarget({ ...current, assertWritingDraftCanLeave }, chapterId);
+    if ((selectedWritingBookChapter(current.writingState)?.id || "") !== chapterId) return;
+    hideWritingTopicPicker();
+    current.applyWritingTab?.("draft");
   });
   for (const [id, action] of [["btnWritingChapterAdd", "add"], ["btnWritingChapterRemove", "remove"], ["btnWritingChapterUp", "up"], ["btnWritingChapterDown", "down"]]) {
     add(id, "click", async () => changeWritingBookDirectory({ ...deps(), assertWritingDraftCanLeave }, action));
@@ -356,6 +370,7 @@ export function handleWritingStartDraftClick(deps = {}) {
   writingState.draftSaveState = "dirty";
   const editor = $("writingDraftEditor");
   if (editor && typeof editor.value === "string") editor.value = body;
+  syncWritingDocumentEditor(deps);
   return true;
 }
 

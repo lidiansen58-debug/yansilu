@@ -86,7 +86,7 @@ export function writingInitialDraftMarkdown({ title = "", scaffold = {}, notes =
 
 export function writingDraftContent({ writingState = {}, title = "", notes = [] } = {}) {
   if (writingState.bookChapter?.projectId === writingState.project?.id && writingState.bookChapter) return writingState.bookChapter.markdown;
-  if (["dirty", "error", "saving"].includes(writingState.draftSaveState) && typeof writingState.draftMarkdown === "string") {
+  if (["dirty", "error", "saving", "saved"].includes(writingState.draftSaveState) && typeof writingState.draftMarkdown === "string") {
     return writingState.draftMarkdown;
   }
   const savedOrEdited = writingState.draftMarkdown || writingState.project?.draft_note?.body;

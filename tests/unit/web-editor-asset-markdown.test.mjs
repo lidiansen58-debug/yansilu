@@ -13,6 +13,18 @@ import {
 } from "../../apps/web/src/components-editor-pane.js";
 import { normalizeLooseMarkdownTables } from "../../apps/web/src/editor-markdown-commands.js";
 
+test("reading hides the reserved viewpoint delimiter without hiding authored prose or code examples", () => {
+  const marker = "<!-- yansilu:distillation:end -->";
+  const html = renderMarkdownPreview(`# 笔记\n\n观点保留。\n${marker}\n\n我的新记录。`);
+  assert.doesNotMatch(html, /yansilu:distillation:end/);
+  assert.match(html, /观点保留/);
+  assert.match(html, /我的新记录/);
+  const code = renderMarkdownPreview(`\`\`\`md\n${marker}\n\`\`\``);
+  assert.match(code, /yansilu:distillation:end/);
+  assert.match(renderMarkdownPreview(`\`${marker}\``), /yansilu:distillation:end/);
+});
+
+
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
   assert.equal(
     formatMarkdownLinkDestination("../../../assets/images/pn_1/image data.png"),

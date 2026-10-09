@@ -1,6 +1,8 @@
 import Editor from "@toast-ui/editor";
 import "@toast-ui/editor/dist/i18n/zh-cn";
 import { toastuiMarkdownSelection, toastuiWysiwygSelection } from "./toastui-markdown-selection.js";
+import { wikilinkLabelFromRaw, looksLikeStableNoteId } from "./editor-link-picker.js";
+import { toastuiMetadataPlugin } from "./toastui-metadata-plugin.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -53,8 +55,8 @@ function createTokenWidget(type, rawText) {
   button.textContent = rawText;
   if (type === "wikilink") {
     button.dataset.wikilink = rawText.slice(2, -2).trim();
-    const alias = button.dataset.wikilink.split("|").slice(1).join("|").trim();
-    if (alias) button.textContent = `[[${alias}]]`;
+    const raw = button.dataset.wikilink;
+    button.textContent = looksLikeStableNoteId(raw) && !raw.includes("|") ? "笔记链接" : wikilinkLabelFromRaw(raw);
   }
   if (type === "tag") {
     button.dataset.tagToken = rawText.replace(/^#/, "").trim();
@@ -104,6 +106,7 @@ export function createWysiwygMarkdownEditor({
     language: "zh-CN",
     height: "100%",
     minHeight: "420px",
+    plugins: [toastuiMetadataPlugin],
     widgetRules: [
       {
         rule: /\[\[[^\]]+\]\]/,
@@ -131,7 +134,7 @@ export function createWysiwygMarkdownEditor({
     }
   });
 
-  parent.addEventListener("click", (event) => {
+  const handleTokenClick = (event) => {
     const token = event.target.closest?.("[data-wikilink],[data-tag-token]");
     if (!token) return;
     if (token.dataset.wikilink) {
@@ -141,7 +144,8 @@ export function createWysiwygMarkdownEditor({
     if (token.dataset.tagToken) {
       onClickToken(`#${token.dataset.tagToken}`);
     }
-  });
+  };
+  parent.addEventListener("click", handleTokenClick);
 
   const api = {
     editor,
@@ -153,21 +157,32 @@ export function createWysiwygMarkdownEditor({
       if (value === editor.getMarkdown()) return;
       editor.setMarkdown(value, false);
     },
+    resetUndoHistory() {
+      // Initial setMarkdown is a history transaction too. Reset only history,
+      // retaining widget, table and metadata plugin state and the current selection.
+      for (const view of [editor.mdEditor.view, editor.wwEditor.view]) {
+        const state = view.state;
+        const history = state.plugins.filter(plugin => /^history\$/.test(plugin.key));
+        if (!history.length) continue;
+        const cleared = state.reconfigure({ plugins: state.plugins.filter(plugin => !history.includes(plugin)) });
+        view.updateState(cleared.reconfigure({ plugins: state.plugins }));
+      }
+    },
     selection() {
       if (editor.isWysiwygMode()) return toastuiMarkdownSelection(editor);
       return normalizeSelection(editor.getMarkdown(), editor.getSelection());
     },
-    setSelectionRange(from, to = from) {
+    setSelectionRange(from, to = from, { focus = true } = {}) {
       if (editor.isWysiwygMode()) {
         const selection = toastuiWysiwygSelection(editor, from, to);
         if (!selection) return;
         editor.setSelection(selection.from, selection.to);
-        editor.focus();
+        if (focus) editor.focus();
         return;
       }
       const markdown = editor.getMarkdown();
       editor.setSelection(offsetToMdPos(markdown, from), offsetToMdPos(markdown, to));
-      editor.focus();
+      if (focus) editor.focus();
     },
     replaceRange(from, to, insertText = "") {
       const markdown = editor.getMarkdown();
@@ -203,6 +218,8 @@ export function createWysiwygMarkdownEditor({
       return selectionRectWithin(parent);
     },
     destroy() {
+      parent.removeEventListener("click", handleTokenClick);
+      if (parent.__wysiwygMarkdownEditor === api) delete parent.__wysiwygMarkdownEditor;
       editor.destroy();
     }
   };

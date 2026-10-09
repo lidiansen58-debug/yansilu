@@ -27,7 +27,7 @@
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
 }
 
 .app.settings-desktop-lock .settings-sidebar-menu-icon,
@@ -181,7 +181,7 @@
 
 #settingsPanel .settings-help-task-body > .mini-btn {
   justify-self: start;
-  min-height: 36px;
+  min-height: var(--ui-control-height);
 }
 
 #settingsPanel .settings-help-task-body .settings-inline-actions {
@@ -218,7 +218,7 @@
 }
 
 #settingsUpdateCard .mini-btn {
-  min-height: 36px;
+  min-height: var(--ui-control-height);
 }
 
 #settingsUpdateCard .settings-update-notes {
@@ -327,7 +327,7 @@
 #settingsCardImportExport select:not([hidden]),
 #settingsCardImportExport textarea {
   font-size: 14px;
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
 }
 
 #settingsCardImportExport .path-picker {
@@ -448,7 +448,7 @@
 }
 
 #importOperationResultModal .candidate-item {
-  border-radius: 6px;
+  border-radius: var(--ui-control-radius);
 }
 
 #importOperationResultModal .candidate-title,
@@ -483,8 +483,8 @@
 }
 
 #moduleWorkspace.settings-mode .module-template-actions .mini-btn {
-  min-height: 36px;
-  border-radius: 6px;
+  min-height: var(--ui-control-height);
+  border-radius: var(--ui-control-radius);
   font-size: 14px;
   letter-spacing: 0;
   box-shadow: none;
@@ -509,10 +509,10 @@
 #settingsPanel .settings-template-editor textarea {
   min-height: 300px;
   padding: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  font-size: var(--ui-field-font-size);
   line-height: 1.6;
 }
 
@@ -684,8 +684,8 @@
 
 #settingsPanel .scheduled-task-form-grid input,
 #settingsPanel .scheduled-task-form-grid select {
-  font-size: 14px;
-  border-radius: 6px;
+  font-size: var(--ui-field-font-size);
+  border-radius: var(--ui-control-radius);
 }
 
 #settingsPanel .scheduled-task-feedback {
@@ -770,7 +770,7 @@
   }
 
   #settingsPanel .settings-mobile-item-switcher select {
-    border-radius: 6px;
+    border-radius: var(--ui-control-radius);
     font-size: 14px;
     min-height: 44px;
   }

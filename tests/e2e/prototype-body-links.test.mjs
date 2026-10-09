@@ -163,7 +163,7 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
       await page.locator("#editorHost .cm-line").filter({ hasText: nextToken }).click({ position: { x: 45, y: 10 }, modifiers: ["Control"] });
     } else {
       const link = page.locator(`#wysiwygHost [data-wikilink="${replacement.id}|替换目标"]:visible`);
-      assert.equal(await link.textContent(), "[[替换目标]]");
+      assert.equal(await link.textContent(), "替换目标");
       await link.click();
     }
     await page.locator(".note-peek-actions").waitFor();
