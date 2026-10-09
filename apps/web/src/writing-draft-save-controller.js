@@ -3,6 +3,7 @@ import { writingBookDirectoryPending } from "./writing-book-directory-controller
 import { acknowledgeWritingNoteBinding, createWritingNoteWithRecovery } from "./writing-note-creation-recovery.js";
 import { checkpointArticleInput, clearWritingInput } from "./writing-input-recovery.js";
 import { saveEditorNoteWithRecovery } from "./editor-save-recovery.js";
+import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
 
 const pendingSaves = new WeakMap();
 
@@ -39,7 +40,7 @@ export function recordWritingDraftInput(deps, value) {
   const button = deps.$?.("btnWritingSaveDraft");
   if (button && writingState.scaffold?.id) {
     button.disabled = saving;
-    button.textContent = saving ? "正在保存..." : "保存草稿";
+    renderWritingDraftFeedback(deps, { saveState: writingState.draftSaveState });
   }
 }
 
@@ -83,7 +84,7 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
   } = deps;
   if (!projectId || !scaffoldId || !String(writingState.scaffoldMarkdown || "").trim()) {
     showWritingResult({ stage: "writing_draft_note_error", code: "WRITING_DRAFT_INVALID", message: "scaffold is required before creating a draft note" });
-    setStatus(String($("btnWritingSaveDraft")?.textContent || "").trim() || "先生成文章提纲", "warn");
+    setStatus(String($("writingDraftSaveFeedback")?.textContent || "").trim() || "先生成提纲", "warn");
     return;
   }
   if (!operation.isCurrent()) return;
@@ -101,7 +102,8 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
   const noteId = currentDraftId || reusableNote?.id;
   writingState.draftSaveState = "saving";
   const button = $("btnWritingSaveDraft");
-  if (button) { button.disabled = true; button.textContent = "正在保存..."; }
+  if (button) button.disabled = true;
+  renderWritingDraftFeedback(deps, { saveState: "saving" });
   try {
     checkpointArticleInput(deps);
     const payload = { directoryId, title, status: "draft", body };
@@ -166,14 +168,18 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
     showWritingResult({ stage: "writing_draft_note", writingProjectId: projectId, draftScaffoldId: scaffoldId, noteId: note.id, directoryId, title: note.title });
     renderWritingPanel();
     const renderedButton = $("btnWritingSaveDraft");
-    if (renderedButton) { renderedButton.disabled = false; renderedButton.textContent = changedDuringSave ? "保存草稿" : "已保存"; }
+    if (renderedButton) renderedButton.disabled = false;
+    writingState.draftSaveErrorCode = "";
+    renderWritingDraftFeedback(deps, { saveState: writingState.draftSaveState });
     setStatus(changedDuringSave ? "已保存此前内容；刚写的修改尚未保存，请再保存一次。" : currentDraftId ? "草稿已保存" : "草稿已创建", changedDuringSave ? "warn" : "ok", { notify: true, force: true });
     if (refreshError) setStatus(`草稿正文已保存，但版本列表刷新失败：${String(refreshError?.message || refreshError)}。`, "warn", { notify: true, force: true });
   } catch (error) {
     if (!operation.isCurrent()) return;
     writingState.draftSaveState = "error";
+    writingState.draftSaveErrorCode = error?.code || "";
     const renderedButton = $("btnWritingSaveDraft");
-    if (renderedButton) { renderedButton.disabled = false; renderedButton.textContent = error?.code === "NOTE_SAVE_RESULT_UNCERTAIN" ? "核查后再保存" : "保存失败，重试"; }
+    if (renderedButton) renderedButton.disabled = false;
+    renderWritingDraftFeedback(deps, { saveState: "error", uncertain: error?.code === "NOTE_SAVE_RESULT_UNCERTAIN" });
     showWritingResult({ stage: "writing_draft_note_error", writingProjectId: projectId, draftScaffoldId: scaffoldId,
       message: String(error?.message || error), code: error?.code || null, details: error?.details || null });
     setStatus(error?.code === "NOTE_SAVE_CONFLICT"

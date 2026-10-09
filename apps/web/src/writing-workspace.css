@@ -1,0 +1,149 @@
+/* Writing is a document workspace; controls use ui-design-system.css. */
+#writingPanel .writing-shell { gap: var(--ui-space-6); padding: 24px 28px; }
+#writingPanel .writing-workbench-head { align-items: center; padding: 0; }
+#writingPanel .writing-page-title { font-size: 22px; font-weight: 650; }
+#writingPanel .writing-head-actions { gap: var(--ui-space-2); }
+#writingPanel .writing-tabs {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 24px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border);
+  border-radius: 0;
+  background: transparent;
+}
+#writingPanel .writing-tab {
+  width: auto;
+  min-width: 0;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: 8px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+#writingPanel .writing-tab.is-active {
+  color: var(--ui-brand);
+  border-bottom-color: var(--ui-brand);
+  background: transparent;
+  box-shadow: none;
+}
+#writingPanel .writing-section {
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 20px;
+}
+#writingPanel .writing-section-title { font-family: var(--ui-font); font-size: 16px; font-weight: 600; }
+#writingPanel .writing-draft-panel { position: relative; }
+#writingPanel .writing-document-tools { display: flex; gap: 4px; }
+#writingPanel .writing-document-tools[hidden] { display: none; }
+#writingPanel .writing-document-editor {
+  height: max(420px, min(58vh, 620px));
+  min-height: 420px;
+  min-width: 0;
+  flex: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  overflow: hidden;
+  box-shadow: none;
+}
+#writingPanel .writing-document-editor::before, #writingPanel .writing-document-editor::after { content: none; }
+#writingPanel .writing-document-editor[hidden], #writingPanel #writingDraftEditor[hidden] { display: none; }
+#writingPanel .writing-document-editor .toastui-editor-contents {
+  padding: 24px 28px;
+  font-family: var(--ui-font);
+  font-size: 16px;
+  line-height: 1.85;
+}
+#writingPanel .writing-document-editor .toastui-editor-contents h1 { font-size: 26px; border: 0; }
+#writingPanel .writing-document-editor .yansilu-token-wikilink { color: var(--ui-brand); border-radius: 4px; padding: 0 3px; }
+#writingPanel .writing-draft-target-row { align-items: center; margin: 0; gap: 12px; }
+#writingPanel .writing-draft-target-row select { flex: 1 1 220px; max-width: 420px; }
+#writingPanel .writing-chapter-menu { position: relative; }
+#writingPanel .writing-chapter-menu > summary { list-style: none; }
+#writingPanel .writing-chapter-menu > summary::-webkit-details-marker { display: none; }
+#writingPanel .writing-chapter-tools {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-popover);
+}
+#writingPanel .writing-chapter-tools button { width: 100%; height: auto; text-align: left; }
+#writingPanel .writing-chapter-tools .mini-btn { justify-content: flex-start; }
+#writingPanel .writing-chapter-menu-note { margin: 4px 8px; color: var(--ui-text-muted); font-size: 12px; line-height: 1.6; }
+#writingPanel #writingDraftEditor {
+  min-height: min(58vh, 620px);
+  padding: 28px;
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  font-size: 16px;
+  line-height: 1.85;
+  box-shadow: none;
+}
+#writingPanel .writing-draft-footer { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; margin: 0; }
+#writingPanel .writing-draft-footer .mini-btn { flex: 0 0 auto; width: auto; }
+#writingPanel .writing-save-feedback { flex: 1; margin: 0; font-size: 13px; color: var(--ui-text-muted); }
+#writingPanel .writing-save-feedback[data-state="error"] { color: var(--ui-danger); }
+#writingPanel .writing-save-feedback[data-state="saved"] { color: var(--ui-brand); }
+#writingPanel .writing-more-menu-panel { box-shadow: var(--ui-shadow-popover); }
+#writingPanel .writing-note-title { font-size: 16px; font-weight: 600; }
+#writingPanel .writing-note-meta { font-size: 14px; line-height: 1.6; }
+.writing-chapter-navigation { border-top: 1px solid var(--ui-border); margin-top: 24px; padding-top: 16px; }
+.writing-chapter-navigation h3 { margin: 0 10px 12px; font-size: 13px; font-weight: 600; color: var(--ui-text-muted); }
+.writing-chapter-navigation .writing-sidebar-action { border-color: transparent; background: transparent; font-weight: 500; line-height: 1.6; }
+.writing-chapter-navigation .writing-sidebar-action.is-active { color: var(--ui-brand); background: var(--ui-brand-soft); border-color: transparent; box-shadow: none; }
+.writing-chapter-group { margin-top: 16px; }
+.writing-chapter-group p { margin: 0 10px 6px; font-size: 12px; line-height: 1.6; color: var(--ui-text-muted); }
+/* Notices reserve a row instead of covering the document's save action. */
+.main:has(#moduleWorkspace.writing-mode:not(.hidden)) > #statusBar.is-visible {
+  position: relative;
+  inset: auto;
+  width: auto;
+  margin: 0;
+  max-height: min(200px, 30dvh);
+  border-radius: 0;
+  box-shadow: none;
+}
+@media (min-width: 1024px) {
+  .app:has(#moduleWorkspace.writing-mode:not(.hidden)) { grid-template-columns: 56px 220px minmax(0, 1fr); }
+  .app:has(.writing-chapter-navigation:not([hidden])) #writingDraftTarget { display: none; }
+}
+@media (max-width: 700px) {
+  #writingPanel .writing-shell { padding: 16px; gap: 16px; }
+  #writingPanel .writing-tabs { gap: 24px; }
+  #writingPanel .writing-workbench-head { align-items: flex-start; }
+  #writingPanel .writing-head-actions { width: 100%; min-width: 0; flex-wrap: wrap; justify-content: flex-start; }
+  #writingPanel .writing-head-actions .mini-btn { padding: 8px; white-space: nowrap; }
+  #writingPanel .writing-draft-target-row { flex-wrap: nowrap; gap: 8px; }
+  #writingPanel .writing-draft-target-row select { flex: 1; width: 0; min-width: 0; }
+  #writingPanel .writing-chapter-menu { flex: 0 0 auto; }
+  #writingPanel #writingDraftEditor { min-height: 48dvh; padding: 16px; }
+  #writingPanel .writing-draft-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    background: var(--ui-surface);
+  }
+}

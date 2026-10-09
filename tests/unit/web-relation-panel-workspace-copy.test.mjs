@@ -36,8 +36,8 @@ test("relation and viewpoint polish entry stay separated", async () => {
   const relationComposerController = await readFile(permanentRelationComposerControllerPath, "utf8");
   const workspaceControllerSource = await readFile(workspaceControllerPath, "utf8");
 
-  assert.match(shell, /<div class="panel-title" id="notePolishTitle">打磨笔记<\/div>/);
-  assert.match(shell, /aria-label="打磨笔记"/);
+  assert.match(shell, /<div class="panel-title" id="notePolishTitle">观点与关联<\/div>/);
+  assert.match(shell, /aria-label="观点与关联"/);
   assert.match(source, /renderPermanentRelationWorkspace/);
   assert.match(source, /renderPermanentNoteRelationAssistSectionView\(\{/);
   assert.match(source, /data-permanent-relation-workspace/);
@@ -57,10 +57,10 @@ test("relation and viewpoint polish entry stay separated", async () => {
   assert.doesNotMatch(workspaceControllerSource, /renderPermanentNoteWritingPrepSection\(note\)/);
   assert.doesNotMatch(workspaceControllerSource, /renderPermanentNoteRelationAssistSection\(note, overview\)/);
 
-  assert.match(source, /role="tablist" aria-label="打磨笔记"/);
+  assert.match(source, /role="tablist" aria-label="观点与关联"/);
   assert.doesNotMatch(source, /renderRelated\("当前笔记关联总览"\)/);
   assert.doesNotMatch(shell, /关联 \/ 写作/);
-  assert.match(shell, /打磨笔记/);
+  assert.match(shell, /观点与关联/);
 });
 
 test("permanent relation manual search keeps the search input mounted while updating results", async () => {

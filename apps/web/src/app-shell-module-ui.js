@@ -9,29 +9,21 @@ export function currentModuleSidebarUi({
     today: {
       sidebarTitle: "首页",
       sidebarSubtitle: "让笔记生长为思想",
-      sidebarFoot: "今日小提示：先把一条记录加工成判断，再补清它和其他笔记的关系。",
+      sidebarFoot: "",
       title: "今日整理",
       summary: "先做最重要的一步。",
       sidebarHtml: ""
     },
     distillation: {
       sidebarTitle: "观点整理",
-      sidebarSubtitle: "把永久笔记推进成清晰观点。",
-      sidebarFoot: "观点整理只给出建议；你确认后才会写入笔记。",
+      sidebarSubtitle: "整理永久笔记中的观点",
+      sidebarFoot: "",
       title: "观点整理",
-      summary: "写下并确认当前观点，再用关系检验它、补充它。",
+      summary: "写下当前观点，确认后保存到笔记。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>当前目标</h3>
-          <p>从 <strong>${escapeHtml(resolvedRootName)}</strong> 中找出还没有当前观点或尚未确认的永久笔记。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>处理顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>写下当前观点</li>
-            <li>需要时补充说明</li>
-            <li>保存后继续建立关系</li>
-          </ol>
+          <h3>笔记范围</h3>
+          <p>${escapeHtml(resolvedRootName)}</p>
         </div>
       `
     },
@@ -69,11 +61,11 @@ export function currentModuleSidebarUi({
       sidebarHtml: ""
     },
     graph: {
-      sidebarTitle: "永久笔记关系图谱",
-      sidebarSubtitle: "看永久笔记之间的观点结构。",
-      sidebarFoot: "直接看关系，判断哪些观点在支撑、对照、限定或桥接。",
-      title: "永久笔记关系图谱",
-      summary: "把永久笔记和它们之间的“支持、反驳、限定、连接”等关系放到一张图里，快速看出中心观点、孤立观点、冲突和缺失连接。",
+      sidebarTitle: "关系图谱",
+      sidebarSubtitle: "查看永久笔记之间的关联",
+      sidebarFoot: "",
+      title: "关系图谱",
+      summary: "选择笔记查看关联，或切换到找缺口、找主题。",
       sidebarHtml: ""
     },
     writing: {
@@ -91,6 +83,7 @@ export function currentModuleSidebarUi({
             相关笔记 <span id="writingSidebarRelatedCount">0</span>
           </button>
         </div>
+        <nav class="writing-chapter-navigation" id="writingChapterNavigation" aria-label="内容目录" hidden></nav>
       `
     },
     settings: {

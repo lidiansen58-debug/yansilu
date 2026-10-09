@@ -1,6 +1,8 @@
 import Editor from "@toast-ui/editor";
 import "@toast-ui/editor/dist/i18n/zh-cn";
 import { toastuiMarkdownSelection, toastuiWysiwygSelection } from "./toastui-markdown-selection.js";
+import { wikilinkLabelFromRaw, looksLikeStableNoteId } from "./editor-link-picker.js";
+import { toastuiMetadataPlugin } from "./toastui-metadata-plugin.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -53,8 +55,8 @@ function createTokenWidget(type, rawText) {
   button.textContent = rawText;
   if (type === "wikilink") {
     button.dataset.wikilink = rawText.slice(2, -2).trim();
-    const alias = button.dataset.wikilink.split("|").slice(1).join("|").trim();
-    if (alias) button.textContent = `[[${alias}]]`;
+    const raw = button.dataset.wikilink;
+    button.textContent = looksLikeStableNoteId(raw) && !raw.includes("|") ? "笔记链接" : wikilinkLabelFromRaw(raw);
   }
   if (type === "tag") {
     button.dataset.tagToken = rawText.replace(/^#/, "").trim();
@@ -104,6 +106,7 @@ export function createWysiwygMarkdownEditor({
     language: "zh-CN",
     height: "100%",
     minHeight: "420px",
+    plugins: [toastuiMetadataPlugin],
     widgetRules: [
       {
         rule: /\[\[[^\]]+\]\]/,

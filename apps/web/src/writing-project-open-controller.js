@@ -72,7 +72,7 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       writingState.scaffold = outline.item || null;
       writingState.scaffoldMarkdown = outline.restored ? outline.item.markdown : scaffold?.export?.markdown || scaffold?.item?.markdown || "";
       writingState.draftMarkdown = draft?.body ?? "";
-      writingState.draftSaveState = "idle";
+      writingState.draftSaveState = draft ? "saved" : "idle";
       if (recovered) {
         writingState.draftMarkdown = recovered.markdown;
         writingState.draftSaveState = "dirty";

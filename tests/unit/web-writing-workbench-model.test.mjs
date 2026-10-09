@@ -122,3 +122,12 @@ test("draft content preserves edited or saved prose and only generates for a new
   assert.equal(writingDraftContent({ writingState: { scaffoldMarkdown: "内部报告" } }), "");
   assert.match(writingDraftContent({ writingState: { project: { title: "新文章" }, scaffold: { sections: [{ heading: "真实章节" }] }, scaffoldMarkdown: "内部报告" } }), /## 真实章节/);
 });
+
+test("a saved empty article remains empty rather than regenerating outline prose", () => {
+  const writingState = { draftMarkdown: "", draftSaveState: "saved", project: { title: "文章", draft_note: { body: "" } },
+    scaffold: { sections: [{ heading: "提纲章节" }] } };
+  assert.equal(writingDraftContent({ writingState }), "");
+  writingState.draftSaveState = "idle";
+  writingState.project.draft_note = undefined;
+  assert.match(writingDraftContent({ writingState }), /## 提纲章节/);
+});

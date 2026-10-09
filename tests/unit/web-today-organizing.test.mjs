@@ -195,19 +195,16 @@ test("today organizing panel uses readable action words", () => {
 
   assert.match(html, /手机随笔待处理/);
   assert.doesNotMatch(html, /从这里开始整理知识/);
-  assert.match(html, /待说清/);
+  assert.match(html, /待整理/);
   assert.match(html, /手机随笔待处理/);
   assert.match(html, /说明为什么有关/);
   assert.match(html, /围绕问题整理/);
   assert.match(html, /用笔记开始写作/);
   assert.match(html, /看看这些笔记能不能一起回答一个问题/);
   assert.match(html, /先生成提纲，再决定是否起草/);
-  assert.match(html, /推荐路径/);
-  assert.match(html, /记录 -> 判断 -> 关联 -> 写作/);
-  assert.match(html, /说明关联/);
-  assert.match(html, /开始写作/);
-  assert.match(html, /先完成上方推荐任务/);
-  assert.match(html, /说清这条记录/);
+  assert.match(html, /记录 → 观点 → 关联 → 写作/);
+  assert.doesNotMatch(html, /today-beginner-guide|today-overview-compact/);
+  assert.match(html, /整理这条记录/);
   assert.match(html, /data-today-action="review-material"/);
   assert.doesNotMatch(html, /data-today-action="review-material" disabled/);
   assert.match(html, /去关联/);

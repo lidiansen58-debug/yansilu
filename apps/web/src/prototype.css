@@ -22224,11 +22224,11 @@
     .editor-stage-shell #btnFocusMode,
     .editor-stage-shell .toolbar-group-structure .tb-label.has-icon,
     .editor-stage-shell #btnSave {
-      width: 36px !important;
-      min-width: 36px !important;
-      height: 36px !important;
+      width: var(--ui-control-height) !important;
+      min-width: var(--ui-control-height) !important;
+      height: var(--ui-control-height) !important;
       padding: 0 !important;
-      border-radius: 0 !important;
+      border-radius: var(--ui-control-radius) !important;
       gap: 0 !important;
     }
 

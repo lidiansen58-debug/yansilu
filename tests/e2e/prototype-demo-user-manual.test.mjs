@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
 
 test("imported manual continues through writing UI, saves, reopens and exports actual article", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
@@ -15,6 +15,7 @@ test("imported manual continues through writing UI, saves, reopens and exports a
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="settings"]').click();
   await page.locator('[data-settings-item="desktop-help"]').click();
+  await page.locator('#settingsDesktopHelpCard details', { has: page.locator('summary', { hasText: '查看一套完整示例' }) }).locator('summary').click();
   page.once('dialog', dialog => dialog.dismiss());
   await page.locator('#settingsImportSmartNotesDemo').click();
   await waitFor(async () => assert.match(await page.locator('#settingsImportSmartNotesDemoStatus').innerText(), /已取消/));
@@ -33,6 +34,7 @@ test("imported manual continues through writing UI, saves, reopens and exports a
   const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button');
   await waitFor(async () => assert.equal(await resume.getAttribute('data-writing-project-id'), 'WRITE-SMART-NOTES-DEMO'));
   await resume.click();
+  await useWritingMarkdown(page);
   const editor = page.locator('#writingDraftEditor:visible');
   await editor.waitFor();
   const initial = await editor.inputValue();
@@ -52,6 +54,7 @@ test("imported manual continues through writing UI, saves, reopens and exports a
   await page.locator('[data-writing-sidebar-action="topics"]').click();
   await waitFor(async () => assert.equal(await resume.getAttribute('data-writing-project-id'), 'WRITE-SMART-NOTES-DEMO'));
   await resume.click();
+  await useWritingMarkdown(page);
   await editor.waitFor();
   assert.ok((await editor.inputValue()).includes(addition));
   const out = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-manual-export-'));

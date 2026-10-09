@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
 
 async function answerInput(page, value) {
   await page.locator("[data-text-input-field]:visible").fill(value);
@@ -241,6 +241,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     await page.locator("#btnWritingStartDraft").click();
     assert.ok((await page.locator("#writingDraftEditor").inputValue()).includes(longHeading), "Draft must use the complete edited heading");
     const article = `# ${themeTitle}\n\n先尝试用自己的话解释，再核对遗漏的前提。\n\n这篇文章从两次阅读实践中形成。`;
+    await useWritingMarkdown(page);
     await page.locator("#writingDraftEditor:visible").fill(article);
     await page.locator("#btnWritingSaveDraft").click();
     let project;
@@ -271,10 +272,11 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     const theme = page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: themeTitle });
     await theme.getByRole("button", { name: "继续草稿", exact: true }).click();
     await page.locator('.rail-btn[data-module="writing"]').click();
-    await page.locator("#writingDraftEditor:visible").waitFor();
+    await useWritingMarkdown(page);
     assert.match(await page.locator("#writingDraftEditor").inputValue(), /当前修改也要进入/);
     assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.length, 1, "Continue must reuse the saved project");
     for (const title of ["第一章 解释", "第二章 核对"]) {
+      await page.locator("#writingChapterMenu > summary").click();
       await page.locator("#btnWritingChapterAdd").click();
       await answerInput(page, title);
       await page.waitForFunction(title => document.querySelector("#writingDraftTarget")?.selectedOptions[0]?.textContent.includes(title), title);
@@ -288,6 +290,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
       }, 15000);
       await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /章节已保存/));
     }
+    await page.locator("#writingChapterMenu > summary").click();
     await page.locator("#btnWritingChapterUp").click();
     await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /章节顺序已保存/));
     await page.locator("#writingDraftEditor").fill("# 第二章 核对\n\n当前未保存的章节修改。");
@@ -299,7 +302,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     assert.equal(await page.locator("#writingMoreMenu").evaluate(element => element.open), false);
     assert.equal(bookRequests, 0);
     assert.match(await page.locator("#writingDraftEditor").inputValue(), /当前未保存的章节修改/);
-    if (width !== 1366) {
+    {
       await page.locator("#btnWritingSaveDraft").scrollIntoViewIfNeeded();
       const layout = await page.locator("#btnWritingSaveDraft").evaluate(button => {
         const rect = button.getBoundingClientRect();

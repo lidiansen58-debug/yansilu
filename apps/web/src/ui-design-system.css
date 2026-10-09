@@ -1,0 +1,134 @@
+/* Shared contract for product controls. Feature styles own layout, not control geometry. */
+:root {
+  --ui-font: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ui-text: #1e293b;
+  --ui-text-muted: #526174;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #f5f7f8;
+  --ui-border: #d5dfe3;
+  --ui-brand: #0f766e;
+  --ui-brand-hover: #0b625b;
+  --ui-brand-soft: #edf6f4;
+  --ui-danger: #b42318;
+  --ui-danger-soft: #fff1f0;
+  --ui-control-height: 40px;
+  --ui-control-radius: 8px;
+  --ui-control-font-size: 14px;
+  --ui-field-font-size: 15px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-shadow-popover: 0 8px 28px rgb(15 23 42 / 12%);
+  --ui-shadow-dialog: 0 20px 60px rgb(15 23 42 / 18%);
+  --brand: var(--ui-brand);
+  --ink: var(--ui-text);
+  --muted: var(--ui-text-muted);
+}
+
+body { font-family: var(--ui-font); color: var(--ui-text); }
+/* The reserved Markdown delimiter is retained by the editor, without a visible row. */
+.toastui-editor-contents .yansilu-metadata-block { display: none; }
+button, input, textarea, select, summary { font-family: inherit; }
+
+/* Graph navigation keeps its tab layout while using the shared control sizing. */
+#moduleWorkspace.graph-mode :is(.graph-view-tab, .graph-selection-action, .graph-zoom-btn, .graph-zoom-step, .graph-overlay-close) {
+  min-height: var(--ui-control-height);
+  border-radius: var(--ui-control-radius);
+  font-size: var(--ui-control-font-size);
+  font-family: var(--ui-font);
+  box-shadow: none;
+}
+#moduleWorkspace.graph-mode :is(.graph-zoom-step, .graph-overlay-close) { min-width: var(--ui-control-height); }
+
+/* IDs in this scope give the contract precedence over legacy page overrides. */
+:is(#editorWorkspace, #moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar)
+  :is(.mini-btn, .tb, .writing-sidebar-action) {
+  box-sizing: border-box;
+  min-height: var(--ui-control-height);
+  border-radius: var(--ui-control-radius);
+  font-size: var(--ui-control-font-size);
+  font-weight: 600;
+  line-height: 1.4;
+  box-shadow: none;
+  transform: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn:hover:not(:disabled) {
+  background: var(--ui-surface-muted);
+  border-color: #b6c7ce;
+  box-shadow: none;
+  transform: none;
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn.primary {
+  background: var(--ui-brand);
+  border-color: var(--ui-brand);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn.primary:hover:not(:disabled) {
+  background: var(--ui-brand-hover);
+  border-color: var(--ui-brand-hover);
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn.is-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ui-text-muted);
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .mini-btn.is-danger {
+  background: var(--ui-danger-soft);
+  border-color: #efc5c0;
+  color: var(--ui-danger);
+}
+
+:is(#editorWorkspace, #moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar) .icon-btn {
+  min-width: var(--ui-control-height);
+  width: var(--ui-control-height);
+  padding: 0;
+}
+
+:is(#moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar)
+  :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]), select, textarea) {
+  box-sizing: border-box;
+  min-height: var(--ui-control-height);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: var(--ui-field-font-size);
+  line-height: 1.6;
+  padding: 8px 12px;
+  box-shadow: none;
+}
+
+:is(#editorWorkspace, #moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar)
+  :is(button, summary, input, textarea, select):focus-visible {
+  outline: 2px solid var(--ui-brand);
+  outline-offset: 2px;
+}
+
+:is(#editorWorkspace, #moduleWorkspace, #relatedPanel, #permanentNoteModal, .modal-mask, .permanent-relation-overlay, .sidebar)
+  :is(button, input, textarea, select):disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+
+@media (max-width: 700px) {
+  :root { --ui-control-height: 44px; --ui-field-font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.mini-btn, .tb, .writing-sidebar-action) { transition: none; animation: none; }
+}

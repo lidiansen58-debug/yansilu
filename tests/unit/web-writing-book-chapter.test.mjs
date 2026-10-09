@@ -7,19 +7,19 @@ import { renderWritingPanelDom } from "../../apps/web/src/writing-panel-controll
 const creationId = "12345678-1234-4234-8234-123456789abc";
 const createdNoteId = `note_${creationId}`;
 
-test("chapter heading displays the complete selected title and resets when returning to the article", () => {
+test("chapter selector displays the complete title without duplicating the document heading", () => {
   const title = "A complete chapter name with evidence, questions and counterpoints ".repeat(2);
-  const nodes = { writingDraftTarget: {}, writingDraftTitle: {} };
+  const nodes = { writingDraftTarget: {}, writingDraftTitle: { textContent: "正文" } };
   const writingState = { project: { id: "project", book_structure: { parts: [{ title: "Part", chapters: [{ id: "chapter", title }] }] } },
     bookChapter: { projectId: "project", id: "chapter", title } };
   const deps = { writingState, $: id => nodes[id], escapeHtml: value => String(value) };
   renderWritingBookChapterSelector(deps);
-  assert.equal(nodes.writingDraftTitle.textContent, title);
+  assert.equal(nodes.writingDraftTitle.textContent, "正文");
   assert.equal(nodes.writingDraftTarget.value, "chapter");
   assert.ok(nodes.writingDraftTarget.innerHTML.includes(title));
   writingState.bookChapter = null;
   renderWritingBookChapterSelector(deps);
-  assert.equal(nodes.writingDraftTitle.textContent, "草稿");
+  assert.equal(nodes.writingDraftTitle.textContent, "正文");
   assert.equal(nodes.writingDraftTarget.value, "");
 });
 
@@ -79,6 +79,18 @@ function usePanelRenderer(s, nodes = {}) {
     escapeHtml: String
   });
 }
+
+test("loaded chapters report saved while generated chapters remain unsaved", async () => {
+  const s = setup();
+  const feedback = { setAttribute() {} };
+  usePanelRenderer(s, { writingDraftSaveFeedback: feedback });
+  await selectWritingDraftTarget(s.deps, "second");
+  assert.equal(s.writingState.bookChapter.saveState, "saved");
+  assert.equal(feedback.textContent, "已保存");
+  await selectWritingDraftTarget(s.deps, "first");
+  assert.equal(s.writingState.bookChapter.saveState, "idle");
+  assert.equal(feedback.textContent, "尚未保存");
+});
 
 test("a chapter-only book retains its export menu without an article outline or article draft", () => {
   const s = setup();

@@ -52,13 +52,13 @@ export function renderPermanentNoteDistillationSection(note, options = {}) {
             <input name="title" type="text" value="${escapeHtml(viewpointDraft?.title ?? note.title ?? "")}" required />
           </label>
           <label>
-            你现在认为是什么？
+            当前观点
             <textarea name="thesis" rows="3" placeholder="用一句自己的话，写下你愿意保留的判断。" required>${escapeHtml(thesis)}</textarea>
           </label>
           <input type="hidden" name="originalThesis" value="${escapeHtml(viewpointBaseline)}" />
           <input type="hidden" name="distillationStatus" value="confirmed" />
           <label>
-            最初想解决什么？ <span class="distillation-field-hint">可选</span>
+            最初的问题 <span class="distillation-field-hint">可选</span>
             <textarea name="startingQuestion" rows="2" placeholder="例如：为什么记了很多笔记，写作时还是用不上？">${escapeHtml(startingQuestion)}</textarea>
           </label>
           <div class="viewpoint-change-reason" data-viewpoint-change-reason ${viewpointChanged ? "" : "hidden"}>

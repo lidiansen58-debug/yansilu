@@ -164,6 +164,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "literature-source-readiness.js": 70,
     "literature-note-template.js": 75,
     "distillation-editor-result.js": 30,
+    "distillation-editor-reconcile.js": 35,
+    "distillation-editor-position.js": 25,
     "app-route-initializer.js": 76,
     "import-workspace-shell.js": 120,
     "import-result-runtime.js": 420,

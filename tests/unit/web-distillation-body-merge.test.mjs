@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeDistillationText, reconcileDistillationTab } from "../../apps/web/src/distillation-body-merge.js";
+import { mergeDistillationText, reconcileDistillationTab, mapDistillationSelection } from "../../apps/web/src/distillation-body-merge.js";
 import { syncDistillationEditorResult } from "../../apps/web/src/distillation-editor-result.js";
 
 test("disjoint replacements and insertions merge in either order", () => {
@@ -8,6 +8,16 @@ test("disjoint replacements and insertions merge in either order", () => {
   assert.equal(mergeDistillationText("abc def ghi", "abc def GHI", "abc DEF ghi"), "abc DEF GHI");
   assert.equal(mergeDistillationText("abc", "Xabc", "abcY"), "XabcY");
   assert.equal(mergeDistillationText("abc", "ac", "abcY"), "acY");
+});
+
+test("inserting a confirmed viewpoint keeps the caret and selected prose on the same user text", () => {
+  const before = "# 笔记\n\n原文。\n\n我正在写的段落。";
+  const after = before.replace("\n\n原文", "\n\n## 提炼观点\n\n新的判断。\n\n原文");
+  const start = before.indexOf("我正在写"), end = before.length;
+  const mapped = mapDistillationSelection(before, after, { from: start, to: end });
+  assert.equal(after.slice(mapped.from, mapped.to), before.slice(start, end));
+  assert.deepEqual(mapDistillationSelection(before, after, { from: end, to: end }), { from: after.length, to: after.length });
+  assert.deepEqual(mapDistillationSelection(before, after, { from: 2, to: 4 }), { from: 2, to: 4 });
 });
 
 test("overlapping and ambiguous edits are not guessed", () => {

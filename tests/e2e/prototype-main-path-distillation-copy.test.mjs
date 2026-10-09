@@ -87,7 +87,7 @@ test("prototype needs-distillation copy points toward viewpoint distillation", a
   await page.locator("#btnShowRelated").click();
   const panel = page.locator("#resultArea");
   await waitFor(async () => {
-    assert.match(await panel.innerText(), /你现在认为是什么/);
+    assert.match(await panel.innerText(), /当前观点/);
     assert.equal(await panel.getByRole("button", { name: "保存当前观点", exact: true }).isVisible(), true);
     assert.doesNotMatch(await panel.innerText(), /进入写作中心/);
   });

@@ -11,23 +11,20 @@ function escape(value = "") {
 
 function buildTodayActions(state = {}) {
   const firstMaterial = state.firstPendingMaterial || null;
-  const materialTitles = Array.isArray(state.pendingMaterialItems)
-    ? state.pendingMaterialItems.map((item) => item?.title).filter(Boolean).slice(0, 3)
-    : [];
   const firstIsolated = state.firstIsolated || null;
   const firstTheme = state.firstTheme || null;
   const firstWriting = state.firstWritingReady || null;
   return [
     {
       key: "material",
-      title: "说清一条记录",
+      title: "整理一条记录",
       objectTitle: firstMaterial?.title || "随笔和文献暂时都已处理",
       summary: firstMaterial
-        ? `用自己的话说清楚它对你意味着什么。${materialTitles.length ? `待处理：${materialTitles.join("、")}` : ""}`
+        ? "用自己的话写下这条记录带来的观点。"
         : "记录都已说清楚，可以检查关联。",
       meta: firstMaterial ? `${state.pendingMaterialCount || 0} 条待处理` : "已处理",
       action: "review-material",
-      actionLabel: firstMaterial ? "说清这条记录" : "已完成",
+      actionLabel: firstMaterial ? "整理这条记录" : "已完成",
       disabled: !firstMaterial,
       tone: "material"
     },
@@ -113,39 +110,6 @@ function actionCard({
   `;
 }
 
-function renderOverview(state = {}) {
-  return `
-    <section class="today-overview-compact" aria-label="当前笔记库状态">
-      <div class="today-overview-counts">
-        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong><small>待说清</small></span>
-        <span><strong>${escape(state.permanentCount || 0)}</strong><small>已沉淀观点</small></span>
-        <span><strong>${escape(state.isolatedCount || 0)}</strong><small>未关联</small></span>
-        <span><strong>${escape(state.themeCount || 0)}</strong><small>可继续整理</small></span>
-      </div>
-      <div class="today-overview-note">
-        先完成上方推荐任务。
-      </div>
-    </section>
-  `;
-}
-
-function renderBeginnerGuide() {
-  return `
-    <section class="today-beginner-guide" aria-label="新用户使用步骤">
-      <div class="today-beginner-copy">
-        <span class="today-action-kicker">推荐路径</span>
-        <strong>记录 -> 判断 -> 关联 -> 写作</strong>
-      </div>
-      <ol>
-        <li><span>1</span><strong>说清记录</strong></li>
-        <li><span>2</span><strong>留下判断</strong></li>
-        <li><span>3</span><strong>说明关联</strong></li>
-        <li><span>4</span><strong>开始写作</strong></li>
-      </ol>
-    </section>
-  `;
-}
-
 function renderEmptyLibraryHome(state = {}) {
   const startupPending = state.startupPending === true;
   const startupError = String(state.startupError || "");
@@ -184,11 +148,10 @@ function renderTodaySummary(state = {}) {
   return `
     <section class="today-quick-summary" aria-label="首页概览">
       <div class="today-path-inline">
-        <span>路径</span>
-        <strong>记录 -> 判断 -> 关联 -> 写作</strong>
+        <strong>记录 → 观点 → 关联 → 写作</strong>
       </div>
       <div class="today-overview-counts">
-        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong><small>待说清</small></span>
+        <span><strong>${escape(state.pendingMaterialCount || 0)}</strong><small>待整理</small></span>
         <span><strong>${escape(state.isolatedCount || 0)}</strong><small>未关联</small></span>
         <span><strong>${escape(state.themeCount || 0)}</strong><small>可整理</small></span>
       </div>
@@ -254,8 +217,6 @@ export function renderTodayOrganizingPanel(state = {}) {
         </div>
         <div class="today-secondary-panel" role="tabpanel" data-today-secondary-panel="path" hidden>
           <div class="today-secondary-body">
-            ${renderBeginnerGuide()}
-            ${renderOverview(state)}
             <section class="today-action-grid" aria-label="其他可做">
               ${actions.filter((item) => item.key !== recommended.key && !item.disabled).map(actionCard).join("")}
             </section>

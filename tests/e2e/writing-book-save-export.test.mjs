@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { initVault, createNoteInDirectory } from "../../packages/domain/src/index.mjs";
 import { createIndexCard } from "../../packages/domain/src/index-card-store.mjs";
 import { createWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
+import { useWritingMarkdown, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
 
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -87,11 +88,12 @@ test("browser saves new chapters once and exports the complete book in directory
   await page.locator('[data-writing-tab="draft"]').click();
   const bodies = { first: "# First\n\nBROWSER-CHAPTER-FIRST\n\n", second: "# Second\n\nBROWSER-CHAPTER-SECOND\n" };
   for (const id of ["first", "second"]) {
-    await page.locator("#writingDraftTarget").selectOption(id);
-    await page.waitForFunction(title => document.querySelector("#writingDraftTitle")?.textContent === title, id === "first" ? "First" : "Second");
+    await selectWritingChapter(page, id);
+    await page.waitForFunction(id => document.querySelector("#writingDraftTarget")?.value === id && document.querySelector("#writingDraftEditor")?.value.includes(id === "first" ? "First" : "Second"), id);
+    await useWritingMarkdown(page);
     await page.locator("#writingDraftEditor").fill(bodies[id]);
     await page.locator("#btnWritingSaveDraft").click();
-    await page.waitForFunction(() => document.querySelector("#btnWritingSaveDraft")?.textContent === "已保存");
+    await page.waitForFunction(() => document.querySelector("#writingDraftSaveFeedback")?.textContent === "已保存");
     const status = await page.locator("#statusText").textContent();
     assert.doesNotMatch(status, /尚未保存|保存失败/);
     assert.match(await page.locator("#writingDraftEditor").inputValue(), new RegExp(`BROWSER-CHAPTER-${id.toUpperCase()}`));
@@ -128,8 +130,8 @@ test("browser saves new chapters once and exports the complete book in directory
   await page.locator('[data-writing-tab="draft"]').click();
   for (const chapter of bound) {
     const saved = await (await fetch(`${apiBase}/api/v1/notes/${chapter.draft_note_id}`)).json();
-    await page.locator("#writingDraftTarget").selectOption(chapter.id);
-    await page.waitForFunction(title => document.querySelector("#writingDraftTitle")?.textContent === title, chapter.title);
+    await selectWritingChapter(page, chapter.id);
+    await page.waitForFunction(title => document.querySelector("#writingDraftEditor")?.value.includes(title), chapter.title);
     assert.equal(await page.locator("#writingDraftEditor").inputValue(), saved.item.body.replace(/\r\n/g, "\n"));
   }
   assert.deepEqual(await fs.readFile(path.join(vaultPath, source.markdownPath)), sourceBefore);

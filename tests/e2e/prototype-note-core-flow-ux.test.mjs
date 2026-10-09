@@ -308,12 +308,16 @@ for (const width of [1366, 390]) {
     if (!stack) return;
     const { page, apiBase } = stack;
     await page.setViewportSize({ width, height: 900 });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
     const note = (await createWritingReadyPermanentNote(apiBase, {
       title: "等待保存时继续写", body: "# 等待保存时继续写\n\n保留已有记录。", thesis: "原来的判断。"
     })).json.item;
     await page.locator("#btnToggleSearch").click();
     await page.locator(`[data-search-note="${note.id}"]`).click();
-    if (!await page.locator("#editorHost .cm-content:visible").isVisible()) await page.locator("#btnModeToggle").click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, note.id);
+    if (await page.evaluate(() => window.__prototypeEditor.state.previewMode) !== 'source') await page.locator("#btnModeToggle").click();
+    await page.locator('#editorHost .cm-content:visible').waitFor();
     const previous = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
     await page.locator("#btnShowRelated").click();
     const panel = page.locator("#relatedPanel");
@@ -342,19 +346,59 @@ for (const width of [1366, 390]) {
     await body.click();
     await page.keyboard.press("Control+a");
     await page.keyboard.insertText(newer);
+    const confirmed = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+    const merged = `${confirmed.body.trim()}\n\n迟到的响应不能覆盖这段新记录。`;
     release();
     await page.waitForFunction(() => window.__viewpointSaveReturned);
     assert.equal(await panel.isVisible(), false);
     assert.equal(await body.evaluate(el => el.contains(document.activeElement)), true);
     const client = await page.evaluate(() => ({ body: window.__prototypeEditor.getEditorValue(), tab: window.__prototypeEditor.activeTab() }));
-    assert.equal(client.body.trim(), newer);
-    assert.equal(client.tab.body.trim(), newer);
+    assert.equal(client.body.trim(), merged);
+    assert.equal(client.tab.body.trim(), merged);
+    assert.deepEqual(await page.evaluate(() => window.__prototypeEditor.editorSelection()),
+      { from: client.body.trimEnd().length, to: client.body.trimEnd().length }, "The caret must stay after the newly typed paragraph");
     assert.equal(client.tab.dirty, true);
     assert.ok(client.tab.savedBody.includes("交流后核对原文，可以发现遗漏。"));
     await page.keyboard.press("Control+s");
-    await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.trim(), newer));
+    await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.trim(), merged));
     await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
     assert.equal(await page.evaluate(() => window.__prototypeEditor.activeTab().dirty), false);
+    await page.locator('#btnModeToggle').click();
+    const reading = page.locator('#wysiwygHost .toastui-editor-ww-container .ProseMirror');
+    try { await reading.waitFor({ state: 'visible', timeout: 5000 }); }
+    catch (error) {
+      t.diagnostic(JSON.stringify(await page.evaluate(() => ({ status: document.querySelector('#statusText').textContent,
+        mode: window.__prototypeEditor.state.previewMode, rich: Boolean(window.__prototypeEditor.richEditor) }))));
+      throw error;
+    }
+    assert.doesNotMatch(await reading.innerText(), /yansilu:distillation:end/);
+    assert.match(await reading.innerText(), /交流后核对原文，可以发现遗漏/);
+    await reading.click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.insertText('正文模式继续输入。');
+    const richBody = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
+    assert.equal((richBody.match(/<!-- yansilu:distillation:end -->/g) || []).length, 1);
+    assert.doesNotMatch(richBody, /\$\$widget/);
+    await page.keyboard.press('Control+s');
+    await waitFor(async () => {
+      const saved = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
+      assert.match(saved.body, /正文模式继续输入/);
+      assert.equal((saved.body.match(/<!-- yansilu:distillation:end -->/g) || []).length, 1);
+      assert.match(saved.body, /交流后核对原文，可以发现遗漏/);
+    });
+    await page.locator('#btnModeToggle').click();
+    await body.click();
+    await page.keyboard.press('Control+End');
+    const example = '\n\n```md\n<!-- yansilu:distillation:end -->\n```';
+    await page.keyboard.insertText(example);
+    await page.keyboard.press('Control+s');
+    await waitFor(async () => assert.ok((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.includes(example.trim())));
+    await page.locator('#btnModeToggle').click();
+    await reading.waitFor({ state: 'visible' });
+    assert.equal(((await reading.innerText()).match(/yansilu:distillation:end/g) || []).length, 1, 'The code example remains visible; the actual delimiter stays hidden');
+    assert.deepEqual(errors, []);
+    await page.screenshot({ path: `output/note-core-flow-ux/merged-reading-${width}.png` });
   });
 
   test(`polish refresh restores selection and modal shortcuts cannot switch notes (${width}px)`, async t => {

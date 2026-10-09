@@ -29,8 +29,20 @@ test("writable theme discovery panel explains suggestion before confirmation", (
 
   assert.match(html, /关键笔记/);
   assert.match(html, /共同信号/);
-  assert.match(html, /缺什么才更适合写/);
-  assert.match(html, /确认后会保存什么/);
+  assert.match(html, /还需补充/);
+  assert.match(html, /<details class="writing-theme-explanation">/);
   assert.match(html, /不会自动创建文章/);
-  assert.match(html, /确认并保存为可写主题/);
+  assert.match(html, /保存主题/);
+});
+
+test("overlapping suggestions have unique field IDs and labels for each rationale", () => {
+  const suggestions = ["suggested-theme:n1|n2|n3", "suggested-theme:n1|n4|n5"].map(id => ({
+    id, canSave: true, items: [{ noteId: "n1", shortLabel: "共享笔记", rationale: "各自的归属理由。" }]
+  }));
+  const html = renderWritableThemeDiscoveryPanelDom({ writingState: { themeDiscoverySuggestions: suggestions } });
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
+  const labels = [...html.matchAll(/\sfor="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.equal(labels.length, ids.length);
+  assert.ok(labels.every(id => ids.filter(candidate => candidate === id).length === 1));
 });

@@ -4,11 +4,11 @@
 .editor-note-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 4px 0; }
 .editor-note-actions:not(:has(button:not(.hidden))) { display: none; }
 #editorWorkspace .editor-note-actions .tb:not(.hidden) {
-  width: auto !important; min-width: 44px !important; height: 44px !important;
-  padding: 0 12px !important; gap: 6px !important; border-radius: 6px !important;
+  width: auto !important; min-width: var(--ui-control-height) !important; height: var(--ui-control-height) !important;
+  padding: 0 12px !important; gap: 6px !important; border-radius: var(--ui-control-radius) !important;
   border: 1px solid #b7cbc5 !important; background: #fff !important;
   color: #24443c !important; box-shadow: none !important;
-  font-size: 13px; font-weight: 600;
+  font-size: var(--ui-control-font-size); font-weight: 600;
 }
 #editorWorkspace .editor-note-actions #btnRecordPermanent:not(.hidden) {
   border-color: #0f766e !important; background: #0f766e !important; color: #fff !important;
@@ -19,7 +19,7 @@
   .editor-heading-row { flex-wrap: wrap; gap: 0; }
   .editor-heading-row .tabs { flex-basis: 100%; }
   .editor-note-actions { flex-wrap: wrap; min-width: 0; max-width: 100%; gap: 4px; }
-  #editorWorkspace .editor-note-actions .tb:not(.hidden) { font-size: 12px; padding: 0 8px !important; }
+  #editorWorkspace .editor-note-actions .tb:not(.hidden) { padding: 0 8px !important; }
 }
 #relatedPanel.inspector-panel {
   z-index: 3000;
@@ -38,7 +38,7 @@
   background: #fff;
 }
 #relatedPanel .panel-title { font-size: 20px; font-weight: 700; }
-#relatedPanel #btnHideRelated { min-width: 56px; height: 44px; }
+#relatedPanel #btnHideRelated { min-width: 56px; height: var(--ui-control-height); }
 #relatedPanel #resultArea {
   padding: 0 28px 28px;
   overflow: auto;
@@ -199,8 +199,8 @@ body:has(#relatedPanel:not(.hidden)) .app { pointer-events: none; }
   box-shadow: none !important;
 }
 #editorWorkspace .toolbar :is(#btnRecordPermanent, #btnDistillSourceAi):not(.hidden) {
-  min-height: 44px !important;
-  border-radius: 8px !important;
+  min-height: var(--ui-control-height) !important;
+  border-radius: var(--ui-control-radius) !important;
   box-shadow: none !important;
 }
 #editorWorkspace .toolbar #btnRecordPermanent:not(.hidden) {
