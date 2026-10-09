@@ -63,6 +63,13 @@ for (const width of [1366, 390, 320]) {
     const visibleIds = await page.locator('.graph-map-node').evaluateAll(nodes => nodes.map(node => node.dataset.nodeId));
     assert.ok(visibleIds.length >= 48);
     assert.ok(visibleIds.every(id => graph.nodes.some(node => node.id === id)));
+    const presentation = await page.locator('.graph-map-node-label').first().evaluate(el => ({
+      fill: getComputedStyle(el).fill, stroke: getComputedStyle(el).stroke
+    }));
+    assert.equal(presentation.fill, 'rgb(30, 41, 59)');
+    assert.equal(presentation.stroke, 'rgb(245, 247, 248)');
+    assert.equal(await page.locator('.graph-map-node-core').first().evaluate(el => getComputedStyle(el).animationName), 'none');
+    await page.screenshot({ path: path.join(directory, 'overview.png'), fullPage: true });
     const clustered = page.locator('[data-graph-select-cluster]').first();
     await clustered.focus();
     await clustered.press("Enter");

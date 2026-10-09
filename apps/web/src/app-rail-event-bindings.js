@@ -1,3 +1,5 @@
+import { beginAppNavigation } from "./app-navigation-intent.js";
+
 export function installAppRailEventBindings(deps = {}) {
   const {
     documentRef = globalThis.document,
@@ -25,11 +27,15 @@ export function installAppRailEventBindings(deps = {}) {
       const targetModule = btn.dataset.module;
       const overlayResult = dismissSafeOverlaysForNavigation({ targetModule });
       if (overlayResult && overlayResult.ok === false) return;
+      const isCurrentNavigation = beginAppNavigation(state);
       if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);
+      else setGraphModuleActivationGuardUntil(0);
       activateModule(targetModule);
       if (targetModule === "graph" && state.module === "graph") {
         await previewOllamaLocalAiBootstrapFromUi(localAiPreviewOptionsForAction("graph_module_open"));
+        if (!isCurrentNavigation() || state.module !== "graph") return;
         await refreshDirectoryGraph();
+        if (!isCurrentNavigation()) return;
         if (state.module !== "graph" && now() < getGraphModuleActivationGuardUntil()) {
           activateModule("graph");
         }

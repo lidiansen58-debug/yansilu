@@ -66,13 +66,13 @@ test("graph visual map context builds chrome-adjacent markup from runtime state"
   });
 
   assert.equal(result.compactRelationFilterMarkup, "<filter />");
-  assert.equal(result.starfieldMarkup, "<stars />");
-  assert.match(result.nebulaMarkup, /loaded:meaningful:fit/);
+  assert.equal(result.starfieldMarkup, "");
+  assert.equal(result.nebulaMarkup, "");
   assert.equal(result.clusterGlowMarkup, '<cluster count="1" />');
   assert.equal(result.researchNavigatorEntryMarkup, "<entry />");
   assert.equal(result.graphShellPreviewProps.researchNavigatorOpen, true);
   assert.deepEqual(calls[0], ["filter", "meaningful", true, { totalCount: 2 }]);
-  assert.deepEqual(calls.find((call) => call[0] === "star"), ["star", 960, 520, "loaded:meaningful:fit"]);
+  assert.equal(calls.some(call => call[0] === "star"), false);
 });
 
 test("graph visual map context sends theme selection to boundary meta and hides research entry behind selection", () => {

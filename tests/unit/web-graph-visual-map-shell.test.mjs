@@ -83,7 +83,7 @@ test("graph visual map shell composes canvas, svg layers, side panel, and overla
   assert.match(markup, /aria-label="可缩放的关系图谱画布"/);
   assert.match(markup, /aria-label="图谱工具"/);
   assert.match(markup, /title="退出放大查看"/);
-  assert.match(markup, /title="拖动空白区域移动图谱"/);
+  assert.doesNotMatch(markup, /graph-pan-hint/);
   assert.doesNotMatch(markup, /Graph map|Graph tools|Zoom out|Expand|Pan canvas|Drag the empty map area/);
   assert.match(markup, /<div class="graph-map-canvas">[\s\S]*<section>side<\/section>[\s\S]*<\/div>/);
   assert.match(markup, /class="graph-canvas-help-hint"/);

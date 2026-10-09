@@ -15,6 +15,34 @@ async function controlsFit(page, locator, width) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 }
 
+async function graphToolsFit(page, width) {
+  // Task changes can replace the toolbar: inspect one complete DOM snapshot.
+  await waitFor(async () => {
+    const report = await page.locator('.graph-map-floater').evaluateAll(floaters => floaters.map(floater => ({
+      buttons: [...floater.querySelectorAll('button')].map(button => {
+        const rect = button.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height, font: getComputedStyle(button).fontSize };
+      }),
+      labels: [...floater.querySelectorAll('.graph-zoom-btn span')].map(label => ({
+        width: label.getBoundingClientRect().width, display: getComputedStyle(label).display, opacity: getComputedStyle(label).opacity
+      }))
+    })));
+    assert.equal(report.length, 1);
+    assert.equal(report[0].buttons.length, 6);
+    for (const button of report[0].buttons) {
+      assert.ok(button.width > 0 && button.left >= 0 && button.right <= width + 1, JSON.stringify(button));
+      assert.ok(button.height >= (width <= 700 ? 44 : 40), JSON.stringify(button));
+      assert.equal(button.font, '14px');
+    }
+    assert.equal(report[0].labels.length, 3);
+    for (const label of report[0].labels) {
+      assert.ok(label.width > 0 && label.display !== 'none', 'Zoom labels must be available without hover');
+      assert.equal(label.opacity, '1');
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+  });
+}
+
 test("home, graph, theme suggestions and settings keep clear actions and usable controls across viewport sizes", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
@@ -42,7 +70,7 @@ test("home, graph, theme suggestions and settings keep clear actions and usable 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await mkdir("output/main-flow-design-system", { recursive: true });
 
-  for (const width of [1366, 390, 320]) {
+  for (const width of [1366, 390, 375, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.locator('.rail-btn[data-module="today"]').click();
     const home = page.locator("#todayOrganizingPanel");
@@ -65,6 +93,17 @@ test("home, graph, theme suggestions and settings keep clear actions and usable 
       await controlsFit(page, button, width);
       await button.click();
       await waitFor(async () => assert.equal(await button.getAttribute("aria-pressed"), "true"));
+      await graphToolsFit(page, width);
+      assert.equal(await page.locator('.graph-pan-hint').count(), 0);
+      assert.equal(await page.locator('.graph-map-star, .graph-map-nebula').count(), 0);
+      assert.equal(await page.locator('.graph-map-backdrop').evaluate(el => getComputedStyle(el).fill), "rgb(245, 247, 248)");
+      const hintStyles = await page.locator('.graph-canvas-help-hint').evaluateAll(hints => hints.map(hint => ({
+        animation: getComputedStyle(hint).animationName, color: getComputedStyle(hint).color
+      })));
+      for (const hint of hintStyles) {
+        assert.equal(hint.animation, 'none');
+        assert.equal(hint.color, 'rgb(82, 97, 116)');
+      }
       await page.screenshot({ path: `output/main-flow-design-system/graph-${view}-${width}.png` });
     }
 
@@ -116,5 +155,11 @@ test("home, graph, theme suggestions and settings keep clear actions and usable 
     await waitFor(async () => assert.equal(await page.locator('#settingsPermanentTemplateEditor').evaluate(el => getComputedStyle(el).borderRadius), "8px"));
     await page.screenshot({ path: `output/main-flow-design-system/settings-${width}.png` });
   }
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await graphToolsFit(page, 844);
+  assert.equal(await page.locator('.graph-map-node-core').first().evaluate(el => getComputedStyle(el).animationName), 'none');
+  await page.screenshot({ path: 'output/main-flow-design-system/graph-landscape-reduced-motion.png' });
   assert.deepEqual(errors, []);
 });

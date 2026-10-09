@@ -1,3 +1,5 @@
+import { beginAppNavigation } from "./app-navigation-intent.js";
+
 export function installQuickActionEventBindings(deps = {}) {
   const {
     documentRef = globalThis.document,
@@ -5,6 +7,7 @@ export function installQuickActionEventBindings(deps = {}) {
     state = {},
     editor = {},
     getGraphModuleActivationGuardUntil = () => 0,
+    setGraphModuleActivationGuardUntil = () => {},
     folderById = () => null,
     displayFolderName = () => "",
     syncNotesForDirectoryTree = async () => {},
@@ -28,6 +31,8 @@ export function installQuickActionEventBindings(deps = {}) {
         editor.updateActiveTabFromEditor?.();
         void editor.autoSaveTabById?.(activeTab.id, "switch-root");
       }
+      const isCurrentNavigation = beginAppNavigation(state);
+      setGraphModuleActivationGuardUntil(0);
       if (action === "quick-fleeting") {
         state.browserRootId = "dir_fleeting_default";
         state.selectedFolderId = "dir_fleeting_default";
@@ -43,6 +48,7 @@ export function installQuickActionEventBindings(deps = {}) {
       state.module = "explorer";
       state.selectedFileId = null;
       await syncNotesForDirectoryTree(state.browserRootId);
+      if (!isCurrentNavigation() || state.module !== "explorer") return;
       syncRailSelectionState();
       setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
       renderAll();

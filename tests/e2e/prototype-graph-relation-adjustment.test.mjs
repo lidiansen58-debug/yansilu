@@ -24,6 +24,11 @@ for (const width of [1366, 390]) {
     await page.locator('.rail-btn[data-module="graph"]').click();
     await page.waitForFunction(() => window.__prototypeState.graphConnectivityReady);
     const edge = page.locator(`.graph-map-edge-group[data-edge-id="${saved.json.item.id}"]`);
+    const expectEdgeColor = async (key, color) => {
+      assert.equal(await edge.locator('.graph-map-edge').evaluate(el => getComputedStyle(el).stroke), color);
+      assert.equal(await page.locator(`#graph-arrow-${key} path`).evaluate(el => getComputedStyle(el).stroke), color);
+    };
+    await expectEdgeColor('support', 'rgb(15, 118, 110)');
     await edge.focus();
     await edge.press("Enter");
     const panel = page.locator(".graph-selection-panel");
@@ -50,6 +55,7 @@ for (const width of [1366, 390]) {
       assert.equal(matching[0].rationale, "仅在明确的边界条件下成立。");
       assert.equal(matching[0].insightQuestion, "在哪些条件下成立？");
       assert.equal(await edge.getAttribute("data-edge-relation-type"), "qualifies");
+      await expectEdgeColor('boundary', 'rgb(154, 103, 0)');
     });
     await composer.locator('[data-permanent-relation-action="close"]').click();
     await edge.focus();
