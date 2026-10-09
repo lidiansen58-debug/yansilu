@@ -64,3 +64,7 @@
 后续修复了两个已有问题。工具栏和悬停说明卡共用一个定位容器，说明卡始终位于实际工具栏下方，适应换行、展开和水平平移。跨页写作超时已定位为旧图谱打开请求在 1.8 秒保护窗口内强制恢复图谱，覆盖了后续导航；侧栏导航按操作顺序和笔记库作用域隔离，离开图谱会撤销保护窗口，旧请求不再导航或覆盖反馈。回归入口为 `tests/e2e/prototype-graph-workspace-navigation.test.mjs`；固定墙钟时间并延迟真实图谱 HTTP 响应，旧源码在 1366/375px 均复现切回图谱，新源码保持写作页面、输入焦点和继续输入的内容。
 
 修复后验证：580 项图谱及导航单元检查通过，新增 3 项浏览器回归通过，原有真实图谱/关联修改/跨页面 7 项并行验收通过，无跳过。日志位于 `output/main-flow-design-audit/graph-navigation-unit-final.log`、`graph-navigation-browser.log` 和 `graph-navigation-regression-browser-final.log`；旧源码反证为 `graph-navigation-browser-red.log`。悬停布局截图位于 `output/graph-workspace-navigation/`。编码无新增回归，差异格式检查通过。
+
+2026-10-09 review 补齐随笔、文献快捷入口：这两个入口原先绕过模块侧栏的导航序号和保护窗口撤销，迟到的图谱响应仍会恢复永久笔记入口。现在两类侧栏操作共用按客户端状态隔离的导航序号；接受快捷入口时清除图谱保护窗口，旧入口的异步完成也不再覆盖后续导航的提示和渲染。原有永久笔记入口在图谱保护窗口内的行为保持不变。
+
+本次验证：591 项图谱及导航单元检查通过，7 项浏览器回归通过，无跳过。新增 4 项在 1366/375px 下延迟真实图谱响应，确认随笔、文献入口保持当前页面及目录，并能打开目标笔记；手机使用可见的全局搜索入口。改前 4 项均稳定复现被切回图谱。日志为 `output/main-flow-design-audit/quick-navigation-unit-final.log`、`quick-navigation-browser-final.log` 和 `quick-navigation-browser-red.log`。

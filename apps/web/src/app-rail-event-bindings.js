@@ -1,3 +1,5 @@
+import { beginAppNavigation } from "./app-navigation-intent.js";
+
 export function installAppRailEventBindings(deps = {}) {
   const {
     documentRef = globalThis.document,
@@ -17,7 +19,6 @@ export function installAppRailEventBindings(deps = {}) {
     setStatus = () => {},
     now = () => Date.now()
   } = deps;
-  let navigationRevision = 0;
 
   documentRef?.querySelectorAll?.(".rail-btn[data-module]")?.forEach((btn) => {
     btn.addEventListener("click", async (event) => {
@@ -26,10 +27,7 @@ export function installAppRailEventBindings(deps = {}) {
       const targetModule = btn.dataset.module;
       const overlayResult = dismissSafeOverlaysForNavigation({ targetModule });
       if (overlayResult && overlayResult.ok === false) return;
-      const revision = ++navigationRevision;
-      const vaultScope = state.noteMoveVaultScope;
-      const isCurrentNavigation = () => revision === navigationRevision && state.noteMoveVaultScope === vaultScope
-        && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+      const isCurrentNavigation = beginAppNavigation(state);
       if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);
       else setGraphModuleActivationGuardUntil(0);
       activateModule(targetModule);

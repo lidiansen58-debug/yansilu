@@ -6313,6 +6313,7 @@ installQuickActionEventBindings({
   state,
   editor,
   getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
+  setGraphModuleActivationGuardUntil: (value) => { graphModuleActivationGuardUntil = value; },
   folderById,
   displayFolderName,
   syncNotesForDirectoryTree,

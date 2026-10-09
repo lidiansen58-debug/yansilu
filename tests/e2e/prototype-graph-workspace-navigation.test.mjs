@@ -92,3 +92,49 @@ for (const width of [1366, 375]) {
     } finally { release(); }
   });
 }
+
+for (const [action, root] of [['quick-fleeting', 'dir_fleeting_default'], ['quick-literature', 'dir_literature_default']]) {
+  for (const width of [1366, 375]) {
+    test(`late graph refresh preserves ${action} and note opening (${width}px)`, async t => {
+      if (process.env.RUN_BROWSER_E2E !== '1') { t.skip('Set RUN_BROWSER_E2E=1'); return; }
+      const pw = await optionalPlaywright(t);
+      if (!pw) return;
+      const stack = await startPrototypeStack(t, pw);
+      if (!stack) return;
+      const { page, apiBase, webBase } = stack;
+      await seedNotes(apiBase);
+      const created = await postJson(apiBase, '/api/v1/notes', { directoryId:root, body:'# 快捷入口中的实际笔记\n\n保留当前入口继续阅读。' });
+      assert.equal(created.status, 201);
+      await page.setViewportSize({ width, height:900 });
+      await page.goto(`${webBase}/prototype`, { waitUntil:'networkidle' });
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.clock.setFixedTime(Date.now());
+      let release, requested = false;
+      const gate = new Promise(resolve => { release = resolve; });
+      await page.route('**/api/v1/graph?*', async route => { requested = true; await gate; await route.continue(); });
+      try {
+        await page.locator('.rail-btn[data-module="graph"]').click();
+        await waitFor(() => assert.ok(requested));
+        await page.locator(`[data-action="${action}"]`).click();
+        await page.waitForFunction(root => window.__prototypeState.module === 'explorer' && window.__prototypeState.browserRootId === root, root);
+        release();
+        await page.waitForFunction(() => window.__prototypeState.graphConnectivityReady);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        assert.deepEqual(await page.evaluate(() => ({ module:window.__prototypeState.module, root:window.__prototypeState.browserRootId })), { module:'explorer', root });
+        if (width < 920) {
+          await page.locator('#btnToggleSearch').click();
+          await page.locator('#globalNoteSearchInput').fill('快捷入口中的实际笔记');
+          await page.locator(`[data-search-note="${created.json.item.id}"]`).click();
+          await page.locator('#noteSearchDialog').waitFor({ state:'hidden' });
+        } else {
+          await page.locator(`.explorer-item[data-kind="file"][data-id="${created.json.item.id}"]`).click();
+        }
+        await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, created.json.item.id);
+        assert.equal(await page.locator('#editorWorkspace').isVisible(), true);
+        assert.equal(await page.evaluate(() => window.__prototypeState.browserRootId), root);
+        assert.deepEqual(errors, []);
+      } finally { release(); }
+    });
+  }
+}
