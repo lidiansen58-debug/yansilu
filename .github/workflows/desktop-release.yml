@@ -50,13 +50,6 @@ jobs:
       YANSILU_DESKTOP_UPDATER_ARTIFACTS: "true"
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
 
     steps:
       - name: Checkout
@@ -102,9 +95,17 @@ jobs:
       - name: Import Apple Developer ID certificate
         if: matrix.desktop_target == 'universal-apple-darwin'
         shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
-          for secret_name in APPLE_ID APPLE_APP_PASSWORD APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD; do
+          for secret_name in APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_SIGNING_IDENTITY; do
             if [ -z "${!secret_name:-}" ]; then
               echo "::error::$secret_name is required for signed and notarized macOS releases."
               exit 1
@@ -115,10 +116,15 @@ jobs:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security import "$RUNNER_TEMP/apple-developer-id.p12" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/apple-developer-id.p12"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" build.keychain
           security list-keychain -d user -s build.keychain
           security default-keychain -s build.keychain
-          security find-identity -v -p codesigning build.keychain | grep -q "Developer ID Application"
+          case "$APPLE_SIGNING_IDENTITY" in
+            "Developer ID Application:"*"($APPLE_TEAM_ID)") ;;
+            *) echo "::error::Signing identity must be Developer ID Application for APPLE_TEAM_ID."; exit 1 ;;
+          esac
+          security find-identity -v -p codesigning build.keychain | grep -Fq "\"$APPLE_SIGNING_IDENTITY\""
 
       - name: Require Tauri updater signing secrets
         shell: bash
@@ -135,7 +141,7 @@ jobs:
 
       - name: Test macOS packaging regressions
         if: runner.os == 'macOS'
-        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs
 
       - name: Test Linux packaging regressions
         if: runner.os == 'Linux'
@@ -153,6 +159,11 @@ jobs:
 
       - name: Build signed and notarized Universal macOS bundle
         if: matrix.desktop_target == 'universal-apple-darwin'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: bash ./scripts/build-mac-release.sh
 
       - name: Upload desktop bundles
@@ -167,7 +178,9 @@ jobs:
       - name: Remove temporary signing keychain
         if: always() && matrix.desktop_target == 'universal-apple-darwin'
         shell: bash
-        run: security delete-keychain build.keychain || true
+        run: |
+          rm -f "$RUNNER_TEMP/apple-developer-id.p12"
+          security delete-keychain build.keychain || true
 
   draft-release:
     needs: build
