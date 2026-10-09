@@ -44,7 +44,7 @@ async function setup(t, { delayEditor = false, openSource = false } = {}) {
   await page.locator('[data-writing-tab="draft"]').click();
   await selectWritingChapter(page, "first");
   await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("已经保存的章节内容。"));
-  return { ...stack, release, source, draft };
+  return { ...stack, release, source, draft, project };
 }
 
 for (const interaction of ["typing", "focus"]) test(`slow editor load preserves ${interaction} and the source selection`, async t => {
@@ -119,4 +119,78 @@ test("writing shortcuts save document and Markdown after opening a source note",
   }
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
   assert.equal(await page.evaluate(() => window.__prototypeEditor.activeNote()?.id), source.id);
+});
+
+test("chapter undo cannot restore or save another chapter while same-document undo survives saving", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const stack = await setup(t);
+  if (!stack) return;
+  const { page, apiBase, draft, project } = stack;
+  const rich = page.locator("#writingDocumentEditor .toastui-editor-ww-container .ProseMirror");
+  const source = page.locator("#writingDraftEditor"), feedback = page.locator("#writingDraftSaveFeedback");
+  await rich.waitFor({ state: "visible" });
+  await rich.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText("第一章独有内容。");
+  await page.keyboard.press("Control+s");
+  await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+  await page.keyboard.press("Control+z");
+  assert.doesNotMatch(await source.inputValue(), /第一章独有内容/);
+  await page.keyboard.press("Control+Shift+z");
+  assert.match(await source.inputValue(), /第一章独有内容/);
+  await page.keyboard.press("Control+s");
+  await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+  const firstBody = (await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body;
+
+  await selectWritingChapter(page, "second");
+  await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("第二章"));
+  const secondBody = await source.inputValue();
+  await rich.click();
+  await page.keyboard.press("Control+z");
+  assert.equal(await source.inputValue(), secondBody);
+  assert.doesNotMatch(await rich.innerText(), /第一章/);
+  await page.keyboard.press("Control+End");
+  await page.keyboard.insertText("第二章独有内容。");
+  await page.keyboard.press("Control+s");
+  await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+  const savedProject = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
+  const secondId = savedProject.book_structure.parts[0].chapters[1].draft_note_id;
+  const savedSecond = (await fetchJson(apiBase, `/api/v1/notes/${secondId}`)).json.item.body;
+  assert.match(savedSecond, /第二章独有内容/);
+  assert.doesNotMatch(savedSecond, /第一章|已经保存的章节内容/);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body, firstBody);
+
+  await selectWritingChapter(page, "first");
+  await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("第一章独有内容"));
+  await rich.click();
+  await page.keyboard.press("Control+z");
+  assert.equal(await source.inputValue(), firstBody);
+});
+
+test("writing workspace shortcuts save once when the mode button owns focus", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const stack = await setup(t, { openSource: true });
+  if (!stack) return;
+  const { page, apiBase, draft, source } = stack;
+  const rich = page.locator("#writingDocumentEditor .toastui-editor-ww-container .ProseMirror");
+  const feedback = page.locator("#writingDraftSaveFeedback"), toggle = page.locator("#btnWritingEditorMode");
+  await rich.waitFor({ state: "visible" });
+  const writes = [];
+  page.on("request", request => { if (request.method() === "PUT" && request.url().includes("/api/v1/notes/")) writes.push(request.url()); });
+  for (const shortcut of ["Control+s", "Meta+s"]) {
+    await rich.click();
+    await page.keyboard.press("Control+End");
+    const token = `${shortcut} 按钮焦点保存。`;
+    await page.keyboard.insertText(token);
+    await waitFor(async () => assert.equal(await feedback.innerText(), "有未保存的修改"));
+    await toggle.focus();
+    assert.equal(await toggle.evaluate(el => document.activeElement === el), true);
+    const before = writes.length;
+    await page.keyboard.press(shortcut);
+    await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+    assert.equal(writes.length, before + 1);
+    assert.ok(writes.at(-1).endsWith(`/notes/${draft.id}`));
+    assert.ok((await fetchJson(apiBase, `/api/v1/notes/${draft.id}`)).json.item.body.includes(token));
+  }
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
 });

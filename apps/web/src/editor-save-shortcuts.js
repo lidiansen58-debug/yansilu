@@ -19,10 +19,10 @@ export function createNoteSaveShortcutHandler({ state, activeTab, saveActiveNote
   };
 }
 
-/** Shared by the writing document, source mode and editor-load fallback. */
-export function createWritingSaveShortcutHandler({ source, getSaveButton }) {
+/** Shared by the writing workspace, document, source mode and load fallback. */
+export function createWritingSaveShortcutHandler({ source, getSaveButton, isActive = () => true }) {
   return event => {
-    if (!isSaveShortcut(event) || event.__yansiluSaveHandled) return;
+    if (!isSaveShortcut(event) || event.__yansiluSaveHandled || !isActive()) return;
     consumeSaveShortcut(event);
     const button = getSaveButton();
     if (!source.disabled && button && !button.disabled) button.click();

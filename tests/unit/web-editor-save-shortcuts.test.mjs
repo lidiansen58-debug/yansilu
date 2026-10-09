@@ -68,3 +68,16 @@ for (const unavailable of ["tab", "move", "search"]) test(`note shortcut keeps i
   assert.equal(s.noteSaves(), 0);
   assert.equal(e.prevented, 0);
 });
+
+test("a hidden writing workspace cannot consume a save shortcut", () => {
+  const s = setup(), e = event();
+  const handler = createWritingSaveShortcutHandler({ source: s.source, getSaveButton: () => s.button,
+    isActive: () => s.state.module === "writing" });
+  handler(e);
+  assert.equal(s.button.clicks, 0);
+  assert.equal(e.prevented, 0);
+  assert.equal(e.stopped, 0);
+  s.state.module = "writing";
+  handler(e);
+  assert.equal(s.button.clicks, 1);
+});

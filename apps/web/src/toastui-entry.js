@@ -134,7 +134,7 @@ export function createWysiwygMarkdownEditor({
     }
   });
 
-  parent.addEventListener("click", (event) => {
+  const handleTokenClick = (event) => {
     const token = event.target.closest?.("[data-wikilink],[data-tag-token]");
     if (!token) return;
     if (token.dataset.wikilink) {
@@ -144,7 +144,8 @@ export function createWysiwygMarkdownEditor({
     if (token.dataset.tagToken) {
       onClickToken(`#${token.dataset.tagToken}`);
     }
-  });
+  };
+  parent.addEventListener("click", handleTokenClick);
 
   const api = {
     editor,
@@ -155,6 +156,17 @@ export function createWysiwygMarkdownEditor({
       const value = String(nextValue ?? "");
       if (value === editor.getMarkdown()) return;
       editor.setMarkdown(value, false);
+    },
+    resetUndoHistory() {
+      // Initial setMarkdown is a history transaction too. Reset only history,
+      // retaining widget, table and metadata plugin state and the current selection.
+      for (const view of [editor.mdEditor.view, editor.wwEditor.view]) {
+        const state = view.state;
+        const history = state.plugins.filter(plugin => /^history\$/.test(plugin.key));
+        if (!history.length) continue;
+        const cleared = state.reconfigure({ plugins: state.plugins.filter(plugin => !history.includes(plugin)) });
+        view.updateState(cleared.reconfigure({ plugins: state.plugins }));
+      }
     },
     selection() {
       if (editor.isWysiwygMode()) return toastuiMarkdownSelection(editor);
@@ -206,6 +218,8 @@ export function createWysiwygMarkdownEditor({
       return selectionRectWithin(parent);
     },
     destroy() {
+      parent.removeEventListener("click", handleTokenClick);
+      if (parent.__wysiwygMarkdownEditor === api) delete parent.__wysiwygMarkdownEditor;
       editor.destroy();
     }
   };

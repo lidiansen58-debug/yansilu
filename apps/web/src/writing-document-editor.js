@@ -1,6 +1,7 @@
 import { normalizeWysiwygMarkdownValue } from "./editor-markdown-commands.js";
 import { createWritingDocumentLinkOpener } from "./writing-document-links.js";
 import { createWritingSaveShortcutHandler } from "./editor-save-shortcuts.js";
+import { createWritingDocumentSession } from "./writing-document-session.js";
 
 const controllers = new WeakMap();
 
@@ -12,9 +13,11 @@ export function syncWritingDocumentEditor(deps = {}) {
 export function installWritingDocumentEditor({ $ = () => null, depsProvider = () => ({}) } = {}) {
   const source = $("writingDraftEditor"), host = $("writingDocumentEditor"), toggle = $("btnWritingEditorMode");
   if (!source || !host || !toggle || controllers.has(source)) return;
-  let rich = null, loading = false, failed = false, suppress = false, mode = "document", rendered = "";
+  let rich = null, session = null, loading = false, failed = false, suppress = false, mode = "document", rendered = "";
   const openLink = createWritingDocumentLinkOpener(depsProvider);
-  const saveShortcut = createWritingSaveShortcutHandler({ source, getSaveButton: () => $("btnWritingSaveDraft") });
+  const saveShortcut = createWritingSaveShortcutHandler({ source, getSaveButton: () => $("btnWritingSaveDraft"),
+    isActive: () => depsProvider().state?.module === "writing" });
+  $("writingPanel")?.addEventListener("keydown", saveShortcut, { capture: true });
   function sync() {
     const documentMode = mode === "document" && Boolean(rich);
     source.hidden = documentMode;
@@ -28,11 +31,14 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
     if (tools) tools.hidden = !documentMode;
     for (const button of tools?.querySelectorAll("button") || []) button.disabled = source.disabled || !documentMode;
     if (rich) {
+      const current = session.sync(depsProvider(), source.value);
+      if (current !== rich) { rich = current; rendered = source.value; }
       if (source.value !== rendered) {
         suppress = true;
         try { rich.setValue(source.value); rendered = source.value; } finally { suppress = false; }
       }
       for (const editable of host.querySelectorAll('.ProseMirror[contenteditable]')) editable.setAttribute("contenteditable", String(!source.disabled));
+      host.querySelector('.toastui-editor-ww-container .ProseMirror')?.setAttribute("aria-label", "正文内容");
     } else if (!source.disabled && !loading && !failed) void load();
   }
   async function load() {
@@ -41,8 +47,8 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
     try {
       const { createWysiwygMarkdownEditor } = await import("/vendor/toastui-editor.bundle.js");
       rendered = source.value;
-      rich = createWysiwygMarkdownEditor({
-        parent: host, doc: source.value,
+      session = createWritingDocumentSession(createWysiwygMarkdownEditor, {
+        parent: host,
         onChange: value => {
           if (suppress || source.disabled || mode !== "document") return;
           const next = normalizeWysiwygMarkdownValue(value).value;
@@ -53,7 +59,7 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
         onKeydown: saveShortcut,
         onClickToken: openLink
       });
-      host.querySelector('.toastui-editor-ww-container .ProseMirror')?.setAttribute("aria-label", "正文内容");
+      rich = session.sync(depsProvider(), source.value);
     } catch {
       failed = true;
       mode = "source";
