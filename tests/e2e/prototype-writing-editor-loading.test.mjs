@@ -1,22 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, startPrototypeStack, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, selectWritingChapter, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 import { initVault, createNoteInDirectory } from "../../packages/domain/src/index.mjs";
 import { createIndexCard } from "../../packages/domain/src/index-card-store.mjs";
 import { createWritingProject } from "../../packages/writing-engine/src/writing-engine.mjs";
 
-async function setup(t, { delayEditor = false } = {}) {
+async function setup(t, { delayEditor = false, openSource = false } = {}) {
   const pw = await optionalPlaywright(t);
   if (!pw) return null;
-  let index, project, release;
+  let index, project, release, source, draft;
   const gate = new Promise(resolve => { release = resolve; });
   t.after(() => release());
   const stack = await startPrototypeStack(t, pw, {
     navigateWaitUntil: delayEditor ? "domcontentloaded" : "networkidle",
     prepareVault: async vault => {
       await initVault(vault);
-      const source = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "来源", body: "# 来源\n\n资料。", thesis: "资料有用。" });
-      const draft = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "第一章", body: "# 第一章\n\n已经保存的章节内容。" });
+      source = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "来源", body: "# 来源\n\n资料。", thesis: "资料有用。" });
+      draft = await createNoteInDirectory(vault, { directoryId: "dir_original_default", title: "第一章", body: "# 第一章\n\n已经保存的章节内容。" });
       index = await createIndexCard(vault, { directoryId: "dir_original_default", indexType: "topic", title: "继续写作", centralQuestion: "如何继续输入？", items: [{ noteId: source.id, shortLabel: "来源", rationale: "理由" }] });
       project = await createWritingProject(vault, { title: index.title, basketNoteIds: [source.id], relatedIndexIds: [index.id],
         bookStructure: { schema_version: 1, parts: [{ id: "part", title: "正文", chapters: [
@@ -31,6 +31,12 @@ async function setup(t, { delayEditor = false } = {}) {
   if (!stack) return null;
   const { page } = stack;
   await page.waitForFunction(() => window.__prototypeEditor?.activeNote);
+  if (openSource) {
+    await page.locator("#btnToggleSearch").click();
+    await page.locator("#globalNoteSearchInput").fill(source.title);
+    await page.locator(`[data-search-note="${source.id}"]`).click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
+  }
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator(`#writingProjectsList [data-writing-project-id="${project.id}"]`).first().waitFor({ state: "attached" });
   await page.locator(`[data-writing-index-card-id="${index.id}"] button`).click();
@@ -38,7 +44,7 @@ async function setup(t, { delayEditor = false } = {}) {
   await page.locator('[data-writing-tab="draft"]').click();
   await selectWritingChapter(page, "first");
   await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("已经保存的章节内容。"));
-  return { ...stack, release };
+  return { ...stack, release, source, draft };
 }
 
 for (const interaction of ["typing", "focus"]) test(`slow editor load preserves ${interaction} and the source selection`, async t => {
@@ -81,4 +87,36 @@ test("persisted chapters reopen as saved and new chapters remain unsaved", async
   await selectWritingChapter(page, "first");
   await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("已经保存的章节内容。"));
   assert.equal(await feedback.innerText(), "已保存");
+});
+
+test("writing shortcuts save document and Markdown after opening a source note", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const stack = await setup(t, { openSource: true });
+  if (!stack) return;
+  const { page, apiBase, source, draft } = stack;
+  const rich = page.locator("#writingDocumentEditor .toastui-editor-ww-container .ProseMirror");
+  await rich.waitFor({ state: "visible" });
+  const text = page.locator("#writingDraftEditor"), feedback = page.locator("#writingDraftSaveFeedback");
+  const writes = [];
+  page.on("request", request => { if (request.method() === "PUT" && request.url().includes("/api/v1/notes/")) writes.push(request.url()); });
+  for (const mode of ["document", "source"]) {
+    if (mode === "source") await page.locator("#btnWritingEditorMode").click();
+    for (const shortcut of ["Control+s", "Meta+s"]) {
+      const token = `${mode} ${shortcut} 保存内容。`;
+      await (mode === "document" ? rich : text).click();
+      await page.keyboard.press("Control+End");
+      await page.keyboard.press("Enter");
+      await page.keyboard.insertText(token);
+      await waitFor(async () => assert.equal(await feedback.innerText(), "有未保存的修改"));
+      const before = writes.length;
+      await page.keyboard.press(shortcut);
+      await waitFor(async () => assert.equal(await feedback.innerText(), "已保存"));
+      assert.equal(writes.length, before + 1);
+      assert.ok(writes.at(-1).endsWith(`/notes/${draft.id}`));
+      const saved = await fetchJson(apiBase, `/api/v1/notes/${draft.id}`);
+      assert.match(saved.json.item.body, new RegExp(token.replace("+", "\\+")));
+    }
+  }
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.activeNote()?.id), source.id);
 });

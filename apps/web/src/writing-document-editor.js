@@ -1,5 +1,6 @@
 import { normalizeWysiwygMarkdownValue } from "./editor-markdown-commands.js";
 import { createWritingDocumentLinkOpener } from "./writing-document-links.js";
+import { createWritingSaveShortcutHandler } from "./editor-save-shortcuts.js";
 
 const controllers = new WeakMap();
 
@@ -13,6 +14,7 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
   if (!source || !host || !toggle || controllers.has(source)) return;
   let rich = null, loading = false, failed = false, suppress = false, mode = "document", rendered = "";
   const openLink = createWritingDocumentLinkOpener(depsProvider);
+  const saveShortcut = createWritingSaveShortcutHandler({ source, getSaveButton: () => $("btnWritingSaveDraft") });
   function sync() {
     const documentMode = mode === "document" && Boolean(rich);
     source.hidden = documentMode;
@@ -48,13 +50,7 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
           rendered = source.value = next;
           source.dispatchEvent(new Event("input", { bubbles: true }));
         },
-        onKeydown: event => {
-          if (event.isComposing || event.keyCode === 229) return;
-          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
-            event.preventDefault(); event.stopPropagation();
-            $("btnWritingSaveDraft")?.click();
-          }
-        },
+        onKeydown: saveShortcut,
         onClickToken: openLink
       });
       host.querySelector('.toastui-editor-ww-container .ProseMirror')?.setAttribute("aria-label", "正文内容");
@@ -78,6 +74,7 @@ export function installWritingDocumentEditor({ $ = () => null, depsProvider = ()
     if (loading) mode = "source";
     if (mode === "source") sync();
   });
+  source.addEventListener("keydown", saveShortcut);
   $("writingDocumentTools")?.addEventListener("mousedown", event => event.preventDefault());
   $("writingDocumentTools")?.addEventListener("click", event => {
     const button = event.target.closest?.("[data-writing-format]");
