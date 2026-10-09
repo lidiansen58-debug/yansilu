@@ -3,12 +3,12 @@ set -euo pipefail
 
 # ============================================================
 # 研思录 (Yansilu) macOS Release Build Script
-# Native architecture build + Code Sign + DMG + Notarize
+# Universal build + Code Sign + Notarize + DMG + Updater
 # ============================================================
 # Prerequisites:
 #   1. Apple Developer ID Application certificate in keychain
 #   2. App-specific password for notarization (https://appleid.apple.com)
-#   3. Rust target for the current Mac architecture
+#   3. Rust targets for both Mac architectures
 #
 # Usage (set env vars before running):
 #   export APPLE_ID="your@email.com"
@@ -34,6 +34,9 @@ BUNDLE_ARCH="universal"
 APPLE_ID="${APPLE_ID:-}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-T7G29AJ3L5}"
 APPLE_APP_PASSWORD="${APPLE_APP_PASSWORD:-}"
+NOTARIZATION_ZIP=""
+NOTARIZATION_DIR=""
+trap 'if [ -n "$NOTARIZATION_ZIP" ]; then rm -f "$NOTARIZATION_ZIP"; fi; if [ -n "$NOTARIZATION_DIR" ]; then rmdir "$NOTARIZATION_DIR"; fi' EXIT
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -56,6 +59,17 @@ check_prereqs() {
     exit 1
   fi
 
+  for secret_name in APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+    if [ -z "${!secret_name:-}" ]; then
+      err "$secret_name is required for a signed and notarized release."
+      exit 1
+    fi
+  done
+  if ! command -v xcrun &>/dev/null; then
+    err "Xcode command-line tools are required for notarization."
+    exit 1
+  fi
+
   if ! command -v cargo &>/dev/null; then
     err "Rust/Cargo not found. Install from https://rustup.rs"
     exit 1
@@ -74,7 +88,7 @@ check_prereqs() {
   done
 
   # Check certificate
-  if ! security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"; then
+  if ! security find-identity -v -p codesigning 2>/dev/null | grep -Fq "\"$CERT_NAME\""; then
     err "Developer ID Application certificate not found in keychain."
     err "Please install it via Xcode → Settings → Accounts → Manage Certificates."
     exit 1
@@ -91,10 +105,9 @@ prepare_runtime() {
 # --- Step 2: Build Tauri app ---
 build_app() {
   log "Step 2/5: Building universal Tauri desktop app..."
-  cd "$TAURI_DIR"
-  cargo clean 2>/dev/null || true
   cd "$PROJECT_DIR"
-  APPLE_SIGNING_IDENTITY="$CERT_NAME" YANSILU_DESKTOP_TARGET="$MACOS_BUILD_TARGET" npm run build:desktop:mac
+  APPLE_SIGNING_IDENTITY="$CERT_NAME" YANSILU_DESKTOP_TARGET="$MACOS_BUILD_TARGET" \
+    YANSILU_DESKTOP_UPDATER_ARTIFACTS=false npm run build:desktop -- app
   ok "App built"
 }
 
@@ -103,7 +116,7 @@ sign_app() {
   log "Step 3/5: Signing .app bundle..."
 
   local bundle_dir="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/macos"
-  if [ -z "$bundle_dir" ]; then
+  if [ ! -d "$bundle_dir" ]; then
     err "Bundle directory not found"
     exit 1
   fi
@@ -118,9 +131,15 @@ sign_app() {
   codesign --force --sign "$CERT_NAME" --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" "$node_bin"
 
-  # Deep sign the entire .app
+  # Sign nested runtime code before sealing the enclosing app.
+  while IFS= read -r -d '' binary; do
+    if [ "$binary" != "$node_bin" ] && file -b "$binary" | grep -q "Mach-O"; then
+      codesign --force --sign "$CERT_NAME" --options runtime --timestamp "$binary"
+    fi
+  done < <(find "$app_path/Contents/Resources/desktop-api-runtime" -type f -print0)
+
   log "  Signing entire .app bundle..."
-  codesign --deep --force --sign "$CERT_NAME" --options runtime --timestamp \
+  codesign --force --sign "$CERT_NAME" --options runtime --timestamp \
     --entitlements "$ENTITLEMENTS" "$app_path"
 
   # Verify
@@ -146,6 +165,19 @@ sign_app() {
   fi
   rm -f "$node_entitlements"
   ok "Embedded Node.js JIT entitlement verified"
+  node "$PROJECT_DIR/scripts/verify-macos-bundle-architecture.mjs" --app "$app_path" --expected universal
+}
+
+notarize_app() {
+  local app_path="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/macos/${APP_NAME}.app"
+  NOTARIZATION_DIR=$(mktemp -d "${TMPDIR:-/tmp}/yansilu-notarization.XXXXXX")
+  NOTARIZATION_ZIP="$NOTARIZATION_DIR/app.zip"
+  ditto -c -k --keepParent "$app_path" "$NOTARIZATION_ZIP"
+  node "$PROJECT_DIR/scripts/macos-notarization.mjs" "$NOTARIZATION_ZIP" "$app_path"
+  rm -f "$NOTARIZATION_ZIP"
+  NOTARIZATION_ZIP=""
+  rmdir "$NOTARIZATION_DIR"
+  NOTARIZATION_DIR=""
 }
 
 # --- Step 4: Create DMG (with Applications shortcut) ---
@@ -166,6 +198,7 @@ create_dmg() {
   # Sign DMG
   log "  Signing DMG..."
   codesign --force --sign "$CERT_NAME" --timestamp "$dmg_path"
+  codesign --verify --strict --verbose=1 "$dmg_path"
 
   ok "DMG created: $dmg_path"
 }
@@ -174,32 +207,16 @@ create_dmg() {
 notarize_dmg() {
   log "Step 5/5: Notarizing DMG..."
 
-  if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_PASSWORD" ]; then
-    warn "APPLE_ID or APPLE_APP_PASSWORD not set. Skipping notarization."
-    warn "Set these env vars and run:"
-    echo "  xcrun notarytool submit \"<dmg>\" --apple-id \"...\" --team-id \"$APPLE_TEAM_ID\" --password \"...\" --wait"
-    echo "  xcrun stapler staple \"<dmg>\""
-    return 0
-  fi
-
   local dmg_path="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/dmg/${APP_NAME}_${APP_VERSION}_${BUNDLE_ARCH}.dmg"
-
-  log "  Submitting to Apple notary service..."
-  xcrun notarytool submit "$dmg_path" \
-    --apple-id "$APPLE_ID" \
-    --team-id "$APPLE_TEAM_ID" \
-    --password "$APPLE_APP_PASSWORD" \
-    --wait
-
-  log "  Stapling notarization ticket..."
-  xcrun stapler staple "$dmg_path"
-
-  # Verify
-  log "  Verifying notarization..."
-  spctl -a -vvv -t install "$dmg_path" 2>&1 || true
-  xcrun stapler validate "$dmg_path" 2>&1 || true
-
+  node "$PROJECT_DIR/scripts/macos-notarization.mjs" "$dmg_path"
   ok "DMG notarized and stapled"
+}
+
+package_tauri_updater() {
+  local bundle_dir="$TAURI_DIR/target/$MACOS_BUILD_TARGET/release/bundle/macos"
+  local archive_path="$bundle_dir/${APP_NAME}_${BUNDLE_ARCH}.app.tar.gz"
+  tar -czf "$archive_path" -C "$bundle_dir" "${APP_NAME}.app"
+  node "$PROJECT_DIR/scripts/sign-tauri-artifact.mjs" --required "$archive_path"
 }
 
 sign_tauri_dmg() {
@@ -220,19 +237,13 @@ main() {
   prepare_runtime
   build_app
   sign_app
+  notarize_app
   create_dmg
-
-  if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ]; then
-    notarize_dmg
-  else
-    warn ""
-    warn "To notarize the DMG, run:"
-    warn "  export APPLE_ID=\"your@email.com\""
-    warn "  export APPLE_APP_PASSWORD=\"xxxx-xxxx-xxxx-xxxx\""
-    warn "  bash scripts/build-mac-release.sh"
-  fi
-
+  notarize_dmg
+  package_tauri_updater
   sign_tauri_dmg
+  cd "$PROJECT_DIR"
+  YANSILU_DESKTOP_TARGET="$MACOS_BUILD_TARGET" npm run build:desktop:manifest
 
   echo ""
   echo -e "${GREEN}============================================${NC}"
