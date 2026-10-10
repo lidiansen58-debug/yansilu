@@ -1,6 +1,6 @@
 {
   "name": "yansilu",
-  "version": "0.1.1-beta.2",
+  "version": "0.1.1-beta.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -27,7 +27,7 @@
     "build:toastui": "node ./scripts/build-toastui.mjs",
     "ai:setup:ollama": "node ./scripts/configure-ollama-local-ai.mjs",
     "mvp:check": "node ./scripts/mvp-check.mjs",
-    "test": "node --test",
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "eval:ai:ollama": "node ./scripts/eval-local-ollama.mjs",
     "smoke:ai:ollama": "node ./scripts/smoke-local-ollama.mjs",
     "audit:mojibake": "node ./scripts/mojibake-risk-report.mjs",
