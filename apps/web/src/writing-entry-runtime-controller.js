@@ -1,9 +1,6 @@
-import {
-  writingBasketContinuationPlan
-} from "./writing-entry-route-model.js";
-import {
-  uniqueStrings
-} from "./prototype-thinking-status.js";
+import { writingBasketContinuationPlan } from "./writing-entry-route-model.js";
+import { uniqueStrings } from "./prototype-thinking-status.js";
+import { beginWritingEntryContext } from "./writing-entry-context.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
 import { beginWritingThemeIndexRequest, fetchWritingThemeIndexesForScope } from "./writing-theme-index-loader.js";
 import {
@@ -58,6 +55,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       setStatus = () => {},
       setWritingFocusedCandidateScope = () => {},
       statusRevision = 0,
+      state = {},
       syncWritingResultFromCurrentState = () => {},
       writingState = {},
       writingThemeIndexScopeDirectoryId = () => ""
@@ -82,14 +80,12 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       clearWritingEntryContextForRuntime(writingState);
     }
     activateModule("writing");
+    const entry = beginWritingEntryContext({ state, writingState, getVaultPath, parseWritingBasketIds, renderWritingPanel });
+    const isCurrent = entry.isCurrent;
+    const themeRequest = beginWritingThemeIndexRequest(writingState, isCurrent);
+    if (state.appStartupPending && !await entry.waitForStartup(themeRequest.ownsRequest)) return;
     const basketIds = parseWritingBasketIds();
     const writingProjectId = String(writingState.project?.id || "").trim();
-    const vaultPath = getVaultPath();
-    const projectOpenRevision = writingState.projectOpenRevision;
-    const isCurrent = () => getVaultPath() === vaultPath && String(writingState.project?.id || "").trim() === writingProjectId
-      && writingState.projectOpenRevision === projectOpenRevision
-      && JSON.stringify(parseWritingBasketIds()) === JSON.stringify(basketIds);
-    const themeRequest = beginWritingThemeIndexRequest(writingState, isCurrent);
     await ensureNotesLoaded(basketIds);
     if (!isCurrent()) return;
     writingState.loadingProjects = true;

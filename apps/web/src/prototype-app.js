@@ -2593,6 +2593,7 @@ function clearLiteratureQueueFocus() {
 
 const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   $,
+  state,
   activateModule,
   applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
   clearWritingFocusedCandidateScope,
