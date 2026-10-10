@@ -32,6 +32,7 @@ export class EditorSemanticRelationsController {
   constructor(host) {
     this.host = host;
     this.view = new EditorSemanticRelationsView(host);
+    this.pendingRelationDeletes = new Set();
   }
 
   setPanelState(mode = "list", options = {}) {
@@ -540,23 +541,33 @@ export class EditorSemanticRelationsController {
     if (!id) return;
     const link = this.findRelation(id);
     const activeNoteId = String(host.activeNote()?.id || "").trim();
+    if (!link || !activeNoteId || this.pendingRelationDeletes.has(id)) return;
+    const vaultScope = host.state?.noteMoveVaultScope;
+    const isCurrent = () => host.isActiveNoteId(activeNoteId) && host.state?.noteMoveVaultScope === vaultScope &&
+      !host.state?.noteMoveVaultSwitching && !host.state?.noteMoveVaultUncertain;
     const peerNoteId = String(link?.fromNoteId === activeNoteId ? link?.toNoteId || "" : link?.fromNoteId || "").trim();
     const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === host.activeNote()?.id ? "outgoing" : "incoming") : null;
     const label = endpoint?.title || "这条关联";
-    if (!window.confirm(`取消与“${label}”的外部关联？正文内容不会被删除。`)) return;
+    this.pendingRelationDeletes.add(id);
     try {
+      if (!await window.confirm(`取消与“${label}”的外部关联？正文内容不会被删除。`) || !isCurrent()) return;
+      const currentLink = this.findRelation(id);
+      if (!currentLink || currentLink.fromNoteId !== link.fromNoteId || currentLink.toNoteId !== link.toNoteId) return;
       await deleteNoteRelation(id);
+      if (!isCurrent()) return;
       await host.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
       await refreshGraphAfterRelationMutation(host);
-      if (!host.isActiveNoteId(activeNoteId)) return;
+      if (!isCurrent()) return;
       host.onStatus("外部关联已取消", "ok");
       this.resetPanelState(activeNoteId);
       host.closePermanentRelationWorkspace?.();
       if (typeof host.refreshSemanticRelations === "function") await host.refreshSemanticRelations(activeNoteId, host.relationsRequestSerial);
       else host.renderRelated("外部关联已取消。");
     } catch (error) {
-      if (!host.isActiveNoteId(activeNoteId)) return;
+      if (!isCurrent()) return;
       host.onStatus(`取消外部关联失败：${String(error?.message || error)}`, "warn");
+    } finally {
+      this.pendingRelationDeletes.delete(id);
     }
   }
 }
