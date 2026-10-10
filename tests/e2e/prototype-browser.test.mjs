@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { snapshotDemoNoteInventory } from "./prototype-demo-inventory-helpers.mjs";
 import { runVisibleWritingReadinessFlow } from "./prototype-writing-readiness-flow-helpers.mjs";
+import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -589,36 +590,29 @@ test("prototype desktop updater check no-ops cleanly when no update is available
   const stack = await startPrototypeStack(t, playwright, {
     enterNotes: false,
     beforeGoto: async (page, { apiBase }) => {
-      await page.addInitScript((apiBase) => {
-        window.__updaterCommands = [];
-        window.__confirmMessages = [];
-        window.confirm = (message) => {
-          window.__confirmMessages.push(message);
-          return false;
-        };
-        window.__TAURI__ = {
-          core: {
-            async invoke(command, args) {
-              if (command === "get_desktop_service_status") return { overall: "healthy", services: { api: { status: "healthy", baseUrl: apiBase } } };
-              if (command === "get_desktop_api_base") return apiBase;
-              window.__updaterCommands.push({ command, args });
-              if (command === "plugin:updater|check") return { available: false };
-              throw new Error(`unexpected updater command: ${command}`);
-            }
-          }
-        };
-      }, apiBase);
+      await installReadyDesktopBridge(page, apiBase);
     }
   });
   if (!stack) return;
 
   const { page } = stack;
   await waitFor(async () => {
-    const commands = await page.evaluate(() => window.__updaterCommands || []);
-    assert.deepEqual(commands.map((item) => item.command), ["plugin:updater|check"]);
-    const confirms = await page.evaluate(() => window.__confirmMessages || []);
-    assert.deepEqual(confirms, []);
+    await assertDesktopBridgeCalls(page, ["plugin:updater|check"]);
   }, 7000);
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await page.locator('[data-settings-item="version-update"]').click();
+  await page.locator("#settingsUpdateCard").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#settingsUpdateStatusBadge").innerText(), "已是最新");
+  assert.equal(await page.locator("#settingsUpdateError").isVisible(), false);
+  for (const id of ["settingsInstallUpdate", "settingsRelaunchUpdate", "settingsOpenUpdateDownload"]) {
+    assert.equal(await page.locator(`#${id}`).isVisible(), false);
+  }
+  await page.locator("#settingsCheckUpdate").click();
+  await waitFor(async () => {
+    await assertDesktopBridgeCalls(page, ["plugin:updater|check", "plugin:updater|check"]);
+    assert.equal(await page.locator("#settingsCheckUpdate").isEnabled(), true);
+  });
+  assert.equal(await page.locator("#settingsUpdateStatusBadge").innerText(), "已是最新");
 });
 
 async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
@@ -9045,7 +9039,10 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   assert.match(markdownAfter, /^# Renamed note title/m);
 });
 
-test("prototype explorer reveal note uses tauri opener when desktop shell is available", async (t) => {
+for (const [revealMode, title] of [
+  ["opener", "prototype explorer reveal note uses tauri opener when desktop shell is available"],
+  ["command", "prototype explorer reveal note prefers the desktop command for a Chinese Markdown path"]
+]) test(title, async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -9054,31 +9051,29 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
 
-  const stack = await startPrototypeStack(t, playwright);
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: (page, { apiBase }) => installReadyDesktopBridge(page, apiBase, { revealMode })
+  });
   if (!stack) return;
   const { apiBase, page, vaultPath, webBase } = stack;
 
   const note = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Reveal source note\n\nThis note should ask the desktop shell to reveal its Markdown file."
+    body: `# ${revealMode === "command" ? "定位中文笔记" : "Reveal source note"}\n\nThis note should ask the desktop shell to reveal its Markdown file.`
   });
   assert.equal(note.status, 201, JSON.stringify(note.json));
 
   const expectedMarkdownPath = path.join(vaultPath, note.json.item.markdownPath.replaceAll("/", path.sep));
+  const beforeFile = await fs.readFile(expectedMarkdownPath);
+  const beforeNote = (await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item;
+  if (revealMode === "command") assert.match(expectedMarkdownPath, /定位中文笔记/);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.evaluate(() => {
-    window.__tauriRevealCalls = [];
-    window.__TAURI__ = {
-      opener: {
-        async revealItemInDir(targetPath) {
-          window.__tauriRevealCalls.push(targetPath);
-        }
-      }
-    };
-  });
+  await waitForPrototypeReady(page);
+  await waitFor(async () => assertDesktopBridgeCalls(page, ["plugin:updater|check"]));
+  await openOriginalNoteBox(page);
 
-  const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Reveal source note" });
+  const noteRow = page.locator(`.explorer-item[data-kind="file"][data-id="${note.json.item.id}"]`);
   await noteRow.waitFor();
   await openContextAction(page, noteRow, "reveal-note");
 
@@ -9088,7 +9083,11 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
   }, 7000);
 
   const revealCalls = await page.evaluate(() => window.__tauriRevealCalls || []);
-  assert.deepEqual(revealCalls.map((item) => path.resolve(item)), [path.resolve(expectedMarkdownPath)]);
+  assert.deepEqual(revealCalls.map((item) => path.resolve(item)), revealMode === "opener" ? [path.resolve(expectedMarkdownPath)] : []);
+  const commands = await assertDesktopBridgeCalls(page, ["plugin:updater|check", "open_in_explorer"]);
+  assert.equal(path.resolve(commands.find(call => call.command === "open_in_explorer").args.path), path.resolve(expectedMarkdownPath));
+  assert.deepEqual(await fs.readFile(expectedMarkdownPath), beforeFile);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item, beforeNote);
 });
 
 test("prototype explorer note context move and delete update disk state", async (t) => {
