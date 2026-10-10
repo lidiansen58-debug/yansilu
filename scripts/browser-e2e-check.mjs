@@ -135,6 +135,16 @@ const args = process.argv.slice(2);
 const listRequested = args.includes("--list") || args.includes("-l");
 const selectedNames = args.filter((arg) => !arg.startsWith("-"));
 
+// The release gate discovers every current E2E file; curated groups remain shortcuts.
+// This includes newer standalone flows and avoids silently omitting renamed tests.
+if (!listRequested && selectedNames.length === 0) {
+  const result = spawnSync(process.execPath, ["--test", "--test-concurrency=1", "tests/e2e/**/*.test.mjs"], {
+    cwd: process.cwd(), env: { ...process.env, RUN_BROWSER_E2E: "1" }, stdio: "inherit", shell: false
+  });
+  if (result.error) throw result.error;
+  process.exit(result.status ?? 1);
+}
+
 if (listRequested) {
   console.log("Available browser e2e groups:");
   for (const group of groups) {
