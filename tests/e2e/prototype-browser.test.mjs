@@ -6,6 +6,7 @@ import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { snapshotDemoNoteInventory } from "./prototype-demo-inventory-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -8891,10 +8892,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.equal(startupState.selectedFolderId, "dir_yansilu_usage_notes");
   }, 15000);
 
-  const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
-  assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
-  const firstSeedDirectoryTotal = Number(firstSeedDirectory.json.total || 0);
-  assert.ok(firstSeedDirectoryTotal >= 17);
+  const firstInventory = await snapshotDemoNoteInventory(apiBase);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
@@ -8938,26 +8936,24 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     const writingState = await page.evaluate(() => ({
       title: document.querySelector("#writingTitle")?.value || "",
       goal: document.querySelector("#writingGoal")?.value || "",
-      audience: document.querySelector("#writingAudience")?.value || "",
       basketSummary: document.querySelector("#writingBasketSummary")?.textContent || ""
     }));
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
-    assert.ok(String(writingState.audience || "").trim().length > 0);
     assert.match(writingState.basketSummary, /\d+ 条|相关笔记/);
   }, 15000);
 
   const project = await fetchJson(apiBase, "/api/v1/writing-projects/WRITE-SMART-NOTES-DEMO");
   assert.equal(project.status, 200, JSON.stringify(project.json));
+  assert.match(project.json.item.intent, /解释核心方法/);
+  assert.match(project.json.item.desired_reader_takeaway, /可追溯提纲/);
   assert.equal(project.json.item.scaffold_id, "DRAFT-SMART-NOTES-DEMO");
 
   const scaffold = await fetchJson(apiBase, "/api/v1/draft-scaffolds/DRAFT-SMART-NOTES-DEMO");
   assert.equal(scaffold.status, 200, JSON.stringify(scaffold.json));
   assert.ok(scaffold.json.item.sections.length > 0);
 
-  const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
-  assert.equal(secondSeedDirectory.status, 200, JSON.stringify(secondSeedDirectory.json));
-  assert.equal(secondSeedDirectory.json.total, firstSeedDirectoryTotal);
+  assert.deepEqual(await snapshotDemoNoteInventory(apiBase), firstInventory);
 });
 
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {

@@ -7,7 +7,14 @@ export async function loadWritingThemeIndexesForRuntime({
   writingState.loadingThemeIndexes = true;
   renderWritingPanel();
   try {
-    const items = await listIndexCards({ directoryId, includeDescendants: true, indexType: "topic", limit: 12 });
+    let items = await listIndexCards({ directoryId, includeDescendants: true, indexType: "topic", limit: 12 });
+    if (writingState.themeIndexRequestSerial !== serial || !isCurrent()) return [];
+    // Reading a note in a folder without themes should not strand the writer.
+    // The unscoped query still belongs to the current Vault; it changes only
+    // the picker, not the directory used when creating a new theme.
+    if (!items.length && String(directoryId || "").trim()) {
+      items = await listIndexCards({ includeDescendants: true, indexType: "topic", limit: 12 });
+    }
     if (writingState.themeIndexRequestSerial !== serial || !isCurrent()) return [];
     writingState.themeIndexes = items;
     return items;
