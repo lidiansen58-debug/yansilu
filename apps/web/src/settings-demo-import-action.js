@@ -1,3 +1,5 @@
+import { captureActionConfirmationContext } from "./action-confirmation-context.js";
+
 function importErrorDetailsText(details) {
   const valueText = (value) => {
     if (typeof value === "string") return value.trim();
@@ -45,7 +47,9 @@ export function describeSettingsDemoImportError(error = null) {
   ].filter(Boolean).join("\n");
 }
 
-export async function runSettingsDemoImport(button, { $, handleStateChange, setStatus }) {
+export async function runSettingsDemoImport(button, deps) {
+  const { $, handleStateChange, setStatus } = deps;
+  const isCurrent = captureActionConfirmationContext(() => deps);
   const previousText = button.textContent;
   const status = $("settingsImportSmartNotesDemoStatus");
   const setImportFeedback = (message, tone = "") => {
@@ -61,14 +65,14 @@ export async function runSettingsDemoImport(button, { $, handleStateChange, setS
     const imported = await handleStateChange("seed-smart-notes-demo", { source: "settings-help" });
     if (imported === false) {
       setImportFeedback("已取消导入。需要时可再次点击按钮。", "");
-      setStatus("已取消 Demo 导入。", "");
+      if (isCurrent()) setStatus("已取消 Demo 导入。", "");
     } else {
       setImportFeedback("示例已导入，可回到首页继续整理。", "ok");
     }
   } catch (error) {
     const description = describeSettingsDemoImportError(error);
     setImportFeedback(description, "bad");
-    setStatus(description, "bad");
+    if (isCurrent()) setStatus(description, "bad");
   } finally {
     button.disabled = false;
     button.removeAttribute("aria-busy");

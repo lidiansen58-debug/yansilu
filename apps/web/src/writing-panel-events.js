@@ -1303,11 +1303,12 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   const preparing = action === "prepare";
   const startedProjectId = String(writingState.project?.id || "").trim();
   const startedThemeId = String(writingState.selectedThemeIndexId || "");
+  const startedModule = deps.state?.module;
   const vaultScope = deps.state ? (deps.state.noteMoveVaultScope ||= {}) : null;
   const preparationIsCurrent = () => !preparing || (
     String(writingState.project?.id || "").trim() === startedProjectId &&
     String(writingState.selectedThemeIndexId || "") === startedThemeId &&
-    (!deps.state || (deps.state.noteMoveVaultScope === vaultScope && !deps.state.noteMoveVaultSwitching && !deps.state.noteMoveVaultUncertain))
+    (!deps.state || (deps.state.module === startedModule && deps.state.noteMoveVaultScope === vaultScope && !deps.state.noteMoveVaultSwitching && !deps.state.noteMoveVaultUncertain))
   );
   if (action === "prepare") {
     if (button.disabled) return;
@@ -1326,7 +1327,7 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
     } catch (error) {
       const message = String(error?.message || error);
       if (feedback) feedback.textContent = message;
-      setStatus(message, "warn");
+      if (preparationIsCurrent()) setStatus(message, "warn");
       return;
     } finally { button.disabled = false; }
   }

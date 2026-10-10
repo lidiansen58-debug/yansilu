@@ -1,3 +1,5 @@
+import { confirmAiInboxRecommendedAction } from "./ai-inbox-recommended-confirmation.js";
+
 export async function loadAiInboxDetailForRuntime(deps = {}, artifactId = "") {
   const {
     aiInboxState,
@@ -492,7 +494,7 @@ export async function recordAiInboxReviewDecisionForRuntime(deps = {}, decision 
 export async function applyAiInboxRecommendedActionForRuntime(deps = {}, action = "") {
   const {
     aiInboxState,
-    confirm = () => true,
+    confirm = message => globalThis.confirm?.(message),
     appendDecisionComment = () => {},
     acceptLink = async () => null,
     adoptFieldSuggestion = async () => null,
@@ -548,7 +550,10 @@ export async function applyAiInboxRecommendedActionForRuntime(deps = {}, action 
     needs_more_context: "mark this item as needing more context"
   };
   const label = labels[normalized] || normalized;
-  if (!confirm(`Apply AI recommended action: ${label}?`)) return false;
+  if (!await confirmAiInboxRecommendedAction({ ...deps, confirm, setStatus }, {
+    message: `Apply AI recommended action: ${label}?`,
+    isReady: () => aiInboxActionGuardForRuntime(aiInboxState, { artifactId }).type === "ready"
+  })) return false;
 
   if (normalized === "accept_link") return acceptLink(artifactId);
   if (normalized === "adopt_field_suggestion") {

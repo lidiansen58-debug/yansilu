@@ -139,7 +139,8 @@ export function installSettingsEventBindings(deps = {}) {
     event.preventDefault();
     const action = String(button.getAttribute("data-settings-help-action") || "").trim();
     if (action === "import-demo") {
-      await runSettingsDemoImport(button, { $, handleStateChange, setStatus });
+      await runSettingsDemoImport(button, { $, handleStateChange, setStatus, state,
+        getVaultPath: deps.getVaultPath || (() => settingsState.vault?.vaultPath) });
       return;
     }
     if (action === "open-home") {

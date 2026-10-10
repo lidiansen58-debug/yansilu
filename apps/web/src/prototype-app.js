@@ -706,6 +706,7 @@ function desktopUpdateRestartBlockers() {
 }
 
 const updateController = createPrototypeUpdateController({
+  state, getVaultPath: currentVaultPath,
   settingsState,
   readStoredText,
   writeStoredText,
@@ -1464,6 +1465,7 @@ function aiTestBlockedReason() {
 }
 
 const settingsAiRuntimeController = createSettingsAiRuntimeController(() => ({
+  state, getVaultPath: currentVaultPath,
   aiProviderConfigPayload,
   applyActiveAiProviderConfigToState,
   applyAiPreferencesToSettingsState,
@@ -2145,6 +2147,7 @@ function aiSuggestionAlreadyAppliedNotice(status = "") { return aiSuggestionsAct
 async function applyAiSuggestionStatus(suggestionId, status) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status); }
 
 const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
+  getVaultPath: currentVaultPath,
   addSystemMessage,
   aiInboxState,
   fetchAiScheduledTasks,
@@ -2392,6 +2395,7 @@ async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
 }
 
 const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
+  state, getVaultPath: currentVaultPath,
   aiInboxState,
   recordAiInboxDecision,
   aiInboxFeedback: aiInboxFeedbackFromUi,

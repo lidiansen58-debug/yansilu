@@ -1,4 +1,5 @@
 import { LOCAL_RELEASE_NOTES } from "./local-release-notes.js";
+import { captureActionConfirmationContext, confirmCurrentAction } from "./action-confirmation-context.js";
 import {
   createUpdateState,
   normalizeUpdateSettings,
@@ -40,6 +41,7 @@ export function createPrototypeUpdateController(deps = {}) {
     getRestartBlockers = () => []
   } = deps;
   let backgroundDownloadPromise = null;
+  let relaunchPending = false;
 
   function loadUpdateSettingsFromStorage() {
     const settingsRaw = readStoredText(UPDATE_SETTINGS_KEY, "");
@@ -314,6 +316,7 @@ export function createPrototypeUpdateController(deps = {}) {
   }
 
   async function relaunchAfterInstalledUpdate() {
+    if (relaunchPending) return false;
     if (!settingsState.update?.installReadyForRestart) {
       setStatus("还没有完成可重启的更新安装。", "warn");
       return false;
@@ -324,13 +327,29 @@ export function createPrototypeUpdateController(deps = {}) {
       return false;
     }
     const message = "将重启研思录以完成更新。是否现在重启？";
-    if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(message)) return false;
+    const confirmedUpdate = settingsState.update;
+    const currentContext = captureActionConfirmationContext(() => deps, () => JSON.stringify([
+      settingsState.update?.latestVersion, settingsState.update?.installReadyForRestart, settingsState.update?.requestToken
+    ]));
+    relaunchPending = true;
     try {
+      if (!await confirmCurrentAction(settingsState, {
+        confirm: prompt => globalThis.window?.confirm?.(prompt), message,
+        isCurrent: () => currentContext() && settingsState.update === confirmedUpdate,
+        onError: error => setStatus(`确认未完成：${String(error?.message || error)}`, "warn")
+      })) return false;
+      const currentBlockers = restartBlockerReasons();
+      if (currentBlockers.length) {
+        setStatus(`当前不重启：${currentBlockers.join("、")}。保存或完成当前流程后再重启更新。`, "warn");
+        return false;
+      }
       await relaunchDesktopApp();
       return true;
     } catch (error) {
       setStatus(`重启应用失败：${String(error?.message || error)}`, "bad");
       return false;
+    } finally {
+      relaunchPending = false;
     }
   }
 

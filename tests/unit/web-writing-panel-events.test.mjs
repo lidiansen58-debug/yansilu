@@ -479,28 +479,31 @@ test("writing note list handler routes add remove and open actions", () => {
   assert.ok(calls.some((call) => call[0] === "open" && call[1] === "n1"));
 });
 
-for (const change of ["project", "theme", "new-project"]) {
+for (const change of ["project", "theme", "new-project", "module", "vault"]) {
   test(`writing preparation does not add after changing ${change}`, async () => {
     let finish;
     const pending = new Promise(resolve => { finish = resolve; });
     const writingState = { project: change === "new-project" ? null : { id: "project-a" }, selectedThemeIndexId: "theme-a" };
     const calls = [];
+    const state = { module: "writing", noteMoveVaultScope: {} };
     const button = { disabled: false, getAttribute: name => name === "data-writing-action" ? "prepare" : "n1", closest: () => null };
     const work = handleWritingNoteListClick({ target: { closest: () => button } }, {
-      writingState, prepareWritingNote: () => pending,
+      writingState, state, prepareWritingNote: () => pending,
       syncWritingProject: async () => { calls.push("sync"); },
       continueWritingEntry: () => { calls.push("add"); },
       setWritingBasketIds: () => calls.push("basket"),
       setStatus: message => calls.push(message)
     });
-    if (change === "theme") writingState.selectedThemeIndexId = "theme-b";
+    if (change === "module") state.module = "today";
+    else if (change === "vault") state.noteMoveVaultScope = {};
+    else if (change === "theme") writingState.selectedThemeIndexId = "theme-b";
     else writingState.project = { id: "project-b" };
     finish(true);
     await work;
     assert.equal(calls.includes("sync"), false);
     assert.equal(calls.includes("add"), false);
     assert.equal(calls.includes("basket"), false);
-    assert.ok(calls.some(message => /主题已切换/.test(message)));
+    assert.deepEqual(calls, [], "Late preparation cannot replace feedback in the new context");
     assert.equal(button.disabled, false);
   });
 }
