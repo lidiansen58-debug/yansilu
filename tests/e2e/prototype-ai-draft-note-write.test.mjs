@@ -69,9 +69,19 @@ test('visible AI save draft writes the proposed field into the note without conf
   assert.equal((await readAiReview(apiBase, fixture)).item.history.filter(event => event.toStatus === 'adopted_as_draft').length, 1);
   await filterAiReviewStatus(page, 'adopted_as_draft');
   const reopened = await openAiReview(page, fixture);
+  const unsavedReview = '尚未提交的人工改写：应当保留，但不能自动写入笔记。';
+  await reopened.locator('#aiSuggestionContentEditor').fill(unsavedReview);
   await reopened.locator(`[data-ai-suggestion-open-note="${noteId}"]`).click();
   await page.waitForFunction(id => window.__prototypeEditor?.activeNote?.()?.id === id, noteId);
   await waitFor(async () => assert.equal(await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.thesis), thesis));
+  assert.deepEqual((await fetchJson(apiBase, route)).json.item, saved);
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await page.waitForFunction(() => document.querySelector('#statusText')?.textContent === '已打开设置');
+  assert.equal(await page.locator('#settingsAiSuggestionsPanel .ai-suggestion-modal').count(), 0, 'opening the note must dismiss its review instead of restoring an obstructing modal on settings entry');
+  await page.locator('[data-settings-item="automation"]').click();
+  await filterAiReviewStatus(page, 'adopted_as_draft');
+  const explicitReopen = await openAiReview(page, fixture);
+  assert.equal(await explicitReopen.locator('#aiSuggestionContentEditor').inputValue(), unsavedReview);
   assert.deepEqual((await fetchJson(apiBase, route)).json.item, saved);
 });
 

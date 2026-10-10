@@ -272,3 +272,21 @@
 - 最终正式 AI 浏览器入口 npm run test:review-first:browser：13/13 通过、0 失败、0 跳过，证据 ai-review-preserved-inbox-final-gate-browser.log；逐项成功摘要已核对，进程结束，未重复启动。当前 MVP 正式入口 npm run test:e2e:browser:mvp：13/13 通过、0 跳过，结束标记 Browser MVP check passed.，证据 current-mvp-after-ai-review.log。
 - 正式 npm test：5003 项，4574 通过、0 失败、429 项需另行启用，147061.1135 ms（core-ai-review-continuity-final.log）。上述两个浏览器入口不替代全量浏览器 gate；历史全量及旧源码失败仍保留，不按局部通过数倒推当前失败数。
 - 编码检查无新增回归，差异检查通过。接下来按既有授权推送测试更新并为新固定提交运行非公开签名演练；最终构建/下载验签、安装版全流程、原生输入法与长时间操作、真实远程 AI、数据恢复、升级回退和跨平台实机验收继续保留。Mac 协议问题已解决，无待处理 Secrets 操作，没有公开发布。
+
+## c554de70 候选包的签名、下载与安装版 AI 草稿验收
+
+- 固定源码 c554de702ca4704f44a1e51b4d32fa28ca6a7399 的非公开签名演练 38079209063 全部成功：Windows/Linux/macOS 构建及产物汇总通过，公开 release 创建/更新步骤 skipped。Mac 应用公证 Accepted b1afdcd6-c897-4f31-9e6f-61c4c94ce8cb、DMG Accepted 30ef7da7-f7c7-491a-96d4-1f3d35d2fb78；实际严格签名、Node JIT、Universal 架构、票据装订/校验与 Gatekeeper 通过。协议与 Secrets 问题已解决。证据 signed-rehearsal-c554de70-completed.json、apple-signing-success-c554de70.log、macos-notarization-c554de70-proof.json。
+- 三平台下载产物完整清单、大小/SHA256、文本校验清单和上传文件库存一致，配置 updater 公钥验签通过，篡改字节均被拒绝。Linux/Mac ZIP 摘要另与 GitHub artifact digest 一致；证据 ci-windows-c554de70-verification.json、ci-linux-c554de70-verification.json、ci-macos-c554de70-verification.json。不代表 Mac/Linux 实际安装或升级回退通过。
+- Windows NSIS 33865540 字节，SHA256 A74E74A50175B28287CF0F3A64F6DEE1FBF8CAA1A640937AB17A0E0651A51A26，Authenticode NotSigned，实际安装退出码 0，安装后 EXE 摘要 783224625A15133C216722FB1CE63629B667C44A54570918118D7C884697C6E4；证据 windows-c554de70-installed.json。原正式库 44 个文件和库选择在启动前核对，通过后仅选择独立合成库。
+- 真实安装包的内置 API/WebView 完成单条观点草稿保存及缓存返回刷新、成组观点和三行概括各保存一次、实际 409 后保留建议/错误/可重试弹窗及后来人工正文。笔记标题、正文、链接、作者未确认状态符合预期；此处使用公共 API 创建合成建议，没有执行远程模型。验收中显式关闭了另行复现的旧审阅弹窗，不把这个操作转记为弹窗问题已在安装版修复。证据 native-ai-draft-c554de70.json、native-ai-draft-c554de70-explicit-close-final.log。
+- 同一 EXE 正常退出后 API/CDP 关闭，再启动，三条笔记完整快照与实际 Markdown 文件 SHA256 相同；证据 native-ai-draft-c554de70-before-restart.json、native-ai-draft-c554de70-restart.json。结束后再次正常退出，端点关闭，正式库 44 个文件摘要不变，原库选择按原字节恢复（native-cleanup-c554de70.json）。不将浏览器程序化 Unicode/点击记作原生输入法、原生确认框或焦点长时间验收。
+- 探针早期失败记录保留：健康响应路径层级读取错误（变更前无写入）、旧搜索输入选择器、重试残留搜索弹窗，以及真实审阅弹窗重开阻挡入口。后两类通过实际可见关闭按钮恢复，没有强制点击背景或修改安装包的产品代码。退出/重启组合命令被自动审批拦截且未执行；拆分检查后，采用安装包暴露的正常退出 API 完成退出与重启。
+
+## 从审阅打开笔记后，旧弹窗不得自动挡住设置
+
+- 安装版真实复现：AI 草稿已写入，点击打开笔记后返回设置，旧详情弹窗重开并挡住自动化入口。浏览器新增同路径断言在修复前 0/1 通过，明确失败为弹窗数量 1 而非预期 0（ai-review-note-return-modal-before-browser.log），不是应用卡死。
+- 现在只在目标笔记成功打开且原详情选择/请求版本未变时收起旧弹窗；打开失败、迟到成功、切换建议或同条详情已重新打开均不关闭新详情。复用现有关闭模型，不向原型壳添加业务逻辑。
+- 从笔记主动重开时，同一库、同一服务端内容基线的未提交审阅文字保留；没有自动修改建议状态或写入笔记。服务端内容变更或克隆 ID 来自另一库时不恢复旧输入；用户把输入改回原值后，不复活旧草稿；明确关闭维持原有丢弃行为。
+- 相关单元 33/33 通过（ai-review-note-return-modal-units.log），增强的实际浏览器草稿三项 3/3 通过、0 跳过，18962.4263 ms（ai-review-note-return-modal-fixed-browser.log）；其中实际输入未提交的人工改写、打开笔记、返回设置无弹窗、主动重开恢复改写，笔记完整快照始终不变。正式 AI 审阅入口 13/13 通过、0 跳过（ai-review-note-return-modal-related-browser.log）。
+- 最终正式 npm test 5012 项：4584 通过、0 失败、428 需另行启用，165256.3588 ms（core-ai-review-note-return-modal-final.log）。与上轮的跳过项差异已核对：本工作树具有构建生成的 tauri.conf.no-updater-artifacts.json，因此原来跳过的独立帮助资源检查实际执行并通过；未移除浏览器跳过或放宽门槛。编码无新增问题、差异检查通过。
+- 本轮弹窗修复尚未进入 c554de70 候选包，需要后续固定源码重建/安装复验。隔离树上完整浏览器 gate 仍固定 c554de70 对应源码运行，当前只是中间结果，包含旧入口失败和窄屏密集图谱失败，等待终态后逐项分析；不能用本轮局部通过替代全量。原生输入法/焦点长时间、实际远程 AI 任务与费用、数据恢复、升级回退、跨平台实机及最终交付范围保持未完成。

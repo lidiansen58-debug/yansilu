@@ -351,3 +351,22 @@ test("AI suggestions workspace binding attaches and detaches click and change ha
   assert.equal(listeners[2].handler, listeners[0].handler);
   assert.equal(listeners[3].handler, listeners[1].handler);
 });
+
+for (const outcome of ['success', 'declined', 'exception', 'new-selection', 'reopened-same-selection']) {
+  test('opening a review note dismisses only its successfully opened current modal: ' + outcome, async () => {
+    const state = { selectedSuggestionId: 'a', suggestionDetailRequestToken: 4, suggestionDetail: { item: { id: 'a' }, writeBase: { vaultPath: 'original-vault' } }, suggestionDetailSuggestionId: 'a' };
+    const before = structuredClone(state); let renders = 0, entered, release;
+    const began = new Promise(resolve => { entered = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    const run = handleAiSuggestionsWorkspaceClick({ target: targetFor({ '[data-ai-suggestion-open-note]': { 'data-ai-suggestion-open-note': 'note-a' } }) }, {
+      settingsAiState: state, render: () => renders++, openTargetNote: async () => { entered(); await gate; if (outcome === 'exception') throw new Error('Read failed'); return outcome !== 'declined'; }
+    });
+    await began; assert.deepEqual(state, before); assert.equal(renders, 0);
+    if (outcome === 'new-selection') state.selectedSuggestionId = 'b';
+    if (outcome === 'reopened-same-selection') state.suggestionDetailRequestToken++;
+    const current = structuredClone(state); release();
+    if (outcome === 'exception') await assert.rejects(run, /Read failed/); else await run;
+    if (outcome === 'success') { assert.equal(state.selectedSuggestionId, ''); assert.equal(state.suggestionDetail, null); assert.equal(state.suggestionDetailRequestToken, 5); assert.equal(renders, 1); }
+    else { assert.deepEqual(state, current); assert.equal(renders, 0); }
+  });
+}
