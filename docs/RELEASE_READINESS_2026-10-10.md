@@ -79,6 +79,9 @@
 - 固定提交 `b1f38521550e9fc9bcef5140235d040d66df5e72` 的 [演练 38030669704](https://github.com/lidiansen58-debug/yansilu/actions/runs/38030669704) 中 Windows/Linux 构建成功，Mac 成功通过 app-only 清单步骤、应用签名和 `codesign --verify --deep --strict`，随后在内嵌 Node 的 JIT 权限读取检查退出，尚未提交公证。原读取没有明确输出 XML，现按 [Apple 官方方法](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/) 使用 `codesign -d --entitlements - --xml` 将标准输出写入临时 plist，再严格检查 JIT 权限，不删除权限 gate。增加 Mac 原生回归，对临时复制的 Node 实际签名，区分授予和缺失 JIT；Windows 相关回归 26 项中 25 通过、1 项仅 Mac 执行。此修改尚待真实 Mac 演练确认，不能认定实际权限已通过。
 - 空提纲浏览器回归改走当前可见操作：实际主题生成提纲、逐节删除并读回磁盘、出现“添加第一节”、添加和修改章节后重载同一文章；不强制启用隐藏按钮或覆盖内部状态。定向 1 项通过，三条来源正文保持一致且不创建重复文章，日志 `writing-empty-outline-visible.log`。
 - JIT XML 读取修复后正式 core：4674 项，4264 通过、0 失败、410 项需另行启用（含新增 Mac 原生权限回归），日志 `core-after-jit-xml.log`；编码与 diff 检查通过。Windows/Linux 的 `b1f38521` 演练资产下载仍在运行，未将构建成功替代下载核对或安装验收。
+- `b1f38521` 的 Windows 演练资产已下载并核对：33855213 字节，SHA256 `c94450d55d0273e24d4431d5abfba558e13315668ca227a3afe5beffdcb6363f`；两个最终文件与上传清单、文本校验清单一致，按配置公钥的 updater 验签通过，改动一字节的反证被拒绝。证据 `ci-windows-b1f38521-verification.json`；尚未安装，不能替代本机 `42c8477d` 安装版或新源码实机验收。
+- 提纲输出失败回归改走当前可见“更多”菜单：真实生成提纲后，只在剪贴板和浏览器下载边界注入失败，检查错误可见、菜单关闭、已保存提纲完整不变；恢复下载后读取实际下载文件，核对中文提纲及来源名称，三条来源正文保持一致。定向 1 项通过，日志 `writing-outline-output-failure.log`；不强制启用隐藏按钮或覆盖内部写作状态。首次断言误读仅含元数据的诊断对象，改为读取实际文件后通过，未改动产品源码。
+- JIT XML 修复的 [演练 38031883042](https://github.com/lidiansen58-debug/yansilu/actions/runs/38031883042) 固定在 `4d28955d42e8bda77ecf4b1a796e714d79be439c`，Mac 原生包装检查成功、Universal 签名与公证步骤仍在运行；Linux 构建成功、Windows 正在构建。手工演练没有创建公开版本或改变更新源。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
