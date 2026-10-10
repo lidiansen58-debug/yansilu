@@ -705,6 +705,12 @@ function buildScaffoldPreflight(project, basketNotes) {
     .map((item) => `${item.noteTitle}: ${item.message}`)
     .join(" ");
   const checks = [
+    ...buildWritingProjectReadiness(project, basketNotes.filter(note =>
+      ["permanent", "original"].includes(cleanText(note.note_type || note.noteType)) && note.status !== "missing"
+    )).checks.filter(check =>
+      ["basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"].includes(check.code)
+    ).map(check => ({ ...check, id: check.code, status: "warning",
+      label: check.code === "basket_notes_missing_thesis" ? "笔记判断" : "笔记摘要" })),
     preflightCheck(
       "source_files",
       "相关笔记来源",

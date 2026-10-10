@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, postJson, putJson, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { addWritingSupportNotes, createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
 
 async function createPermanentNote(baseUrl, payload = {}) {
   const created = await postJson(baseUrl, "/api/v1/notes", {
@@ -50,32 +51,21 @@ test("prototype missing-summary readiness message uses Chinese copy", async (t) 
     threeLineSummary: ["one", "two"]
   });
 
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, note.json.item);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.click("#btnWritingUseCurrent");
-  await page.fill("#writingTitle", "Missing Summary Project");
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateProject");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create project button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /项目已创建：wp_/);
-  }, 10000);
+  const notes = await addWritingSupportNotes(apiBase, note.json.item);
+  await createManualWritingTheme(stack, notes, { title: "Missing Summary Project" });
 
   await page.click("#btnWritingCreateScaffold");
   await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /1 条写作篮笔记还需要补齐三句话提纯。/);
+    const resultText = await page.locator("#writingPanel").innerText();
+    assert.match(String(resultText || ""), /1 条相关笔记还需要补齐三句话提纯。/);
     assert.doesNotMatch(String(resultText || ""), /1 basket note\(s\) still need a three-line summary\./);
   }, 10000);
+  const project = await findWritingProject(stack, notes, "Missing Summary Project");
+  const scaffold = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
+  assert.deepEqual(scaffold.preflight.checks.find(check => check.id === "basket_notes_missing_three_line_summary").targetNoteIds, [note.json.item.id]);
+  await page.locator(`#writingScaffoldPreview [data-writing-outline-source-note="${note.json.item.id}"]`).click();
+  await page.waitForFunction(id => window.__prototypeState.module === "explorer" && window.__prototypeState.selectedFileId === id, note.json.item.id);
+  const fresh = (await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item;
+  assert.equal(fresh.body, note.json.item.body);
+  assert.deepEqual(fresh.threeLineSummary, ["one", "two"]);
 });

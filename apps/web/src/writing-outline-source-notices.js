@@ -1,9 +1,9 @@
-const sourceChecks = new Set(["source_files", "source_note_types"]);
+const sourceChecks = new Set(["source_files", "source_note_types", "basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"]);
 const pendingOpens = new WeakMap();
 
 export function writingOutlineSourceNotices(writingState = {}) {
   const notes = new Map([
-    ...(writingState.project?.basket_notes || []), ...(writingState.scaffold?.evidence_notes || [])
+    ...(writingState.project?.basket_notes || []), ...(writingState.scaffold?.basket_notes || []), ...(writingState.scaffold?.evidence_notes || [])
   ].map(note => [String(note.id), note]));
   return (writingState.scaffold?.preflight?.checks || [])
     .filter(check => sourceChecks.has(check.id) && ["warning", "warn"].includes(check.status))

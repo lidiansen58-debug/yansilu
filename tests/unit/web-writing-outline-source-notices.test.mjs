@@ -124,3 +124,21 @@ test("delegated source clicks do not trigger outline mutation or autosave", asyn
   assert.deepEqual(f.calls, ["source"]);
   assert.equal(f.writingState.outlineSaveQueue, undefined);
 });
+
+for (const id of ["basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"]) {
+  test(`${id} uses the current scaffold note title and opens without changing the outline`, async () => {
+    const f = fixture();
+    f.writingState.project.basket_notes = [{ id: "source", title: "Old title" }];
+    f.writingState.scaffold.evidence_notes = [];
+    f.writingState.scaffold.basket_notes = [{ id: "source", title: "Current <title>", note_type: "permanent" }];
+    f.writingState.scaffold.preflight.checks = [{ id, status: "warning", message: "请补齐笔记内容。", targetNoteIds: ["source"] }];
+    const outline = structuredClone(f.writingState.scaffold);
+    const html = f.preview();
+    assert.match(html, /请补齐笔记内容/);
+    assert.match(html, /核对：Current &lt;title&gt;/);
+    assert.doesNotMatch(html, /Old title/);
+    await handleWritingOutlineSourceClick(f.event, f.deps);
+    assert.deepEqual(f.calls, ["source"]);
+    assert.deepEqual(f.writingState.scaffold, outline);
+  });
+}

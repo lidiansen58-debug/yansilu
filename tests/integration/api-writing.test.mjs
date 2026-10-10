@@ -33,9 +33,55 @@ function assertRestoredSourceNotice(scaffold, project, checkId, noteId) {
     assert.ok(preview.innerHTML.includes(`data-writing-outline-source-note="${escapeHtml(noteId)}"`));
   } else {
     assert.match(preview.innerHTML, /来源文件缺失/);
-    assert.doesNotMatch(preview.innerHTML, /data-writing-outline-source-note/);
+    assert.equal(preview.innerHTML.includes(`data-writing-outline-source-note="${escapeHtml(noteId)}"`), false, "Missing sources must never offer an open action");
   }
 }
+
+test("outline note-gap warnings follow repaired source metadata on readback and historical restore", async t => {
+  const vaultPath = await makeTempDir("yansilu-outline-note-gaps-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const body = "# 待完善依据\n\n保留作者的中文正文与 [[内部链接]]。";
+  const note = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body, thesis: " ", threeLineSummary: ["第一句", " ", "第三句"]
+  })).json.item;
+  const noteFile = path.join(vaultPath, note.markdownPath), originalBytes = await fs.readFile(noteFile);
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "检查笔记依据", basketNoteIds: [note.id] })).json.item.id;
+  const source = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const codes = ["basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"];
+  const assertGaps = (scaffold, expected) => {
+    const gaps = scaffold.preflight.checks.filter(check => codes.includes(check.id));
+    assert.deepEqual(gaps.map(check => check.id), expected);
+    for (const gap of gaps) {
+      assert.deepEqual(gap.targetNoteIds, [note.id]);
+      assert.equal(gap.status, "warning");
+      assert.ok(gap.label);
+    }
+  };
+  assertGaps(source, codes);
+  assert.doesNotMatch(source.markdown, /提醒 undefined/);
+  assertGaps((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item, codes);
+  assert.deepEqual(await fs.readFile(noteFile), originalBytes, "Generating and reading reminders must not rewrite source notes");
+  const repair = await fetch(`${baseUrl}/api/v1/notes/${note.id}`, { method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body, thesis: "解释需要联系材料中的依据。", threeLineSummary: ["写出判断。", "核对材料。", "说明适用边界。"] }) });
+  assert.equal(repair.status, 200);
+  const repairedBytes = await fs.readFile(noteFile);
+  assertGaps((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item, []);
+  const current = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const restored = await postJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffold-restore`, {
+    sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`, expectedScaffoldId: current.id,
+    expectedScaffoldUpdatedAt: current.updated_at, expectedProjectUpdatedAt: project.updated_at,
+    expectedSourceUpdatedAt: source.updated_at, expectedVaultPath: vaultPath
+  });
+  assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assertGaps(restored.json.item, []);
+  assert.deepEqual(restored.json.item.sections, source.sections);
+  assert.deepEqual(await fs.readFile(noteFile), repairedBytes, "Restoring an outline must preserve repaired note metadata and text");
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
+});
 
 test("historical restore preserves the outline when an evidence file is missing", async t => {
   const vaultPath = await makeTempDir("yansilu-history-missing-evidence-");

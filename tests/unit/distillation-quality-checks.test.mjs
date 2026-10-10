@@ -62,3 +62,15 @@ test("writing readiness explains when a related note source is missing", () => {
   assert.equal(readiness.status, "needs_clarification");
   assert.ok(readiness.checks.some((item) => item.code === "basket_notes_missing_source"));
 });
+
+test("writing note gaps target only the notes with blank judgments or incomplete nonempty summary lines", () => {
+  const notes = [
+    { id: "claim", thesis: " \n", threeLineSummary: ["First", "Second", "Third"] },
+    { id: "summary", thesis: "A claim", three_line_summary: ["First", " ", "Third"] },
+    { id: "ready", thesis: "A complete claim", threeLineSummary: ["First", "Second", "Third"] }
+  ];
+  const readiness = analyzeWritingProjectReadiness({}, { notes });
+  assert.deepEqual(readiness.checks.find(check => check.code === "basket_notes_missing_thesis").targetNoteIds, ["claim"]);
+  assert.deepEqual(readiness.checks.find(check => check.code === "basket_notes_missing_three_line_summary").targetNoteIds, ["summary"]);
+  assert.equal(readiness.checks.every(check => check.blocking === false), true);
+});
