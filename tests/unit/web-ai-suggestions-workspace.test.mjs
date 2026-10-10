@@ -142,7 +142,12 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { priority: 1 } }
-  }), /number format/);
+  }), /有效的数字/);
+
+  elements.aiSuggestionContentEditor.value = "   ";
+  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id], current: { content: { priority: 1 } }
+  }), /有效的数字/);
 
   elements.aiSuggestionContentEditor.value = "false";
   assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
@@ -154,12 +159,12 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { enabled: true } }
-  }), /true\/false format/);
+  }), /true 或 false/);
 
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { title: "Original", summary: "Keep" } }
-  }), /valid JSON/);
+  }), /有效的 JSON/);
 });
 
 test("AI suggestions workspace reads the editor for the suggestion being reviewed", () => {

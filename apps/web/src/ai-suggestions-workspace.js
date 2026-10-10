@@ -115,19 +115,19 @@ export function aiSuggestionReviewedContentFromWorkspace({ getElement, current =
       }
       if (typeof previousValue === "number") {
         const number = Number(raw);
-        if (Number.isFinite(number)) return { ...current.content, [key]: number };
-        throw new Error("Reviewed suggestion content must keep the original number format before it can be marked edited or confirmed");
+        if (raw.trim() && Number.isFinite(number)) return { ...current.content, [key]: number };
+        throw new Error("请输入有效的数字。");
       }
       if (typeof previousValue === "boolean") {
         const clean = raw.trim().toLowerCase();
         if (clean === "true" || clean === "false") return { ...current.content, [key]: clean === "true" };
-        throw new Error("Reviewed suggestion content must keep the original true/false format before it can be marked edited or confirmed");
+        throw new Error("此项只接受 true 或 false。");
       }
       return { ...current.content, [key]: raw };
     }
-    throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+    throw new Error("请输入有效的 JSON，保留原有内容结构。");
   }
-  throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+  throw new Error("请输入有效的 JSON，保留原有内容结构。");
 }
 
 export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {

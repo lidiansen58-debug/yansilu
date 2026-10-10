@@ -13,6 +13,7 @@ import { runAiReviewedLifecycle, runAiReviewReopenContinuity, runAiReviewConflic
 import { adoptWhileTyping } from "./prototype-ai-adoption-input-helpers.mjs";
 import { runAiMixedGroupReview } from "./prototype-ai-mixed-review-helpers.mjs";
 import { runAiFilterWhileRefreshing } from "./prototype-ai-filter-input-helpers.mjs";
+import { runAiReturnToEditor, runAiStructuredInputValidation } from "./prototype-ai-review-editor-validation-helpers.mjs";
 import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -9092,87 +9093,15 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   }, 10000);
 });
 
-test("prototype AI inbox returns review to the editor context for final processing", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox returns review to the editor context for final processing", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox return-to-editor target",
-    body: "The inbox should route the final review back into the permanent note editor context."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-
-  await waitFor(async () => {
-    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
-    assert.notEqual(reviewedCount, "0");
-  }, 8000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await item.waitFor();
-  await item.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.noteId)));
-    assert.match(String(detailText || ""), /Open target note|打开目标笔记/);
-  }, 8000);
-
-  await page.locator("#aiInboxPanel .ai-inbox-detail-pane button", { hasText: /Open target note|打开目标笔记/ }).click();
-
-  await waitFor(async () => {
-    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "explorer");
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已回到笔记/);
-  }, 8000);
-
-  await waitFor(async () => {
-    const bodyValue = await page.locator("#editorBody").inputValue();
-    assert.match(String(bodyValue || ""), /Inbox return-to-editor target/);
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /关联 AI 建议|当前笔记的 AI 建议/);
-    assert.match(String(relatedText || ""), /标记已编辑/);
-  }, 10000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='edited']");
-    if (!button) throw new Error("missing embedded edit suggestion action");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-  }, 10000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='confirmed']");
-    if (!button) throw new Error("missing embedded confirm suggestion action");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 10000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox return-to-editor target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReturnToEditor(stack, fixture);
 });
 
 test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async t => {
@@ -9185,56 +9114,15 @@ test("prototype AI inbox reviewed detail can mark an adopted draft edited and th
   await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
   await runAiReviewedLifecycle(stack, fixture);
 });
-test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox invalid reviewed JSON target",
-    body: "This adopted draft should reject invalid reviewed JSON from the AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  let patchCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") patchCount += 1;
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill("{not valid json}");
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /must be valid JSON/i);
-  }, 8000);
-
-  assert.equal(patchCount, 0);
-  const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-  assert.equal(suggestion.status, 200);
-  assert.equal(suggestion.json.item.status, "adopted_as_draft");
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox invalid reviewed JSON target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiStructuredInputValidation(stack, fixture);
 });
 
 test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable", async (t) => {

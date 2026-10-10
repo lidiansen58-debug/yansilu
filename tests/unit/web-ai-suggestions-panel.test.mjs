@@ -244,6 +244,16 @@ for (const status of ["adopted_as_draft", "edited"]) test(`a pending sibling can
   assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-pending_summary"/);
 });
 
+for (const [kind, content] of [["object", { thesis: "Claim", confidence: 0.7 }], ["array", ["First", "Second"]], ["number", 0.7]]) {
+  test(`structured ${kind} opens with a reversible editor value`, () => {
+    const item = { ...suggestion, status: "adopted_as_draft", content };
+    const pane = detailPane(renderAiSuggestionsPanel({ items: [item], selectedSuggestionId: item.id, detail: item }));
+    const value = pane.match(/<textarea[\s\S]*?>([\s\S]*?)<\/textarea>/)?.[1];
+    assert.equal(typeof value, "string");
+    assert.deepEqual(JSON.parse(value.replaceAll("&quot;", '"')), content);
+  });
+}
+
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "adopted_as_draft" }],
