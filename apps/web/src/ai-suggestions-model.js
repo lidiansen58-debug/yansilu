@@ -117,7 +117,8 @@ export function aiSuggestionDetailFromResponse(response = {}) {
     reviewEvents,
     latestReviewEvent,
     trace,
-    linkedArtifact
+    linkedArtifact,
+    writeBase: canonical.write_base || response?.writeBase || null
   };
 }
 

@@ -287,6 +287,11 @@ export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId 
     }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
+    if (cleanStatus === "confirmed" && current.target?.type === "permanent_note" &&
+      ["thesis", "threeLineSummary", "three_line_summary"].includes(current.target?.field)) {
+      payload.applyToNote = true;
+      payload.writeBase = detail.writeBase;
+    }
     const response = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
     const detailResult = suggestionDetailFromResponse(response);
     const item = detailResult.item || {};

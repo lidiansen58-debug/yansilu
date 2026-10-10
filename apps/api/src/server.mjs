@@ -10,6 +10,7 @@ import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { deleteInRequestVault } from "./request-vault-deletion.mjs";
 import { importDemoInRequestVault } from "./request-vault-demo-import.mjs";
+import { confirmSuggestionIntoNote, suggestionNoteWriteBase } from "./ai-suggestion-note-confirmation.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
 import { bindDesktopParentLifecycle } from "./desktop-parent-lifecycle.mjs";
@@ -1992,10 +1993,10 @@ async function loadNotesByIds(noteIds = []) {
   return items;
 }
 
-async function suggestionWithReadableTarget(item = null) {
+async function suggestionWithReadableTarget(item = null, vaultPath = VAULT_PATH) {
   if (!item?.target?.id || item.target.title || item.target.name) return item;
   try {
-    const note = await getNoteById(VAULT_PATH, item.target.id);
+    const note = await getNoteById(vaultPath, item.target.id);
     const title = cleanText(note?.title || note?.thesis);
     return title ? { ...item, target: { ...item.target, title } } : item;
   } catch {
@@ -4176,12 +4177,18 @@ const server = http.createServer(async (req, res) => {
 
     const aiSuggestionId = parseAiSuggestionPath(url.pathname);
     if (req.method === "GET" && aiSuggestionId) {
+      const vaultPath = VAULT_PATH;
+      let store, artifactStore;
       try {
-        await initVault(VAULT_PATH);
-        const store = await aiSuggestionStore();
-        const item = await suggestionWithReadableTarget(store.get(aiSuggestionId));
+        await initVault(vaultPath);
+        store = await createSqliteSuggestionStore({ vaultPath });
+        artifactStore = await createSqliteArtifactStore({ vaultPath });
+        const storedItem = store.get(aiSuggestionId);
+        const item = await suggestionWithReadableTarget(storedItem, vaultPath);
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
-        const sourceArtifact = await sourceArtifactForSuggestion(item);
+        const writeBase = await suggestionNoteWriteBase(vaultPath, storedItem);
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("AI_SUGGESTION_WRITE_VAULT_CHANGED", "笔记库已切换，请重新打开建议。", rid));
+        const sourceArtifact = artifactStore.getArtifact(item.sourceArtifactId);
         const projectedArtifact = artifactWithProjectedSuggestionState(sourceArtifact, item);
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
         const latestReviewEvent = latestSuggestionReviewEventFromSuggestion(item);
@@ -4192,10 +4199,12 @@ const server = http.createServer(async (req, res) => {
           reviewEvents,
           latestReviewEvent,
           trace,
+          writeBase,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: suggestionToCanonical(item),
+          write_base: writeBase,
           ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
           latest_review_event: latestSuggestionReviewEventToCanonical(item),
@@ -4203,23 +4212,36 @@ const server = http.createServer(async (req, res) => {
         } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LOAD_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        store?.close();
+        artifactStore?.close();
       }
     }
 
     if (req.method === "PATCH" && aiSuggestionId) {
+      const vaultPath = VAULT_PATH;
       const body = await readJson(req);
+      let store, artifactStore;
       try {
-        await initVault(VAULT_PATH);
-        const store = await aiSuggestionStore();
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("AI_SUGGESTION_WRITE_VAULT_CHANGED", "笔记库已切换，本次审阅未执行。", rid));
+        await initVault(vaultPath);
+        store = await createSqliteSuggestionStore({ vaultPath });
+        artifactStore = await createSqliteArtifactStore({ vaultPath });
+        if (VAULT_PATH !== vaultPath) return sendJson(res, 409, err("AI_SUGGESTION_WRITE_VAULT_CHANGED", "笔记库已切换，本次审阅未执行。", rid));
         const toStatus = body.status || body.toStatus || body.to_status;
         const existingItem = store.get(aiSuggestionId);
         if (!existingItem) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
-        const sourceArtifact = await sourceArtifactForSuggestion(existingItem);
-        const nextItem = transitionSuggestionStatus(existingItem, toStatus, body);
+        const sourceArtifact = artifactStore.getArtifact(existingItem.sourceArtifactId);
+        const nextItem = body.applyToNote === true ? null : transitionSuggestionStatus(existingItem, toStatus, body);
         let syncedArtifact = null;
         let item = null;
-        if (cleanText(toStatus) === "rejected" && sourceArtifact) {
-          const artifactStore = await aiArtifactStore();
+        if (body.applyToNote === true) {
+          const confirmed = await confirmSuggestionIntoNote({ vaultPath, currentVaultPath: () => VAULT_PATH,
+            suggestionStore: store, artifactStore, item: existingItem, sourceArtifact, body,
+            projectArtifact: artifactWithProjectedSuggestionState });
+          item = await suggestionWithReadableTarget(confirmed.item, vaultPath);
+          syncedArtifact = confirmed.artifact;
+        } else if (cleanText(toStatus) === "rejected" && sourceArtifact) {
           const rejected = await rejectSuggestionAndLinkedArtifactAtomically({
             suggestionStore: store,
             artifactStore,
@@ -4228,15 +4250,14 @@ const server = http.createServer(async (req, res) => {
             sourceArtifact,
             body
           });
-          item = await suggestionWithReadableTarget(rejected.item);
+          item = await suggestionWithReadableTarget(rejected.item, vaultPath);
           syncedArtifact = rejected.artifact;
         } else {
-          item = await suggestionWithReadableTarget(store.transition(aiSuggestionId, toStatus, body));
+          item = await suggestionWithReadableTarget(store.transition(aiSuggestionId, toStatus, body), vaultPath);
         }
-        const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
+        const finalSourceArtifact = syncedArtifact || artifactStore.getArtifact(item.sourceArtifactId);
         const projectedArtifact = artifactWithProjectedSuggestionState(finalSourceArtifact, item);
         if (!syncedArtifact && finalSourceArtifact?.id && projectedArtifact) {
-          const artifactStore = await aiArtifactStore();
           artifactStore.updateArtifact(finalSourceArtifact.id, {
             status: projectedArtifact.status,
             payload: projectedArtifact.payload,
@@ -4247,24 +4268,31 @@ const server = http.createServer(async (req, res) => {
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
         const latestReviewEvent = latestSuggestionReviewEventFromSuggestion(item);
         const trace = suggestionTraceFromRecord(item, finalSourceArtifact || {});
+        const writeBase = await suggestionNoteWriteBase(vaultPath, store.get(aiSuggestionId));
         return sendJson(res, 200, withCanonical({
           item,
           artifact: projectedArtifact || null,
           reviewEvents,
           latestReviewEvent,
           trace,
+          writeBase,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: suggestionToCanonical(item),
+          write_base: writeBase,
           ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
           latest_review_event: latestSuggestionReviewEventToCanonical(item),
           trace: suggestionTraceToCanonical(trace)
         } : null));
       } catch (error) {
-        const status = error?.code === "AI_SUGGESTION_NOT_FOUND" ? 404 : 400;
+        const status = error?.code === "AI_SUGGESTION_NOT_FOUND" ? 404
+          : ["NOTE_SAVE_CONFLICT", "AI_SUGGESTION_WRITE_VAULT_CHANGED", "AI_SUGGESTION_WRITE_REVIEW_CHANGED"].includes(error?.code) ? 409 : 400;
         return sendJson(res, status, err(error?.code || "AI_SUGGESTION_UPDATE_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        store?.close();
+        artifactStore?.close();
       }
     }
 

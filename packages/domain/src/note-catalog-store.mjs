@@ -3174,17 +3174,18 @@ function assertOutgoingRelationsSaveBase(db, noteId, expected) {
   }
 }
 
-export async function updateNoteContent(vaultPath, noteId, input = {}) {
+export async function updateNoteContent(vaultPath, noteId, input = {}, transaction = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
   if (!id) throw new Error("noteId is required");
-  return withNoteSaveLock(vaultPath, id, () => updateNoteContentLocked(vaultPath, id, input));
+  return withNoteSaveLock(vaultPath, id, () => updateNoteContentLocked(vaultPath, id, input, transaction));
 }
 
-async function updateNoteContentLocked(vaultPath, id, input) {
+async function updateNoteContentLocked(vaultPath, id, input, transaction) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    transaction.prepareTransaction?.(db);
     const row = db
       .prepare(
         `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
@@ -3310,6 +3311,7 @@ async function updateNoteContentLocked(vaultPath, id, input) {
     if (await fs.readFile(currentMarkdownPath, "utf8") !== currentMarkdown) {
       throw noteValidationError("NOTE_SAVE_CONFLICT", "保存校验期间笔记已变化，本次未覆盖。请保留当前修改并重新核对。", { noteId: id });
     }
+    transaction.beforeWrite?.();
     let activeMarkdownPath = currentMarkdownPath;
     try {
       if (hasRenamedFile) {
@@ -3331,8 +3333,10 @@ async function updateNoteContentLocked(vaultPath, id, input) {
       throw error;
     }
     const nextRelPath = path.relative(path.resolve(vaultPath), activeMarkdownPath).replaceAll("\\", "/");
-    db.exec("BEGIN IMMEDIATE;");
+    let transactionStarted = false;
     try {
+      db.exec("BEGIN IMMEDIATE;");
+      transactionStarted = true;
       assertOutgoingRelationsSaveBase(db, effectiveRow.id, input.expectedOutgoingRelations);
       db.prepare("UPDATE notes SET title = ?, status = ?, markdown_path = ?, updated_at = ? WHERE id = ?").run(
         normalized.title,
@@ -3351,9 +3355,10 @@ async function updateNoteContentLocked(vaultPath, id, input) {
       }
       syncLinkAliases(db, effectiveRow.id, nextFrontmatter);
       syncMarkdownRelations(db, effectiveRow.id, normalized.markdownBody);
+      transaction.commitTransaction?.(db);
       db.exec("COMMIT;");
     } catch (error) {
-      db.exec("ROLLBACK;");
+      if (transactionStarted) db.exec("ROLLBACK;");
       try {
         // Restore only our own write; keep external edits when undoing a rename.
         if (!hasRenamedFile || !(await fileExists(currentMarkdownPath))) {

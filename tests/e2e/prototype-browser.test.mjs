@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { snapshotDemoNoteInventory } from "./prototype-demo-inventory-helpers.mjs";
 import { runVisibleWritingReadinessFlow } from "./prototype-writing-readiness-flow-helpers.mjs";
 import { runVisibleRelationCreateFlow, runVisibleRelationEditFlow } from "./prototype-visible-relation-flow-helpers.mjs";
+import { runAiReviewedLifecycle, runAiReviewReopenContinuity, runAiReviewConflict } from "./prototype-ai-review-flow-helpers.mjs";
 import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -577,6 +578,17 @@ test("prototype current AI suggestions modal guards closed detail and duplicate 
     assert.equal(await modal.locator(`[data-ai-suggestion-open-note="${rejected.noteId}"]`).count(), 1);
     assert.match(String(await modal.textContent()), /忽略/);
   }, 8000);
+});
+
+test("prototype AI review confirmation preserves the draft and newer note when writeback conflicts", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Confirmation conflict target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await markSuggestionEditedViaApi(stack.apiBase, fixture, "Human review before a conflicting edit.");
+  await runAiReviewConflict(stack, fixture);
 });
 
 test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {
@@ -9126,82 +9138,16 @@ test("prototype AI inbox returns review to the editor context for final processi
   }, 10000);
 });
 
-test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox reviewed detail target",
-    body: "This adopted draft should be edited and confirmed from the reviewed AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-  const editedThesis = "Inbox browser review changed this thesis before final confirmation.";
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await waitFor(async () => {
-    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
-    assert.notEqual(reviewedCount, "0");
-  }, 8000);
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const present = await page.evaluate((artifactId) => Boolean(document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`)), fixture.artifactId);
-    assert.equal(present, true);
-  }, 8000);
-  await page.evaluate((artifactId) => {
-    const item = document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`);
-    if (!item) throw new Error(`missing reviewed inbox item: ${artifactId}`);
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fixture.artifactId);
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="confirmed"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
-    assert.equal(suggestion.json.canonical.latest_review_event.event_type, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Confirmed|已确认/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(editedThesis)));
-  }, 8000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox reviewed detail target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReviewedLifecycle(stack, fixture);
 });
-
 test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -9355,57 +9301,16 @@ test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable"
   assert.equal(detail.json.canonical.suggestion.status, "rejected");
 });
 
-test("prototype AI inbox reviewed reopen continuity keeps canonical detail aligned after refresh and tab switches", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed reopen continuity keeps canonical detail aligned after refresh and tab switches", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { page, webBase, apiBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox reviewed reopen continuity target",
-    body: "Reopening the same reviewed inbox item should keep detail aligned after refresh and tab switches."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  await page.locator("#btnAiInboxRefresh").click();
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="pending"]').click();
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-    assert.doesNotMatch(String(detailText || ""), /Review safety/);
-    assert.doesNotMatch(String(detailText || ""), /正在读取建议详情/);
-  }, 8000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox reviewed reopen continuity target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReviewReopenContinuity(stack, fixture);
 });
-
 test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
