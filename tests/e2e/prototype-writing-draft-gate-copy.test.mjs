@@ -1,64 +1,61 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
+import { createWritingSourceFixture, captureWritingSources } from "./prototype-writing-topic-repair-flow-helpers.mjs";
 
-test("prototype draft-save gate result uses 草稿骨架 wording", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
+test("draft controls prevent writes before an outline and allow saving and resuming the same article afterwards", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
   if (!stack) return;
-  const { apiBase, page } = stack;
-
-  const note = await createWritingReadyPermanentNote(apiBase, {
-    title: "Writing Draft Gate Note",
-    body: "# Writing Draft Gate Note\n\nA confirmed note ready for project creation.",
-    thesis: "Saving a draft should ask for 草稿骨架 wording before a draft note exists.",
-    threeLineSummary: [
-      "This note already has a reusable judgment.",
-      "It matters because the draft-save gate should match the rest of the writing center vocabulary.",
-      "It should not fall back to scaffold wording."
-    ],
-    boundaryOrCounterpoint: "This only makes sense once the note is confirmed and reusable."
+  const { page, apiBase, webBase, vaultPath } = stack;
+  const notes = await createWritingSourceFixture(stack), title = "提纲完成后再保存正文";
+  await createManualWritingTheme(stack, notes, { title });
+  const assertSourcesUnchanged = await captureWritingSources(stack, notes);
+  let aiExecutions = 0;
+  page.on("request", request => { if (request.method() === "POST" && new URL(request.url()).pathname === "/api/v1/writing/ai-analysis") aiExecutions++; });
+  await page.locator('[data-writing-tab="draft"]').click();
+  await page.locator("#writingDraftPanel:visible").waitFor();
+  assert.equal(await page.locator("#btnWritingSaveDraft").isDisabled(), true);
+  assert.equal(await page.locator("#writingDraftEditor").isDisabled(), true);
+  assert.notEqual(await page.locator("#writingDocumentEditor").getAttribute("contenteditable"), "true");
+  const feedback = await page.locator("#writingDraftSaveFeedback").innerText();
+  assert.match(feedback, /先.*(?:主题|提纲|问题|笔记)/);
+  assert.doesNotMatch(feedback, /scaffold|草稿骨架|写作篮|wp_/);
+  assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
+  await assertSourcesUnchanged();
+  await page.locator('[data-writing-tab="theme"]').click();
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  const project = await findWritingProject(stack, notes, title);
+  await page.locator("#btnWritingStartDraft").click();
+  await useWritingMarkdown(page);
+  assert.equal(await page.locator("#writingDraftEditor").isDisabled(), false);
+  const body = "# 提纲完成后再保存正文\n\n这是已经确认的正文，保留中文 café 🌿。\n";
+  await page.locator("#writingDraftEditor:visible").fill(body);
+  await page.locator("#btnWritingSaveDraft").click();
+  let saved;
+  await waitFor(async () => {
+    saved = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
+    assert.ok(saved.draft_note_id);
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${saved.draft_note_id}`)).json.item.body, body);
+    assert.match(await page.locator("#writingDraftSaveFeedback").innerText(), /已保存/);
   });
-
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, note.json.item);
-
+  assert.equal(saved.scaffold_id, project.scaffold_id);
+  const draft = (await fetchJson(apiBase, `/api/v1/notes/${saved.draft_note_id}`)).json.item;
+  const bytes = await fs.readFile(path.join(vaultPath, draft.markdownPath));
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.click("#btnWritingUseCurrent");
-  await page.fill("#writingTitle", "Draft Gate Project");
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateProject");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create project button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /项目已创建：wp_/);
-  }, 10000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingSaveDraft");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Save draft button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /请先生成草稿骨架，再保存成草稿笔记。/);
-    assert.doesNotMatch(String(resultText || ""), /请先生成 scaffold，再保存成草稿笔记。/);
-  }, 10000);
+  await page.locator(`[data-writing-index-card-id="${saved.related_index_ids[0]}"] button[data-writing-project-id="${saved.id}"]`).click();
+  await page.locator("#writingDraftPanel:visible").waitFor();
+  await useWritingMarkdown(page);
+  assert.equal(await page.locator("#writingDraftEditor").inputValue(), body);
+  assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items.length, 1);
+  assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${saved.id}`)).json.item.draft_note_id, saved.draft_note_id);
+  assert.deepEqual(await fs.readFile(path.join(vaultPath, draft.markdownPath)), bytes);
+  await assertSourcesUnchanged(); assert.equal(aiExecutions, 0);
 });
