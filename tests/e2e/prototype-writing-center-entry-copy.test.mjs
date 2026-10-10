@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createWritingReadyPermanentNote, optionalPlaywright, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-test("prototype writing module summary uses low-jargon outline and draft wording", async (t) => {
+test("prototype writing entry uses visible plain-language actions without a duplicate instruction panel", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -30,25 +30,27 @@ test("prototype writing module summary uses low-jargon outline and draft wording
   assert.equal(note.status, 200, JSON.stringify(note.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, note.json.item);
-
   await page.locator('.rail-btn[data-module="writing"]').click();
 
   await waitFor(async () => {
     const sidebarText = await page.locator("#moduleSidebar").textContent();
-    const subtitleText = await page.locator("#sidebarSubtitle").textContent();
-    const summaryText = await page.locator("#moduleSummary").textContent();
-    assert.match(String(subtitleText || ""), /从相关笔记进入提纲和草稿。/);
-    assert.match(String(sidebarText || ""), /你要回答四件事/);
-    assert.match(String(sidebarText || ""), /操作顺序/);
-    assert.match(String(summaryText || ""), /我能写什么、用哪些笔记写、文章结构怎么起步、下一步写哪一段/);
-    assert.match(String(summaryText || ""), /可写主题|相关笔记|文章提纲|开始草稿/);
-    assert.doesNotMatch(String(summaryText || ""), /脚手架|项目/);
-    assert.doesNotMatch(String(sidebarText || ""), /写作篮/);
+    assert.equal(await page.locator("#writingEmptyTopic h2").isVisible(), true);
+    assert.equal((await page.locator("#writingEmptyTopic h2").innerText()).trim(), "选择一个可写主题");
+    assert.equal(await page.getByRole("heading", { name: "选择一个可写主题", exact: true }).count(), 1);
+    const actions = page.locator("#moduleSidebar [data-writing-sidebar-action]");
+    assert.equal(await actions.count(), 2);
+    assert.equal(await actions.nth(0).isVisible(), true);
+    assert.equal(await actions.nth(1).isVisible(), true);
+    assert.equal((await actions.nth(0).innerText()).trim(), "主题库");
+    assert.match(await actions.nth(1).innerText(), /相关笔记/);
+    assert.doesNotMatch(String(sidebarText || ""), /写作篮|脚手架|草稿骨架|你要回答四件事|操作顺序/);
   }, 10000);
+  const related = page.locator('[data-writing-sidebar-action="related"]');
+  await related.click();
+  await page.locator("#writingRelatedNotesPanel:visible").waitFor();
+  assert.equal(await related.getAttribute("aria-pressed"), "true");
+  await page.locator("#writingRelatedNotesPanel [data-writing-related-close]").click();
+  assert.equal(await related.getAttribute("aria-pressed"), "false");
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item, note.json.item);
+  assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
 });
