@@ -110,6 +110,33 @@
 #moduleWorkspace.graph-mode :is(.graph-hover-card, .graph-map-empty-card) span { color: var(--ui-text-muted); }
 #moduleWorkspace.graph-mode .graph-canvas-help-hint { font-size: 12px; font-weight: 400; box-shadow: none; animation: none; }
 #moduleWorkspace.graph-mode .graph-map-empty-canvas { background: var(--ui-surface-muted); border-radius: var(--ui-control-radius); }
+
+/* Details occupy their own space so nodes remain available for the next selection. */
+#moduleWorkspace.graph-mode .has-side-panel .graph-map-canvas {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  height: auto;
+  overflow: visible;
+}
+#moduleWorkspace.graph-mode .has-side-panel .graph-map-viewport { min-width: 0; }
+#moduleWorkspace.graph-mode .graph-side-stack {
+  position: static;
+  inset: auto;
+  width: auto;
+  max-width: 100%;
+  max-height: var(--graph-map-height);
+  border-color: var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+  z-index: auto;
+}
+@media (min-width: 921px) {
+  #moduleWorkspace.graph-mode .has-side-panel .graph-map-canvas {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
+  }
+}
 @media (max-width: 700px) {
   #moduleWorkspace.graph-mode .graph-map-tools { top: 8px; left: 8px; margin-left: 8px; max-width: calc(100% - 16px); }
   #moduleWorkspace.graph-mode .graph-map-floater { gap: 6px; flex-wrap: wrap; }

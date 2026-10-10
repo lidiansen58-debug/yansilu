@@ -53,10 +53,15 @@ test(`graph AI candidates require confirmation and late responses preserve a new
   await workspace.locator(".permanent-relation-result").waitFor();
   assert.ok((await read()).some(link => link.toNoteId === target.id && link.relationType === "supports"));
   await workspace.locator('[data-permanent-relation-action="complete"]').click();
+  const chart = await page.locator('.graph-map-viewport').boundingBox();
+  const details = await page.locator('.graph-side-stack').boundingBox();
+  assert.ok(chart && details);
+  if (width > 920) assert.ok(details.x >= chart.x + chart.width, "Details must not cover the graph on desktop");
+  else assert.ok(details.y >= chart.y + chart.height, "Narrow screens place details below the graph");
   hold = true;
   await page.evaluate(id => { window.__heldAiConnect = window.__prototypeGraph.runAiConnectForNote(id); }, source.id);
   await started;
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.id}"]`).click();
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.id}"] .graph-map-node-hit`).click();
   await page.locator(".graph-selection-panel", { hasText: target.title }).waitFor();
   release();
   assert.equal(await page.evaluate(() => window.__heldAiConnect), false);

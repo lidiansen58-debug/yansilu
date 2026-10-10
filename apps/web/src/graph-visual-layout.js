@@ -2,6 +2,7 @@ import {
   graphClusterAnchorAngles
 } from "./graph-visual-map-view.js";
 import { buildGraphLayoutClusters } from "./graph-layout-clusters.js";
+import { separateSmallGraphNodes } from "./graph-small-node-spacing.js";
 
 export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, deps = {}) {
   const {
@@ -243,6 +244,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
     node.x = Math.round(centerX + Math.cos(angle) * (radiusX + jitter * 0.6));
     node.y = Math.round(centerY + Math.sin(angle) * (radiusY + jitter * 0.35));
   });
+
+  if (smallGraph) separateSmallGraphNodes(layoutNodes, { width, height, fixedNoteId: focusedNoteId });
 
   const clusterMeta = !focusedNoteId
     ? clusterMembers
