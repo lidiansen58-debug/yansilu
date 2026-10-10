@@ -35,6 +35,8 @@ jobs:
               - 'package-lock.json'
               - 'scripts/build-desktop.mjs'
               - 'scripts/collect-release-assets.mjs'
+              - 'scripts/stage-desktop-bundles.mjs'
+              - 'scripts/lib/desktop-release-assets.mjs'
               - 'scripts/desktop-*.mjs'
               - 'scripts/generate-update-manifest.mjs'
               - 'scripts/macos-*.mjs'
@@ -176,13 +178,14 @@ jobs:
       - name: Build desktop bundles
         run: npm run build:desktop
 
+      - name: Stage final desktop assets
+        run: node ./scripts/stage-desktop-bundles.mjs
+
       - name: Upload desktop bundles
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            apps/desktop/src-tauri/target/**/release/bundle/**
-            !apps/desktop/src-tauri/target/**/release/bundle/**/*.dSYM/**
+          path: output/desktop-release-assets/
           if-no-files-found: error
 
   release-rehearsal:

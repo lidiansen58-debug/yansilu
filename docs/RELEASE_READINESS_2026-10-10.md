@@ -60,6 +60,7 @@
 - 运行时依赖审计原有 11 项漏洞（1 严重、4 高、5 中、1 低）。兼容升级后，根依赖与实际生成的桌面生产运行时审计均为 0，记录为 `dependency-audit-after.json`、`bundled-runtime-dependency-audit.json`。Toast UI 3.2.2 自带的源码还内嵌旧 DOMPurify 2.3.3，仅包覆盖不足以替换它；构建脚本校验上游代码块摘要后移除旧实现，引用 DOMPurify 3.4.16，已重新生成实际编辑器 bundle，保留代码块保护和上游变更失败检查。桌面运行时生成与 `build:desktop:check` 通过，当前安装包仍为旧诊断产物，不能转记新版安装验收通过。
 - 实际导入畸形 HTML 曾在 Toast UI 转换器中抛异常，使笔记打开失败。编辑器初始化先创建空文档，再通过独立同步模块加载；渲染失败时切到源码并保留原文，不改正文或脏状态，重复失败不反复解析，换到正常笔记或修正内容后可恢复可视编辑。真实浏览器覆盖三类 Unicode 笔记、草稿恢复、窄屏保存、HTML 粘贴净化、畸形原文重开/修改/保存，以及原始 HTML 惰性显示，共 8 项全部通过，日志 `editor-sanitization-closeout.log`。另 10 项工具栏、附件、链接、代码和模式切换定向通过，日志 `editor-after-security-deps.log`。
 - 本轮最终正式 core：4660 项，4251 通过、0 失败、409 项需另行启用，日志 `core-after-rich-fallback.log`。不将定向浏览器通过改写为全量浏览器 gate 通过。
+- 发布附件改为从 bundle 根目录或直接包装目录收集最终安装包/签名，排除展开应用、AppDir、调试目录与工具；三个 workflow 上传独立暂存目录及同一份摘要。实际 Linux CI 产物的暂存清单从 16256 项缩到 4 项、201695280 字节，逐项大小与 SHA256 与原清单一致，证据 `linux-final-staging-verification.json`。拒绝已有暂存目录，防止删除其他数据或混入旧产物；复制后重新计算摘要并核对。31 项包装定向回归通过，最新正式 core 4664 项中 4255 通过、0 失败、409 项需另行启用，日志 `core-after-final-asset-staging.log`。尚未将 workflow 源码验证计为新一轮三平台 CI 已通过。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。

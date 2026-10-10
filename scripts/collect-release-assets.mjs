@@ -2,24 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { isReleaseAssetFile, isExpandedBundleDirectory } from "./lib/desktop-release-assets.mjs";
 
 const SKIPPED_FILE_NAMES = new Set(["bundle-manifest.json", "bundle-manifest.sha256.txt"]);
-const RELEASE_ASSET_EXTENSIONS = [
-  ".app.tar.gz",
-  ".app.tar.gz.sig",
-  ".appimage",
-  ".appimage.sig",
-  ".deb",
-  ".deb.sig",
-  ".dmg",
-  ".dmg.sig",
-  ".exe",
-  ".exe.sig",
-  ".msi",
-  ".msi.sig",
-  ".rpm",
-  ".rpm.sig"
-];
 
 function cleanText(value = "") {
   return String(value ?? "").trim();
@@ -29,10 +14,6 @@ async function pathExists(targetPath) {
   return fs.access(targetPath).then(() => true).catch(() => false);
 }
 
-function isReleaseAssetFile(filePath = "") {
-  const fileName = path.basename(filePath).toLowerCase();
-  return RELEASE_ASSET_EXTENSIONS.some((extension) => fileName.endsWith(extension));
-}
 
 async function collectFiles(rootPath) {
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
@@ -40,7 +21,7 @@ async function collectFiles(rootPath) {
   for (const entry of entries) {
     const fullPath = path.join(rootPath, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name.endsWith(".dSYM")) continue;
+      if (isExpandedBundleDirectory(entry.name)) continue;
       files.push(...(await collectFiles(fullPath)));
       continue;
     }
