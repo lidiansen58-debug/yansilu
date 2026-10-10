@@ -12,6 +12,7 @@ import { runVisibleRelationCreateFlow, runVisibleRelationEditFlow } from "./prot
 import { runAiReviewedLifecycle, runAiReviewReopenContinuity, runAiReviewConflict } from "./prototype-ai-review-flow-helpers.mjs";
 import { adoptWhileTyping } from "./prototype-ai-adoption-input-helpers.mjs";
 import { runAiMixedGroupReview } from "./prototype-ai-mixed-review-helpers.mjs";
+import { runAiFilterWhileRefreshing } from "./prototype-ai-filter-input-helpers.mjs";
 import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -602,6 +603,17 @@ test("prototype AI mixed suggestion group retains edited review while its siblin
   await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
   await markSuggestionEditedViaApi(stack.apiBase, fixture, "Already reviewed thesis alongside pending summary.");
   await runAiMixedGroupReview(stack, fixture);
+});
+
+test("prototype AI filter choice survives a pending list refresh response", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Filter during loading target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await markSuggestionEditedViaApi(stack.apiBase, fixture, "Edited viewpoint selected before list loading completes.");
+  await runAiFilterWhileRefreshing(stack, fixture);
 });
 
 test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {

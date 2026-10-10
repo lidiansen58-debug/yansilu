@@ -222,6 +222,15 @@ export function bindAiSuggestionsWorkspaceEvents(panel, deps = {}) {
   const onClick = async (event) => {
     await handleAiSuggestionsWorkspaceClick(event, deps);
   };
+  const onChange = event => {
+    if (!event?.target?.closest?.("#aiSuggestionStatusFilter") || !deps.settingsAiState) return;
+    const filters = deps.getFilters?.() || deps.settingsAiState.suggestionFilters || {};
+    deps.settingsAiState.suggestionFilters = normalizeVisibleSuggestionFilters({ ...filters, status: event.target.value });
+  };
   panel.addEventListener("click", onClick);
-  return () => panel.removeEventListener("click", onClick);
+  panel.addEventListener("change", onChange);
+  return () => {
+    panel.removeEventListener("click", onClick);
+    panel.removeEventListener("change", onChange);
+  };
 }

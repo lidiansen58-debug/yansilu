@@ -292,7 +292,35 @@ test("AI suggestions workspace applies one modal action to grouped suggestions",
   assert.equal(settingsAiState.suggestionDetail, null);
 });
 
-test("AI suggestions workspace binding attaches and detaches the click handler", async () => {
+test("AI filter input survives a later render without starting a query or changing detail", () => {
+  const listeners = new Map();
+  const state = { suggestionFilters: { status: "all", limit: 25 }, suggestions: [{ id: "current" }],
+    selectedSuggestionId: "current", suggestionDetail: { item: { id: "current" } } };
+  const originalItems = state.suggestions, originalDetail = state.suggestionDetail;
+  let calls = 0, renders = 0;
+  const panel = { innerHTML: "", addEventListener: (type, handler) => listeners.set(type, handler),
+    removeEventListener: type => listeners.delete(type) };
+  const select = { ...targetFor({ "#aiSuggestionStatusFilter": {} }), value: "edited" };
+  const dispose = bindAiSuggestionsWorkspaceEvents(panel, { settingsAiState: state,
+    getFilters: () => ({ ...state.suggestionFilters, targetId: "hidden-target" }),
+    refreshAiSuggestions: () => calls++, loadAiSuggestionDetail: () => calls++, render: () => renders++ });
+  listeners.get("change")?.({ target: select });
+  renderAiSuggestionsWorkspaceView({ mount: panel, state, renderPanel: rendered => { select.value = rendered.filters.status; return "updated list"; } });
+  assert.equal(select.value, "edited");
+  assert.equal(state.suggestionFilters.targetId, "");
+  assert.equal(state.suggestionFilters.limit, 25);
+  assert.equal(calls, 0);
+  assert.equal(renders, 0);
+  assert.equal(state.suggestions, originalItems);
+  assert.equal(state.suggestionDetail, originalDetail);
+  assert.equal(state.selectedSuggestionId, "current");
+  listeners.get("change")({ target: { ...targetFor({ "[data-ai-suggestion-content-editor]": {} }), value: "unrelated" } });
+  assert.equal(state.suggestionFilters.status, "edited");
+  dispose();
+  assert.equal(listeners.size, 0);
+});
+
+test("AI suggestions workspace binding attaches and detaches click and change handlers", async () => {
   const listeners = [];
   const panel = {
     addEventListener(type, handler) {
@@ -315,6 +343,7 @@ test("AI suggestions workspace binding attaches and detaches the click handler",
   assert.deepEqual(calls, ["suggestion_4"]);
 
   dispose();
-  assert.equal(listeners[1].type, "remove:click");
-  assert.equal(listeners[1].handler, listeners[0].handler);
+  assert.deepEqual(listeners.map(listener => listener.type), ["click", "change", "remove:click", "remove:change"]);
+  assert.equal(listeners[2].handler, listeners[0].handler);
+  assert.equal(listeners[3].handler, listeners[1].handler);
 });
