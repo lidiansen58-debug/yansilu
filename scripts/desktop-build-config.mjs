@@ -1,3 +1,8 @@
+export function shouldWriteDesktopBundleManifest({ platform, bundles, updaterArtifacts }) {
+  // Signing builds only the expanded app first; distributable files follow notarization.
+  return !(platform === "darwin" && bundles.length === 1 && bundles[0] === "app" && !updaterArtifacts);
+}
+
 export function desktopBuildConfig(source, { platform, updaterArtifacts }) {
   const config = structuredClone(source);
   config.bundle.createUpdaterArtifacts = updaterArtifacts;

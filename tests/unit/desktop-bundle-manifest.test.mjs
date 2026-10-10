@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { buildManifest, writeOutputs } from "../../scripts/desktop-bundle-manifest.mjs";
 import { stageDesktopBundles } from "../../scripts/stage-desktop-bundles.mjs";
 import { collectReleaseAssets } from "../../scripts/collect-release-assets.mjs";
+import { shouldWriteDesktopBundleManifest } from "../../scripts/desktop-build-config.mjs";
 
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-final-assets-"));
@@ -65,6 +66,27 @@ test("empty or nested-only build output cannot produce a successful release mani
   const outputRoot = path.join(f.root, "staged");
   await assert.rejects(stageDesktopBundles({ bundleRoot: f.bundleRoot, outputRoot }), /No final desktop packages/);
   await assert.rejects(fs.access(outputRoot));
+});
+
+test("app-only macOS signing stage defers its manifest until final notarized packages exist", async (t) => {
+  const f = await fixture(t);
+  await f.put("macos/研思录.app/Contents/MacOS/yansilu-desktop", "expanded app");
+  const signingBuild = { platform: "darwin", bundles: ["app"], updaterArtifacts: false };
+  assert.equal(shouldWriteDesktopBundleManifest(signingBuild), false);
+  await assert.rejects(buildManifest(f.bundleRoot), /No final desktop packages/);
+  for (const overrides of [
+    { updaterArtifacts: true }, { bundles: ["app", "dmg"] }, { bundles: ["dmg"] },
+    { platform: "win32", bundles: ["nsis"] }, { platform: "linux", bundles: ["deb", "appimage"] }
+  ]) assert.equal(shouldWriteDesktopBundleManifest({ ...signingBuild, ...overrides }), true);
+
+  const final = ["macos/研思录_universal.app.tar.gz", "macos/研思录_universal.app.tar.gz.sig",
+    "dmg/研思录_0.1.1-beta.3_universal.dmg", "dmg/研思录_0.1.1-beta.3_universal.dmg.sig"];
+  for (const name of final) await f.put(name);
+  const staged = await stageDesktopBundles({ bundleRoot: f.bundleRoot, outputRoot: path.join(f.root, "final") });
+  assert.deepEqual(staged.items.map(item => item.file).sort(), final.sort());
+  assert.equal(await fs.readFile(path.join(f.bundleRoot, "macos/研思录.app/Contents/MacOS/yansilu-desktop"), "utf8"), "expanded app");
+  const build = await fs.readFile(new URL("../../scripts/build-desktop.mjs", import.meta.url), "utf8");
+  assert.match(build, /if \(shouldWriteDesktopBundleManifest\([\s\S]*?desktop-bundle-manifest\.mjs/);
 });
 
 test("staging cannot copy recursively into its source bundle", async (t) => {

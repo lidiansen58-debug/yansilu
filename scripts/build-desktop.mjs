@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import { hasCommand, withCargoBin } from "./rust-env.mjs";
-import { desktopBuildConfig } from "./desktop-build-config.mjs";
+import { desktopBuildConfig, shouldWriteDesktopBundleManifest } from "./desktop-build-config.mjs";
 import { verifyLinuxDebBundle } from "./desktop-linux-bundle.mjs";
 
 const env = withCargoBin({ ...process.env });
@@ -216,14 +216,16 @@ child.on("exit", (code, signal) => {
       });
       if (signature.status !== 0) process.exit(signature.status ?? 1);
     }
-    const manifest = spawnSync(process.execPath, ["./scripts/desktop-bundle-manifest.mjs"], {
-      cwd: process.cwd(),
-      env,
-      stdio: "inherit",
-      shell: false
-    });
-    if (manifest.status !== 0) {
-      process.exit(manifest.status ?? 1);
+    if (shouldWriteDesktopBundleManifest({
+      platform: process.platform, bundles,
+      updaterArtifacts: envFlagIsEnabled(process.env.YANSILU_DESKTOP_UPDATER_ARTIFACTS)
+    })) {
+      const manifest = spawnSync(process.execPath, ["./scripts/desktop-bundle-manifest.mjs"], {
+        cwd: process.cwd(), env, stdio: "inherit", shell: false
+      });
+      if (manifest.status !== 0) process.exit(manifest.status ?? 1);
+    } else {
+      console.log("App-only macOS build: final package manifest follows signing and packaging.");
     }
 
     // macOS: verify code signature

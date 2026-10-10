@@ -22,7 +22,7 @@
 | 远程 AI | 安装包内配置/测试/保存/重启，真实 DeepSeek 任务；故障及取消不误写；记录费用与耗时 | 诊断候选包内真实连接、保存、重启、错误与取消通过；发现前端凭据暂存问题并修复源码，待重建复验与真实任务 |
 | 性能 | 窗口首次及重开可操作时间、保存、搜索、密集图谱与 AI 任务耗时；慢操作及持续响应检查 | 待执行 |
 | 跨平台实机 | 同一 Universal DMG 在 Intel 与 Apple Silicon；Linux AppImage/DEB 安装、运行、退出及主流程 | 用户确认仅有本台 Windows；Mac Intel/ARM 和 Linux 实机仍待环境，CI 构建不替代实机 |
-| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | `38027415784` 首次运行 Windows/Linux 构建通过、Mac 导入报 Unknown format；用户再次确认更新 Secrets，已重跑失败任务 attempt 2；最新产物摘要与签名正在核对 |
+| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | 分段证书已成功导入；`38028819962` 的 Windows/Linux 成功，Mac 在 app-only 中间步骤提前要求最终清单而失败；清单时机修复待重新演练，公证尚未完成 |
 | 升级及回退 | 从旧版更新、重启后版本与数据正确，失败反馈明确，旧版本与恢复路径可用 | 待执行 |
 | 交付信息 | 下载、版本说明、离线帮助、SHA256、更新清单、已知限制都对应最终同一批产物 | 待最终产物确定 |
 
@@ -72,6 +72,10 @@
 - 用户第二次确认 GitHub Secrets 更新后，对 `38027415784` 执行仅失败任务重跑（attempt 2），保持源码 `4e21926b`，复用该次已通过的 Windows/Linux 作业。首次运行总结果失败、演练资产汇总未执行；不能把 Windows/Linux 作业成功记为三平台签名已完成。
 - `38027415784` attempt 2 仍在证书导入时报 Unknown format。用户提供原始 P12 路径后，本机识别为 PFX/PKCS#12，51517 字节；完整 Base64 为 68692 字符，超过 GitHub 单个 Secret 的 [48 KB 限制](https://docs.github.com/en/actions/reference/security/secrets)。用户明确授权直接更新后，已按原文件字节更新 `APPLE_CERTIFICATE` 与可选 `APPLE_CERTIFICATE_PART_2`（40000/28692 字符），原文件未修改，证书内容未写入仓库、附件或日志。密码仍使用既有 Secret。流水线支持原单段格式和新双段格式，导入前检查 Base64、完整 DER 长度和 PKCS#12 版本，临时文件拒绝覆盖且权限 0600。实际原文件拼回后严格逐字节一致。相关 Mac 回归 45 项中 43 通过、0 失败、2 项需 Mac 平台；格式与权限检查不能代替真实签名、公证验收。
 - `4e21926b` 的 Windows CI 安装包已下载核对：33856195 字节，SHA256 `45054a9258cf142c41184e2013dccf2b5101080e7dc660fd34bbbe51db093202`；实际上传仅两个最终安装/签名文件及清单，逐项大小和摘要一致，配置 updater 公钥验签通过、篡改一字节被拒绝。未进行 Authenticode 签名，也尚未安装此 CI 包；当前本机安装仍为 `42c8477d` 的本机产物。证据 `ci-windows-4e21926b-verification.json`。
+- 证书修复已推送为 `a33808d3d8266e6c23ad5d15056516499bfa4a8c`，按这一固定提交启动 [签名演练 38028819962](https://github.com/lidiansen58-debug/yansilu/actions/runs/38028819962)。Mac 的证书导入及 Developer ID 身份检查成功、Mac 包装回归成功，正在构建 Universal 签名与公证包；不能把导入成功记为公证完成。手工演练仍不创建公开版本或改变更新源，密码 Secret 未读取或改动。
+- 证书修复后的正式 core：4672 项，4263 通过、0 失败、409 项需另行启用，日志 `core-after-macos-certificate-chunks.log`。旧批次 Windows 产物另补验 SHA256 文本清单与 JSON 清单逐行一致；完整浏览器、安装版完整流程与跨平台实机 gate 仍未完成。
+- `38028819962` 最终 Windows/Linux 作业成功、Mac 失败。Universal `.app` 已编译完成，但 `build-desktop.mjs` 无条件要求最终安装包清单，而签名脚本此时只构建 app、关闭 updater 归档，尚未生成 DMG；严格收集器正确拒绝中间文件，导致公证前退出。现只对 Mac 的 app-only 且 updater 关闭步骤推迟清单，其余平台、DMG 与 updater 构建继续要求清单，正式签名脚本仍在公证和最终打包后生成严格清单。真实文件夹回归覆盖仅 app 时没有可发布文件、最终四文件暂存及原 app 保留，相关 28 项通过，日志 `macos-app-stage-manifest-tests.log`；新源码完整 core 及 CI 待完成。旧批次 Linux 下载明确报 unexpected EOF，未完成下载核对，不作为产物校验失败或通过。
+- app-only 清单时机修复后的正式 core：4673 项，4264 通过、0 失败、409 项需另行启用，日志 `core-after-app-stage-manifest.log`；编码检查无新增问题，diff 检查通过。新 CI 的真实签名、公证结果仍待验证。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。

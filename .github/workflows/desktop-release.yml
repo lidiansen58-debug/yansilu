@@ -150,7 +150,7 @@ jobs:
 
       - name: Test macOS packaging regressions
         if: runner.os == 'macOS'
-        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs tests/unit/macos-signing-certificate.test.mjs
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs tests/unit/macos-signing-certificate.test.mjs tests/unit/desktop-bundle-manifest.test.mjs
 
       - name: Test Linux packaging regressions
         if: runner.os == 'Linux'
