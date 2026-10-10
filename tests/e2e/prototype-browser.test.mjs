@@ -57,6 +57,11 @@ async function openOriginalNoteBox(page) {
   await page.locator("#editorWorkspace").waitFor({ state: "visible", timeout: 3000 });
 }
 
+async function openPermanentRelations(page) {
+  if (!(await page.locator("#relatedPanel").isVisible())) await page.locator("#btnShowRelated").click();
+  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
+}
+
 async function waitForWritingThemeProjectActionReady(page) {
   await waitFor(async () => {
     const state = await page.evaluate(() => {
@@ -1648,40 +1653,47 @@ test("prototype graph surfaces a continuous isolated-note handling queue", async
   });
   assert.equal(created.status, 201, JSON.stringify(created.json));
 
+  const target = await createWritingReadyPermanentNote(apiBase, {
+    title: "Queue Relation Target",
+    body: "# Queue Relation Target\n\nA reusable target for an explicit relation.",
+    thesis: "A relation must preserve its source and a clear explanation.",
+    threeLineSummary: ["Keep the source.", "Choose a target.", "Save the explanation."],
+    boundaryOrCounterpoint: "An isolated note may also remain independent."
+  });
+  const remaining = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    title: "Queue Isolated Next",
+    body: "# Queue Isolated Next\n\nAnother independent note to handle after the first."
+  });
+  assert.equal(remaining.status, 201, JSON.stringify(remaining.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-module="graph"]').click();
   await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
 
-  const strip = page.locator(".graph-isolated-queue-strip");
-  await strip.waitFor({ timeout: 10000 });
-  assert.match(String(await strip.textContent()), /笔记待关联/);
-
-  await strip.locator('[data-graph-open-workbench-entry="organize"]').click();
-  await page.locator(".graph-workbench-panel .graph-isolated-queue").waitFor({ timeout: 5000 });
-
-  await strip.locator("[data-graph-select-isolated]").click();
-  await page.locator(".graph-selection-panel").waitFor({ timeout: 5000 });
-  assert.match(String(await page.locator(".graph-selection-panel").textContent()), /未入星系|孤立笔记/);
-  assert.equal(await page.locator(".graph-selection-panel .graph-isolated-queue.is-compact").count(), 0);
-  assert.equal(await page.locator(".graph-selection-panel [data-graph-isolated-relation-form]").count(), 1);
-  const workflowTabs = page.locator(".graph-selection-panel [data-graph-isolated-tab]");
-  await waitFor(async () => {
-    assert.equal(await workflowTabs.count(), 2);
-    assert.equal(await workflowTabs.first().getAttribute("aria-selected"), "true");
-  }, 4000);
-  await workflowTabs.nth(1).click();
-  assert.equal(await workflowTabs.nth(1).getAttribute("aria-selected"), "true");
-  assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="manual"]').isVisible(), true);
-  await workflowTabs.nth(1).focus();
-  await page.keyboard.press("ArrowRight");
-  assert.equal(await workflowTabs.first().getAttribute("aria-selected"), "true");
-  assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="ai"]').isVisible(), true);
-  await page.locator("[data-graph-reading-lens]").first().evaluate((button) => button.click());
-  const workflowTabsAfterRender = page.locator(".graph-selection-panel [data-graph-isolated-tab]");
-  await waitFor(async () => {
-    assert.equal(await workflowTabsAfterRender.first().getAttribute("aria-selected"), "true");
-    assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="ai"]').isVisible(), true);
-  }, 4000);
+  await page.locator('[data-graph-task-view="relations"]').click();
+  const workbench = page.locator(".graph-workbench-panel");
+  await workbench.waitFor({ timeout: 5000 });
+  assert.match(String(await workbench.textContent()), /Queue Isolated One/);
+  await workbench.locator(`[data-graph-isolated-note="${created.json.item.id}"]`).click();
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible", timeout: 5000 });
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.noteId), created.json.item.id);
+  await workspace.locator("[data-permanent-relation-target-search]").fill("Queue Relation Target");
+  await workspace.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await workspace.locator('[data-permanent-relation-type-choice="supports"]').click();
+  await workspace.locator('textarea[name="rationale"]').fill("The first note supports the target by preserving a clear source and explanation.");
+  await workspace.locator('button[type="submit"]').click();
+  await workspace.locator(".permanent-relation-result").waitFor();
+  const saved = await fetchJson(apiBase, `/api/v1/notes/${created.json.item.id}/relations`);
+  assert.ok(saved.json.item.outgoingLinks.some(link => link.toNoteId === target.json.item.id && link.relationType === "supports"));
+  await workspace.locator('[data-permanent-relation-action="complete"]').click();
+  await workspace.waitFor({ state: "hidden" });
+  await workbench.locator(`[data-graph-isolated-note="${remaining.json.item.id}"]`).click();
+  await workspace.waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.noteId), remaining.json.item.id);
+  assert.equal(await workspace.locator('textarea[name="rationale"]').inputValue(), "");
+  assert.equal(await page.evaluate(() => window.__prototypeState.module), "graph");
 });
 
 
@@ -1878,6 +1890,7 @@ test("prototype main-path card refreshes relation state and does not leak stale 
     const response = await route.fetch();
     await route.fulfill({ response });
   });
+  await page.locator("#btnHideRelated").click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
   await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loading");
   assert.equal(await page.evaluate(() => window.__prototypeEditor.currentSemanticRelations), null);
@@ -1940,8 +1953,7 @@ test("prototype permanent relation workspace saves manually, refreshes before sa
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Workspace Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-
+  await openPermanentRelations(page);
   await page.locator('#relatedPanel [data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]:visible').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2071,7 +2083,7 @@ test("prototype permanent relation workspace saves a searched relation in place"
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "AI Relation Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
   await page.locator('#relatedPanel [data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]:visible').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2142,7 +2154,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Sidebar Route Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
   await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2164,6 +2176,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
 
   await page.locator('[data-permanent-relation-action="complete"]').click();
   await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
+  await page.locator("#btnHideRelated").click();
   await page.locator('.rail-btn[data-module="graph"]').click();
   await waitFor(async () => {
     await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 2000 });
@@ -2388,13 +2401,13 @@ test("prototype related inspector renders explicit semantic relations", async (t
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Relation Target`n`nThis target note collects the claim that still needs supporting evidence."
+    body: "# Relation Target\n\nThis target note collects the claim that still needs supporting evidence."
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Relation Source`n`nThis source note should justify the target claim through an explicit support relation."
+    body: "# Relation Source\n\nThis source note should justify the target claim through an explicit support relation."
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
@@ -2411,17 +2424,19 @@ test("prototype related inspector renders explicit semantic relations", async (t
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
 
   await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
+    const relatedText = await page.locator("#relatedPanel").innerText();
     assert.match(String(relatedText || ""), /Relation Source/);
-    assert.match(String(relatedText || ""), /supports/);
+    assert.match(String(relatedText || ""), /支持/);
     assert.match(String(relatedText || ""), /Relation Target/);
-    assert.match(String(relatedText || ""), /support/);
     assert.match(String(relatedText || ""), /concrete supporting reason/);
-    assert.match(String(relatedText || ""), /strong enough to trust/);
   }, 10000);
+  const saved = await fetchJson(apiBase, `/api/v1/notes/${source.json.item.id}/relations`);
+  const displayedRelation = saved.json.item.outgoingLinks.find(link => link.id === relation.json.item.id);
+  assert.equal(displayedRelation?.relationType, "supports");
+  assert.match(displayedRelation?.insightQuestion || "", /strong enough to trust/);
 });
 
 test("prototype related inspector can create an explicit semantic relation", async (t) => {
