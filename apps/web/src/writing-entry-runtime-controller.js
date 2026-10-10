@@ -5,6 +5,7 @@ import {
   uniqueStrings
 } from "./prototype-thinking-status.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
+import { beginWritingThemeIndexRequest, fetchWritingThemeIndexesForScope } from "./writing-theme-index-loader.js";
 import {
   clearWritingEntryContextForRuntime,
   resetWritingStrongModelStateForRuntime,
@@ -88,10 +89,11 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     const isCurrent = () => getVaultPath() === vaultPath && String(writingState.project?.id || "").trim() === writingProjectId
       && writingState.projectOpenRevision === projectOpenRevision
       && JSON.stringify(parseWritingBasketIds()) === JSON.stringify(basketIds);
+    const themeRequest = beginWritingThemeIndexRequest(writingState, isCurrent);
     await ensureNotesLoaded(basketIds);
     if (!isCurrent()) return;
     writingState.loadingProjects = true;
-    writingState.loadingThemeIndexes = true;
+    if (themeRequest.ownsRequest()) writingState.loadingThemeIndexes = true;
     writingState.loadingScaffoldVersions = Boolean(writingProjectId);
     writingState.loadingDraftVersions = Boolean(writingProjectId);
     writingState.loadingRelationCounts = basketIds.length > 0;
@@ -105,12 +107,8 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
           status: writingState.projectFilters.status,
           hasDraft: writingState.projectFilters.hasDraft
         }).catch(() => writingState.projects),
-        listIndexCards({
-          directoryId: writingThemeIndexScopeDirectoryId(),
-          includeDescendants: true,
-          indexType: "topic",
-          limit: 12
-        }).catch(() => writingState.themeIndexes),
+        fetchWritingThemeIndexesForScope({ directoryId: writingThemeIndexScopeDirectoryId(),
+          listIndexCards, isCurrent: themeRequest.isCurrent }).catch(() => writingState.themeIndexes),
         writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
         writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
         writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([]),
@@ -121,7 +119,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       ]);
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
-      writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
+      if (themeRequest.isCurrent() && Array.isArray(themeIndexes)) writingState.themeIndexes = themeIndexes;
       if (project) writingState.project = project;
       writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
       writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
@@ -133,7 +131,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     } finally {
       if (!isCurrent()) return;
       writingState.loadingProjects = false;
-      writingState.loadingThemeIndexes = false;
+      if (themeRequest.ownsRequest()) writingState.loadingThemeIndexes = false;
       writingState.loadingScaffoldVersions = false;
       writingState.loadingDraftVersions = false;
       writingState.loadingRelationCounts = false;
