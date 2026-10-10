@@ -1,96 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, fetchJson, postJson } from "./prototype-copy-test-helpers.mjs";
+import { findWritingProject } from "./prototype-writing-flow-helpers.mjs";
+import { createWritingSourceFixture, captureWritingSources } from "./prototype-writing-topic-repair-flow-helpers.mjs";
 
-test("prototype theme create-project status uses 项目 wording", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
+test("a theme starts an article through one visible action and later resumes its existing outline without technical IDs", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, {
-    title: "Theme Project Status Claim",
-    body: "# Theme Project Status Claim\n\nA mature theme entry should use the same project wording as the rest of the writing center.",
-    thesis: "Theme entry should report project creation with the same 项目 wording used elsewhere.",
-    threeLineSummary: [
-      "Theme entry should report project creation consistently.",
-      "That matters because the writing center should not switch terminology mid-flow.",
-      "It should use 项目 wording once the create-project path succeeds."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This only applies after the theme really reaches project-ready status."
-  });
-
-  const noteB = await createWritingReadyPermanentNote(apiBase, {
-    title: "Theme Project Status Support",
-    body: "# Theme Project Status Support\n\nA second mature note gives the theme enough structure to create a project.",
-    thesis: "A second structured note makes the theme project-ready.",
-    threeLineSummary: [
-      "A second note adds the missing structure.",
-      "That matters because theme creation should depend on structure, not naming drift.",
-      "It unlocks the same create-project path as the basket route."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "A single isolated note should still stop before project creation."
-  });
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The support note gives the theme enough explicit structure to justify project creation.",
-    insightQuestion: "What should the theme call this step once project creation succeeds?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  const theme = await postJson(apiBase, "/api/v1/index-cards", {
-    directoryId: "dir_original_default",
-    indexType: "topic",
-    title: "Theme Project Status Index",
-    summary: "A theme entry used to verify the create-project status wording.",
-    thesis: "Theme create-project should surface 项目 wording after success.",
-    threeLineSummary: [
-      "Theme create-project should surface 项目 wording.",
-      "That keeps the success feedback aligned with the rest of the writing center.",
-      "It avoids switching back to 写作项目 after the project already exists."
-    ],
-    centralQuestion: "How should the theme path describe project creation success?",
-    items: [
-      { noteId: noteA.json.item.id, shortLabel: "claim", rationale: "Sets the naming claim." },
-      { noteId: noteB.json.item.id, shortLabel: "support", rationale: "Adds the missing project-ready structure." }
-    ]
-  });
-  assert.equal(theme.status, 201, JSON.stringify(theme.json));
-
+  const { page, apiBase, webBase } = stack, notes = await createWritingSourceFixture(stack), title = "从理解主题继续写";
+  const created = await postJson(apiBase, "/api/v1/index-cards", { directoryId: "dir_original_default", title,
+    centralQuestion: "怎样解释并核对依据，避免把表达流畅当作理解？", noteIds: notes.map(note => note.id) });
+  assert.equal(created.status, 201);
+  const theme = created.json.item, assertSourcesUnchanged = await captureWritingSources(stack, notes);
+  let aiExecutions = 0;
+  page.on("request", req => { if (req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/writing/ai-analysis") aiExecutions++; });
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Project Status Index" }).click();
-  await page.waitForFunction(() => {
-    const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
-    return value.includes("Theme Project Status Index");
-  }, null, { timeout: 10000 });
-
-  await page.waitForFunction(() => {
-    const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return Boolean(button && !button.hasAttribute("disabled"));
-  }, null, { timeout: 10000 });
-
-  await page.click('[data-writing-theme-action="create-project"]');
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#writingThemeDetail").textContent();
-    assert.match(String(detailText || ""), /写作中心入口/);
-    assert.doesNotMatch(String(detailText || ""), /可续接的写作入口|当前主题入口/);
-
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已从主题创建项目：wp_/);
-    assert.doesNotMatch(String(statusText || ""), /已从主题创建写作项目/);
-  }, 10000);
+  const card = page.locator(`[data-writing-index-card-id="${theme.id}"]`);
+  assert.equal(await card.locator("button.primary").count(), 1);
+  await card.getByRole("button", { name: "开始写", exact: true }).click();
+  await page.locator("#writingTitle:visible").waitFor();
+  assert.equal(await page.locator("#writingTitle").inputValue(), title);
+  assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  const project = await findWritingProject(stack, notes, title);
+  assert.match(await page.locator("#statusText").innerText(), /提纲已生成.*编辑章节.*开始写草稿/);
+  assert.doesNotMatch(await page.locator("#statusText").innerText(), /wp_|项目|scaffold/);
+  const baseline = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await card.getByRole("button", { name: "继续提纲", exact: true }).click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items.length, 1);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item, baseline);
+  assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}/scaffolds?limit=50`)).json.items.length, 1);
+  await assertSourcesUnchanged(); assert.equal(aiExecutions, 0);
 });

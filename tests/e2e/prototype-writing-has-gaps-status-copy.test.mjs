@@ -1,96 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import fs from "node:fs/promises";
+import { optionalPlaywright, startPrototypeStack, fetchJson, putJson } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
+import { createWritingSourceFixture, captureWritingSources } from "./prototype-writing-topic-repair-flow-helpers.mjs";
 
-async function createPermanentNote(baseUrl, payload = {}) {
-  const created = await postJson(baseUrl, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    title: payload.title,
-    body: payload.body,
-    thesis: payload.thesis,
-    threeLineSummary: payload.threeLineSummary,
-    distillationStatus: "draft"
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-
-  const noteId = created.json.item.id;
-  const updated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
-    title: payload.title,
-    body: payload.body,
-    status: "active",
-    thesis: payload.thesis,
-    threeLineSummary: payload.threeLineSummary,
-    distillationStatus: "confirmed",
-    originalityStatus: "pass",
-    authorship: { user_confirmed: true, ai_assisted: false },
-    authorshipConfirmed: true,
-    authorshipAiAssisted: false
-  });
-  assert.equal(updated.status, 200, JSON.stringify(updated.json));
-  return updated;
-}
-
-test("prototype writing readiness status uses Chinese has_gaps label", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
+test("a missing viewpoint has an actionable Chinese outline notice and clears after repair without regenerating sections", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
   if (!stack) return;
-  const { apiBase, page } = stack;
-
-  const note = await createPermanentNote(apiBase, {
-    title: "Writing Has Gaps Status Note",
-    body: "# Writing Has Gaps Status Note\n\nA note with summary but no one-sentence judgment.",
-    thesis: "",
-    threeLineSummary: ["one", "two", "three"]
-  });
-
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, note.json.item);
-
+  const { page, apiBase, webBase } = stack, notes = await createWritingSourceFixture(stack), source = notes[0];
+  assert.equal((await putJson(apiBase, `/api/v1/notes/${source.id}`, { thesis: "" })).status, 200);
+  const title = "补齐判断后核对文章";
+  await createManualWritingTheme(stack, notes, { title });
+  const assertSourcesUnchanged = await captureWritingSources(stack, notes);
+  let aiExecutions = 0;
+  page.on("request", req => { if (req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/writing/ai-analysis") aiExecutions++; });
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  const project = await findWritingProject(stack, notes, title);
+  const detail = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
+  assert.equal(detail.preflight.status, "has_gaps");
+  const readScaffold = async () => (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
+  const scaffold = await readScaffold(), issue = scaffold.preflight.checks.find(check => check.id === "basket_notes_missing_thesis");
+  assert.equal(issue.status, "warning"); assert.deepEqual(issue.targetNoteIds, [source.id]);
+  const notices = page.locator("#writingScaffoldPreview .writing-outline-source-notices");
+  assert.match(await notices.innerText(), /1 条.*笔记.*补.*一句话判断/);
+  assert.doesNotMatch(await notices.innerText(), /has_gaps|thesis|distillation|basket|scaffold/);
+  assert.equal(await notices.locator(`[data-writing-outline-source-note="${source.id}"]`).count(), 1);
+  const downloaded = page.waitForEvent("download");
+  await page.locator("#writingMoreMenu > summary").click();
+  await page.locator("#btnWritingExportScaffold").click();
+  const markdown = await fs.readFile(await (await downloaded).path(), "utf8");
+  assert.match(markdown, /待补内容：/); assert.ok(markdown.includes(`[[${source.title}]]`));
+  assert.doesNotMatch(markdown, /has_gaps|basket_notes_missing_thesis|wp_[a-f0-9]+/);
+  await notices.locator(`[data-writing-outline-source-note="${source.id}"]`).click();
+  await page.locator("#wysiwygHost:visible").waitFor();
+  assert.match(await page.locator("#wysiwygHost").innerText(), /保留中文/);
+  await assertSourcesUnchanged(); assert.deepEqual(await readScaffold(), scaffold);
+  const repaired = await putJson(apiBase, `/api/v1/notes/${source.id}`, { thesis: source.thesis });
+  assert.equal(repaired.status, 200); assert.equal(repaired.json.item.body, source.body);
+  const assertRepairedSourcesUnchanged = await captureWritingSources(stack, notes);
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.click("#btnWritingUseCurrent");
-  await page.fill("#writingTitle", "Has Gaps Project");
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateProject");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create project button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  let projectId = "";
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    const match = String(statusText || "").match(/wp_[a-z0-9]+/i);
-    assert.ok(match);
-    projectId = match[0];
-  }, 10000);
-
-  await page.evaluate(async ({ id, apiBase: baseUrl }) => {
-    const response = await fetch(`${baseUrl}/api/v1/writing-projects/${encodeURIComponent(id)}/intent`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        intent: "Explain the missing one-sentence judgment.",
-        desiredReaderTakeaway: "The reader should see the missing-thesis gap clearly."
-      })
-    });
-    if (!response.ok) throw new Error(`intent patch failed: ${response.status}`);
-  }, { id: projectId, apiBase });
-
-  await page.click("#btnWritingCreateScaffold");
-  await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /- 状态: 仍有缺口/);
-    assert.doesNotMatch(String(resultText || ""), /- 状态: has_gaps/);
-  }, 10000);
+  await page.locator(`[data-writing-index-card-id="${project.related_index_ids[0]}"] button[data-writing-project-id="${project.id}"]`).click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  assert.equal(await page.locator(`#writingScaffoldPreview [data-writing-outline-source-note="${source.id}"]`).count(), 0);
+  const refreshed = await readScaffold();
+  assert.equal(refreshed.preflight.checks.some(check => check.id === "basket_notes_missing_thesis"), false);
+  assert.deepEqual(refreshed.sections, scaffold.sections); assert.equal(refreshed.id, scaffold.id);
+  assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items.length, 1);
+  await assertRepairedSourcesUnchanged(); assert.equal(aiExecutions, 0);
 });
