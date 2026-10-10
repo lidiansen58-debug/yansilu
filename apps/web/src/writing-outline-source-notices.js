@@ -1,15 +1,28 @@
 const sourceChecks = new Set(["source_files", "source_note_types", "basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"]);
+const qualityChecks = new Map([
+  ["confirmed_distillation", "观点尚未确认"], ["distillation_quality", "观点说明需要完善"]
+]);
 const pendingOpens = new WeakMap();
 
 export function writingOutlineSourceNotices(writingState = {}) {
   const notes = new Map([
     ...(writingState.project?.basket_notes || []), ...(writingState.scaffold?.basket_notes || []), ...(writingState.scaffold?.evidence_notes || [])
   ].map(note => [String(note.id), note]));
-  return (writingState.scaffold?.preflight?.checks || [])
-    .filter(check => sourceChecks.has(check.id) && ["warning", "warn"].includes(check.status))
-    .map(check => ({
+  const warnings = (writingState.scaffold?.preflight?.checks || [])
+    .filter(check => ["warning", "warn"].includes(check.status));
+  const covered = new Set(warnings.filter(check => sourceChecks.has(check.id))
+    .flatMap(check => (check.targetNoteIds || []).map(String)));
+  const checks = warnings.filter(check => sourceChecks.has(check.id));
+  for (const [id, message] of qualityChecks) {
+    const targets = [...new Set(warnings.filter(check => check.id === id)
+      .flatMap(check => (check.targetNoteIds || []).map(String)))].filter(target => !covered.has(target));
+    if (!targets.length) continue;
+    targets.forEach(target => covered.add(target));
+    checks.push({ id, targetNoteIds: targets, message: `${targets.length} 条相关笔记的${message}，请打开笔记核对。` });
+  }
+  return checks.map(check => ({
       message: String(check.message || "请核对来源笔记。"),
-      targets: [...new Set(check.targetNoteIds || [])].map(id => {
+      targets: [...new Set((check.targetNoteIds || []).map(String))].map(id => {
         const note = notes.get(String(id));
         const missing = check.id === "source_files" || note?.status === "missing" || note?.note_type === "missing";
         return { id: String(id), title: missing ? "来源文件缺失" : String(note?.title || "来源笔记"), missing };
