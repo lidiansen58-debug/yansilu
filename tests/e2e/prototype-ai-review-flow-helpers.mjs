@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { fetchJson, putJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-export async function openAiReviewWorkspace({ page, webBase }) {
+export async function openAiReviewWorkspace({ page, webBase }, { settleSettings = false } = {}) {
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="settings"]').click();
+  if (settleSettings) await page.waitForFunction(() => document.querySelector('#statusText')?.textContent === '已打开设置');
   await page.locator('[data-settings-item="automation"]').click();
   await page.locator("#settingsAiSuggestionsPanel").waitFor({ state: "visible" });
 }

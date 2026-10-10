@@ -10,7 +10,7 @@ import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { deleteInRequestVault } from "./request-vault-deletion.mjs";
 import { importDemoInRequestVault } from "./request-vault-demo-import.mjs";
-import { confirmSuggestionIntoNote, suggestionNoteWriteBase } from "./ai-suggestion-note-confirmation.mjs";
+import { writeSuggestionIntoNote, suggestionNoteWriteBase } from "./ai-suggestion-note-confirmation.mjs";
 import { readAiFieldAdoptionContext } from "./ai-field-adoption-context.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
@@ -4237,7 +4237,7 @@ const server = http.createServer(async (req, res) => {
         let syncedArtifact = null;
         let item = null;
         if (body.applyToNote === true) {
-          const confirmed = await confirmSuggestionIntoNote({ vaultPath, currentVaultPath: () => VAULT_PATH,
+          const confirmed = await writeSuggestionIntoNote({ vaultPath, currentVaultPath: () => VAULT_PATH,
             suggestionStore: store, artifactStore, item: existingItem, sourceArtifact, body,
             projectArtifact: artifactWithProjectedSuggestionState });
           item = await suggestionWithReadableTarget(confirmed.item, vaultPath);

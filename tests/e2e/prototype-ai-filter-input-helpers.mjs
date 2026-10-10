@@ -8,7 +8,8 @@ export async function runAiFilterWhileRefreshing(stack, fixture) {
   const noteBefore = (await fetchJson(apiBase, noteRoute)).json.item;
   const detailRoute = `/api/v1/ai-suggestions/${fixture.suggestionId}?canonical=true`;
   const suggestionBefore = (await fetchJson(apiBase, detailRoute)).json.item;
-  await openAiReviewWorkspace(stack);
+  // The rail reports this only after its settings readback (including the list query) finishes.
+  await openAiReviewWorkspace(stack, { settleSettings: true });
   await page.locator('#aiSuggestionStatusFilter').waitFor({ state: 'visible' });
   await page.locator('#settingsAiSuggestionsPanel .ai-inbox-list-pane .ai-inbox-item', { hasText: fixture.noteTitle }).waitFor();
   let release, arrived, completed, failed, initialUrl, handlerError, timer;
@@ -55,7 +56,7 @@ export async function runAiFilterWhileRefreshing(stack, fixture) {
     const response = await filteredResponse;
     assert.equal(response.status(), 200);
     assert.equal(new URL(response.url()).searchParams.get('status'), 'edited');
-    assert.equal(listRequests.length, 2, 'Apply issues exactly one filtered query');
+    assert.equal(listRequests.length, 2, `Apply issues exactly one filtered query: ${JSON.stringify(listRequests)}`);
     const items = (await response.json()).items;
     assert.ok(items.some(item => item.id === fixture.suggestionId));
     assert.ok(items.every(item => item.status === 'edited'));

@@ -86,3 +86,19 @@ test("the review model and confirmation action retain the displayed note baselin
   assert.equal(submitted.userConfirmed, true);
   assert.deepEqual(submitted.writeBase, writeBase);
 });
+
+test('draft runtime requests guarded note write without marking the suggestion human confirmed', async () => {
+  const base = { noteId: 'note', vaultPath: 'vault', fileRevision: 'a'.repeat(64), suggestionRevision: 'b'.repeat(64) };
+  const item = { id: 'draft', status: 'suggested', target: { type: 'permanent_note', id: 'note', field: 'thesis' }, content: { thesis: 'AI draft' } };
+  const aiState = { suggestions: [item], selectedSuggestionId: item.id, suggestionDetail: { item, writeBase: base } };
+  let submitted, receipt;
+  await applyAiSuggestionStatusForRuntime({ aiState, suggestionDetailFromResponse: aiSuggestionDetailFromResponse,
+    aiSuggestionReviewedContent: () => { throw new Error('draft must not parse an absent review editor'); },
+    updateAiSuggestion: async (_, payload) => { submitted = payload; return { item: { ...item, status: 'adopted_as_draft' }, writeBase: base }; },
+    refreshAiSuggestions: async () => {}, loadAiSuggestionDetail: async () => {} }, item.id, 'adopted_as_draft',
+    { onNoteWritten: value => { receipt = value; } });
+  assert.equal(submitted.applyToNote, true);
+  assert.equal(submitted.userConfirmed, undefined);
+  assert.deepEqual(submitted.writeBase, base);
+  assert.deepEqual(receipt, base);
+});

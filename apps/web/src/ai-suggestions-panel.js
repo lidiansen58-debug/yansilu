@@ -629,6 +629,7 @@ function renderDetail(state = {}) {
           }).join("")}
       ${renderTrace(activeDetail)}
       ${canHandleAsGroup ? renderGroupActions(displayGroupItems, actionLoading) : ""}
+      ${canHandleAsGroup ? renderActionError(actionError) : ""}
       ${renderDraftEditingGuide(displayItem)}
       ${renderHistory(activeDetail)}
     </article>

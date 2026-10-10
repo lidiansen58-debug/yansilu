@@ -8,7 +8,7 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 
-async function fixture(t, { field = "thesis", linked = false } = {}) {
+async function fixture(t, { field = "thesis", linked = false, draft = false } = {}) {
   const vaultPath = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-ai-confirm-note-"));
   const probe = net.createServer();
   await new Promise(resolve => probe.listen(0, "127.0.0.1", resolve));
@@ -45,23 +45,28 @@ async function fixture(t, { field = "thesis", linked = false } = {}) {
     const artifact = analysis.json.item.reviewItems.artifacts.find(a => a.payload?.fieldSuggestion?.id === suggestionId);
     artifactId = artifact.id;
     field = artifact.payload.fieldSuggestion.target.field;
-    const adopted = await request(`/api/v1/ai/inbox/${artifactId}/adopt-field-suggestion`, { confirm: true });
-    assert.equal(adopted.status, 200, JSON.stringify(adopted.json));
+    if (!draft) {
+      const adopted = await request(`/api/v1/ai/inbox/${artifactId}/adopt-field-suggestion`, { confirm: true });
+      assert.equal(adopted.status, 200, JSON.stringify(adopted.json));
+    }
   } else {
     const suggestion = await request("/api/v1/ai-suggestions", { target: { type: "permanent_note", id: noteId, field },
       scope: "note_field", content: field === "thesis" ? { thesis: "原建议" } : { three_line_summary: ["原建议概括"] } });
     assert.equal(suggestion.status, 201, JSON.stringify(suggestion.json));
     suggestionId = suggestion.json.item.id;
-    assert.equal((await request(`/api/v1/ai-suggestions/${suggestionId}`, { status: "adopted_as_draft" }, "PATCH")).status, 200);
+    if (!draft) assert.equal((await request(`/api/v1/ai-suggestions/${suggestionId}`, { status: "adopted_as_draft" }, "PATCH")).status, 200);
   }
   const suggestionRoute = `/api/v1/ai-suggestions/${suggestionId}?canonical=true`;
   const content = field === "thesis" ? { thesis: "人工核对并改写的观点" } : { three_line_summary: ["人工概括一", "人工概括二"] };
-  const edited = await request(suggestionRoute, { status: "edited", content }, "PATCH");
-  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  if (!draft) {
+    const edited = await request(suggestionRoute, { status: "edited", content }, "PATCH");
+    assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  }
   const detail = await request(suggestionRoute);
   assert.equal(detail.status, 200);
   assert.deepEqual(detail.json.writeBase, detail.json.canonical.write_base);
-  const body = { status: "confirmed", userConfirmed: true, content, applyToNote: true, writeBase: detail.json.writeBase };
+  const body = { status: draft ? "adopted_as_draft" : "confirmed", userConfirmed: !draft,
+    content: draft ? detail.json.item.content : content, applyToNote: true, writeBase: detail.json.writeBase };
   const note = (await request(noteRoute)).json.item;
   return { request, baseUrl, vaultPath, note, noteRoute, suggestionRoute, artifactId, field, body, detail: detail.json };
 }
@@ -85,6 +90,69 @@ for (const field of ["thesis", "three_line_summary", "threeLineSummary"]) test(`
   assert.equal(retry.status, 200, JSON.stringify(retry.json));
   assert.equal(retry.json.item.history.filter(e => e.toStatus === "confirmed").length, 1);
   assert.deepEqual((await f.request(f.noteRoute)).json.item, later);
+});
+
+for (const field of ['thesis', 'three_line_summary', 'threeLineSummary']) test(`explicit draft writes only ${field}, marks AI authorship and retries without overwriting later work`, async t => {
+  const f = await fixture(t, { field, draft: true });
+  const result = await f.request(f.suggestionRoute, f.body, 'PATCH');
+  assert.equal(result.status, 200, JSON.stringify(result.json));
+  const saved = (await f.request(f.noteRoute)).json.item;
+  assert.equal(saved.body, f.note.body);
+  assert.equal(saved.title, f.note.title);
+  assert.equal(saved.distillationStatus, 'draft');
+  assert.deepEqual(saved.authorship, { user_confirmed: false, ai_assisted: true });
+  if (field === 'thesis') { assert.equal(saved.thesis, f.body.content.thesis); assert.deepEqual(saved.threeLineSummary, f.note.threeLineSummary); }
+  else { assert.deepEqual(saved.threeLineSummary, f.body.content.three_line_summary); assert.equal(saved.thesis, f.note.thesis); }
+  assert.equal(result.json.item.provenance.humanConfirmed, false);
+  assert.equal(result.json.item.history.filter(e => e.toStatus === 'adopted_as_draft').length, 1);
+  assert.equal((await f.request(f.noteRoute, { body: saved.body + '\n\n草稿保存后的人工补充。' }, 'PUT')).status, 200);
+  const later = (await f.request(f.noteRoute)).json.item;
+  const retry = await f.request(f.suggestionRoute, f.body, 'PATCH');
+  assert.equal(retry.status, 200, JSON.stringify(retry.json));
+  assert.equal(retry.json.item.history.filter(e => e.toStatus === 'adopted_as_draft').length, 1);
+  assert.deepEqual((await f.request(f.noteRoute)).json.item, later);
+});
+
+test('a draft with a stale note baseline or malformed content never changes the note or pending review', async t => {
+  const f = await fixture(t, { draft: true });
+  for (const patch of [{ writeBase: null }, { content: { thesis: [] } }]) {
+    assert.equal((await f.request(f.suggestionRoute, { ...f.body, ...patch }, 'PATCH')).status, 400);
+    assert.deepEqual((await f.request(f.noteRoute)).json.item, f.note);
+    assert.deepEqual((await f.request(f.suggestionRoute)).json.item, f.detail.item);
+  }
+  assert.equal((await f.request(f.noteRoute, { body: f.note.body + '\n\n新的人工正文。' }, 'PUT')).status, 200);
+  const later = (await f.request(f.noteRoute)).json.item;
+  const result = await f.request(f.suggestionRoute, f.body, 'PATCH');
+  assert.equal(result.status, 409, JSON.stringify(result.json));
+  assert.deepEqual((await f.request(f.noteRoute)).json.item, later);
+  assert.deepEqual((await f.request(f.suggestionRoute)).json.item, f.detail.item);
+});
+
+test('linked draft failure restores exact bytes and both metadata stores, and a concurrent retry writes once', async t => {
+  const f = await fixture(t, { linked: true, draft: true });
+  const file = path.join(f.vaultPath, f.note.markdownPath);
+  const bytes = await fs.readFile(file);
+  const db = new DatabaseSync(path.join(f.vaultPath, '.yansilu', 'ai-agent.db'));
+  t.after(() => db.close());
+  db.exec("CREATE TRIGGER fail_draft_artifact BEFORE UPDATE ON ai_artifacts BEGIN SELECT RAISE(ABORT, 'draft persistence failure'); END;");
+  const failed = await f.request(f.suggestionRoute, f.body, 'PATCH');
+  assert.equal(failed.status, 400, JSON.stringify(failed.json));
+  assert.deepEqual(await fs.readFile(file), bytes);
+  const unchanged = (await f.request(f.suggestionRoute)).json;
+  assert.deepEqual(unchanged.item, f.detail.item);
+  assert.deepEqual(unchanged.artifact, f.detail.artifact);
+  assert.deepEqual((await f.request(f.noteRoute)).json.item, f.note);
+  db.exec('DROP TRIGGER fail_draft_artifact;');
+  const results = await Promise.all([f.request(f.suggestionRoute, f.body, 'PATCH'), f.request(f.suggestionRoute, f.body, 'PATCH')]);
+  assert.ok(results.some(r => r.status === 200));
+  assert.ok(results.every(r => [200, 409].includes(r.status)), JSON.stringify(results));
+  const review = (await f.request(f.suggestionRoute)).json;
+  assert.equal(review.item.history.filter(e => e.toStatus === 'adopted_as_draft').length, 1);
+  assert.equal(review.artifact.payload.fieldSuggestion.status, 'adopted_as_draft');
+  const saved = (await f.request(f.noteRoute)).json.item;
+  if (f.field === 'thesis') assert.equal(saved.thesis, f.body.content.thesis);
+  else assert.deepEqual(saved.threeLineSummary, f.body.content.three_line_summary ?? f.body.content.threeLineSummary);
+  assert.equal(saved.body, f.note.body);
 });
 
 test("confirmation never truncates a reviewed summary or accepts non-text lines", async t => {
@@ -168,8 +236,8 @@ test("concurrent identical confirmations apply one note write and one review eve
   assert.equal(review.history.filter(e => e.toStatus === "confirmed").length, 1);
 });
 
-test("incomplete and stale confirmations cannot follow a vault switch into cloned note and suggestion IDs", async t => {
-  const f = await fixture(t);
+for (const draft of [false, true]) test(`incomplete and stale ${draft ? 'drafts' : 'confirmations'} cannot follow a vault switch into cloned note and suggestion IDs`, async t => {
+  const f = await fixture(t, { draft });
   const otherVault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-confirm-clone-"));
   await fs.cp(f.vaultPath, otherVault, { recursive: true });
   const files = [f.vaultPath, otherVault].map(vault => path.join(vault, f.note.markdownPath));
@@ -197,10 +265,10 @@ test("incomplete and stale confirmations cannot follow a vault switch into clone
   const stale = await f.request(f.suggestionRoute, f.body, "PATCH");
   assert.equal(stale.status, 409, JSON.stringify(stale.json));
   assert.equal(stale.json.error.code, "AI_SUGGESTION_WRITE_VAULT_CHANGED");
-  assert.equal((await f.request(f.suggestionRoute)).json.item.status, "edited");
+  assert.equal((await f.request(f.suggestionRoute)).json.item.status, draft ? "suggested" : "edited");
   for (const [index, file] of files.entries()) assert.deepEqual(await fs.readFile(file), before[index]);
   assert.equal((await f.request("/api/v1/vault", { vaultPath: f.vaultPath })).status, 200);
-  assert.equal((await f.request(f.suggestionRoute)).json.item.status, "edited");
+  assert.equal((await f.request(f.suggestionRoute)).json.item.status, draft ? "suggested" : "edited");
   const retried = await f.request(f.suggestionRoute, f.body, "PATCH");
   assert.equal(retried.status, 200, JSON.stringify(retried.json));
   assert.deepEqual(await fs.readFile(files[1]), before[1]);

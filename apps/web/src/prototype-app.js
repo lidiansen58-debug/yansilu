@@ -2145,7 +2145,7 @@ const aiSuggestionsActionRoutes = createAiSuggestionsActionRoutes(() => ({
 
 function aiSuggestionAlreadyAppliedNotice(status = "") { return aiSuggestionsActionRoutes.aiSuggestionAlreadyAppliedNotice(status); }
 
-async function applyAiSuggestionStatus(suggestionId, status) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status); }
+async function applyAiSuggestionStatus(suggestionId, status, options) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status, options); }
 
 const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
   getVaultPath: currentVaultPath,
@@ -5797,13 +5797,13 @@ installSettingsAiEventBindings({
   onAiSettingsReady: resumePendingAiSettingsAction
 });
 void autoPrepareLocalAiOnStartup();
-bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
-  settingsState,
+bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({ settingsState,
   aiSuggestionFiltersFromUi,
   refreshAiSuggestions,
   loadAiSuggestionDetail,
   applyAiSuggestionStatus,
   render: renderAiSuggestionsWorkspace,
+  openFreshNote: createSearchNoteOpener({ state, fetchNote, mapNoteItem, activateModule, openNoteById: id => openNoteById(id, { preferTitleSelection: false }) }),
   activateModule,
   openNoteById,
   setStatus

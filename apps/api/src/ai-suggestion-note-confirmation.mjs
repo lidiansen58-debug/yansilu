@@ -39,7 +39,7 @@ function reviewedField(item, content) {
 
 // The note save lock and its SQLite transaction cover both the catalog and attached AI metadata.
 // Markdown rollback is conditional on our bytes still being on disk, preserving external edits.
-export async function confirmSuggestionIntoNote({ vaultPath, currentVaultPath, suggestionStore, artifactStore,
+export async function writeSuggestionIntoNote({ vaultPath, currentVaultPath, suggestionStore, artifactStore,
   item, sourceArtifact, body, projectArtifact }) {
   const base = body.writeBase;
   if (!base || base.noteId !== item.target.id || !/^[a-f0-9]{64}$/.test(base.fileRevision || "") || !/^[a-f0-9]{64}$/.test(base.suggestionRevision || "")) {
@@ -52,12 +52,13 @@ export async function confirmSuggestionIntoNote({ vaultPath, currentVaultPath, s
     }
   };
   assertVault();
-  if (body.status !== "confirmed" || body.userConfirmed !== true) {
+  const isDraft = body.status === "adopted_as_draft";
+  if (!isDraft && (body.status !== "confirmed" || body.userConfirmed !== true)) {
     throw failure("AI_SUGGESTION_WRITE_CONFIRM_REQUIRED", "写入需要明确确认。");
   }
   const update = reviewedField(item, body.content ?? item.content);
-  const operationKey = hash([base, update]);
-  if (item.status === "confirmed" && item.provenance?.noteWrite?.operationKey === operationKey) {
+  const operationKey = hash(isDraft ? [base, update, body.status] : [base, update]);
+  if (item.status === body.status && item.provenance?.noteWrite?.operationKey === operationKey) {
     return { item, artifact: sourceArtifact };
   }
   if (suggestionWriteRevision(item) !== base.suggestionRevision) {
@@ -66,7 +67,7 @@ export async function confirmSuggestionIntoNote({ vaultPath, currentVaultPath, s
   const note = await getNoteById(vaultPath, item.target.id);
   assertVault();
   if (note.noteType !== "permanent") throw failure("AI_SUGGESTION_WRITE_TARGET_INVALID", "目标不是永久笔记，本次未写入。");
-  const next = transitionSuggestionStatus(item, "confirmed", body);
+  const next = transitionSuggestionStatus(item, body.status, body);
   next.provenance = { ...next.provenance, noteWrite: { operationKey, noteId: note.id, field: suggestionNoteField(item) } };
   const projected = sourceArtifact ? projectArtifact(sourceArtifact, next) : null;
   if (sourceArtifact && path.resolve(artifactStore.dbPath) !== path.resolve(suggestionStore.dbPath)) {
@@ -74,8 +75,9 @@ export async function confirmSuggestionIntoNote({ vaultPath, currentVaultPath, s
   }
   const saved = await updateNoteContent(vaultPath, note.id, {
     ...update, expectedRevision: base.fileRevision,
+    ...(isDraft ? { distillationStatus: "draft", authorship: { user_confirmed: false, ai_assisted: true } } : {}),
     ...(update.thesis && update.thesis !== note.thesis ? {
-      thesisChangeReason: "确认人工改写的 AI 建议。", viewpointChangeStatus: "draft"
+      thesisChangeReason: isDraft ? "采纳 AI 建议作为待确认草稿。" : "确认人工改写的 AI 建议。", viewpointChangeStatus: "draft"
     } : {})
   }, {
     prepareTransaction(db) { db.prepare("ATTACH DATABASE ? AS ai_review").run(suggestionStore.dbPath); },
@@ -99,3 +101,5 @@ export async function confirmSuggestionIntoNote({ vaultPath, currentVaultPath, s
   });
   return { item: suggestionStore.get(item.id), artifact: sourceArtifact ? artifactStore.getArtifact(sourceArtifact.id) : null, note: saved };
 }
+
+export const confirmSuggestionIntoNote = writeSuggestionIntoNote;

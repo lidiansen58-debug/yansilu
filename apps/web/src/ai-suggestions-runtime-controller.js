@@ -149,7 +149,7 @@ export async function refreshAiSuggestionsForRuntime(deps = {}, options = {}) {
   }
 }
 
-export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId = "", status = "") {
+export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId = "", status = "", writeOptions = {}) {
   const {
     aiState,
     suggestionDetailFromResponse,
@@ -287,12 +287,13 @@ export async function applyAiSuggestionStatusForRuntime(deps = {}, suggestionId 
     }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
-    if (cleanStatus === "confirmed" && current.target?.type === "permanent_note" &&
+    if (["confirmed", "adopted_as_draft"].includes(cleanStatus) && current.target?.type === "permanent_note" &&
       ["thesis", "threeLineSummary", "three_line_summary"].includes(current.target?.field)) {
       payload.applyToNote = true;
-      payload.writeBase = detail.writeBase;
+      payload.writeBase = writeOptions.writeBase || detail.writeBase;
     }
     const response = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
+    if (payload.applyToNote) writeOptions.onNoteWritten?.(response.writeBase || response.canonical?.write_base);
     const detailResult = suggestionDetailFromResponse(response);
     const item = detailResult.item || {};
     const selectionChangedDuringAction = String(aiState.selectedSuggestionId || "").trim() !== cleanSuggestionId;

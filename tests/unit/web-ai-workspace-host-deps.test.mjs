@@ -3,6 +3,27 @@ import assert from "node:assert/strict";
 import { createAiInboxWorkspaceHostDeps } from "../../apps/web/src/ai-inbox-host-deps.js";
 import { createAiSuggestionsWorkspaceHostDeps } from "../../apps/web/src/ai-suggestions-host-deps.js";
 
+test('AI target open awaits the safe refresh and never reports success for an invalidated or failed read', async () => {
+  const statuses = [], state = { ai: { selectedSuggestionId: 'current' } };
+  let complete, guard;
+  const deps = createAiSuggestionsWorkspaceHostDeps({ settingsState: state,
+    openFreshNote: (_, options) => { guard = options.isCurrent; return new Promise(resolve => { complete = resolve; }); },
+    setStatus: (message, tone) => statuses.push([message, tone]) });
+  const pending = deps.openTargetNote('note');
+  assert.deepEqual(statuses, []);
+  assert.equal(guard(), true);
+  state.ai.selectedSuggestionId = 'other';
+  assert.equal(guard(), false);
+  complete(false);
+  assert.equal(await pending, false);
+  assert.equal(statuses.at(-1)[1], 'warn');
+  const failed = createAiSuggestionsWorkspaceHostDeps({ openFreshNote: async () => { throw new Error('missing'); },
+    setStatus: (message, tone) => statuses.push([message, tone]) });
+  assert.equal(await failed.openTargetNote('missing'), false);
+  assert.equal(statuses.at(-1)[1], 'bad');
+  assert.ok(statuses.every(([, tone]) => tone !== 'ok'));
+});
+
 test("AI suggestions host deps open target notes from settings context", async () => {
   const calls = [];
   const deps = createAiSuggestionsWorkspaceHostDeps({

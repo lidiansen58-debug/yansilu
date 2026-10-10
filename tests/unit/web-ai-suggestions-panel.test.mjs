@@ -618,6 +618,15 @@ test("AI suggestions panel renders loading and empty states", () => {
   assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合筛选条件的待处理/);
 });
 
+test('a pending group keeps its failed write explanation visible beside the proposed content', () => {
+  const pending = { ...suggestion, status: 'suggested' };
+  const pane = detailPane(renderAiSuggestionsPanel({ items: [pending], total: 1,
+    selectedSuggestionId: pending.id, detail: { item: pending }, actionSuggestionId: pending.id,
+    actionError: '笔记已变化，本次未覆盖。' }));
+  assert.match(pane, /笔记已变化，本次未覆盖/);
+  assert.match(pane, /保存这篇建议/);
+});
+
 test("AI suggestions compact mode keeps an empty automation tab quiet", () => {
   const html = renderAiSuggestionsPanel({
     items: [],

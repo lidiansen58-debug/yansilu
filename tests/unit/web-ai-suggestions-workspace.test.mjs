@@ -281,13 +281,12 @@ test("AI suggestions workspace applies one modal action to grouped suggestions",
     })
   }, {
     settingsAiState,
-    loadAiSuggestionDetail: async (id) => calls.push(["detail", id]),
+    loadAiSuggestionDetail: async (id) => { calls.push(["detail", id]); settingsAiState.suggestionDetail = { item: { id } }; },
     applyAiSuggestionStatus: async (id, status) => calls.push(["status", id, status]),
     render: () => calls.push(["render"])
   });
 
   assert.deepEqual(calls, [
-    ["detail", "suggestion_1"],
     ["status", "suggestion_1", "adopted_as_draft"],
     ["detail", "suggestion_summary"],
     ["status", "suggestion_summary", "adopted_as_draft"],

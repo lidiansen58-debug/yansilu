@@ -43,7 +43,7 @@ function aiSuggestionUpdatedStatusMessage(status = "", suggestionId = "") {
 export function createAiSuggestionsActionRoutes(depsProvider = () => ({})) {
   const deps = () => depsProvider() || {};
 
-  async function applyAiSuggestionStatus(suggestionId, status) {
+  async function applyAiSuggestionStatus(suggestionId, status, writeOptions = {}) {
     const current = deps();
     return applyAiSuggestionStatusForRuntime({
       ...current,
@@ -59,7 +59,7 @@ export function createAiSuggestionsActionRoutes(depsProvider = () => ({})) {
         updateFailedStatusMessage: aiSuggestionUpdateFailedStatusMessage,
         updatedStatusMessage: aiSuggestionUpdatedStatusMessage
       }
-    }, suggestionId, status);
+    }, suggestionId, status, writeOptions);
   }
 
   return {

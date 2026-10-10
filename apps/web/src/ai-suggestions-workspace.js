@@ -1,6 +1,7 @@
 import { renderAiSuggestionsPanel } from "./ai-suggestions-panel.js";
 import { normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
 import { renderWithAiSuggestionEditorDrafts } from "./ai-suggestion-editor-draft.js";
+import { applySuggestionGroup } from "./ai-suggestion-group-actions.js";
 
 export function normalizeVisibleSuggestionFilters(filters = {}) {
   return normalizeAiSuggestionFilters({
@@ -188,14 +189,7 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean);
-    for (const suggestionId of ids) {
-      await loadAiSuggestionDetail(suggestionId);
-      await applyAiSuggestionStatus(suggestionId, status);
-    }
-    settingsAiState.selectedSuggestionId = "";
-    settingsAiState.suggestionDetail = null;
-    settingsAiState.suggestionDetailSuggestionId = "";
-    render();
+    await applySuggestionGroup({ settingsAiState, loadAiSuggestionDetail, applyAiSuggestionStatus, render }, ids, status);
     return true;
   }
 
