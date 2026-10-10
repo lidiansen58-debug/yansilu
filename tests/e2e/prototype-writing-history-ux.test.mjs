@@ -57,6 +57,70 @@ async function historyWorkspace(t, width, options = {}) {
   return { ...h, note, first, current, project, directory, exportPath, reopen };
 }
 
+test("outline restoration waits for async approval and ignores cancelled, changed-version or closed-dialog decisions", async t => {
+  const h = await historyWorkspace(t, 1366); if (!h) return;
+  const { page, apiBase, project, first, current, vaultPath } = h;
+  const noteFile = path.join(vaultPath, h.note.markdownPath);
+  const baselineFile = await fs.readFile(noteFile);
+  const previousProject = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
+  const posts = [];
+  page.on("request", request => { if (request.method() === "POST" && request.url().endsWith(`/writing-projects/${project.id}/scaffold-restore`)) posts.push(request.postDataJSON()); });
+  await page.evaluate(() => {
+    window.__historyConfirmTest = { pending: [], messages: [] };
+    window.confirm = message => new Promise((resolve, reject) => {
+      window.__historyConfirmTest.messages.push(message);
+      window.__historyConfirmTest.pending.push({ resolve, reject });
+    });
+  });
+  const dialog = page.getByRole("dialog", { name: "提纲历史", exact: true });
+  const select = page.getByLabel("选择提纲版本");
+  const open = async () => {
+    await page.locator('#writingMoreMenu > summary').click();
+    await page.getByRole("button", { name: "提纲历史", exact: true }).click();
+    await dialog.waitFor(); await select.selectOption(first.id);
+    await waitFor(async () => assert.equal(await dialog.locator('[data-history-restore]').isEnabled(), true));
+  };
+  const unchanged = async () => {
+    assert.equal(posts.length, 0);
+    assert.deepEqual((await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item, previousProject);
+    assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${first.id}`)).json.item, first);
+    assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${current.id}`)).json.item, current);
+    assert.deepEqual(await fs.readFile(noteFile), baselineFile);
+  };
+  await open();
+  for (const scenario of ["cancel", "change-version", "close", "error", "approve"]) {
+    const restore = dialog.locator('[data-history-restore]');
+    await restore.focus(); await page.keyboard.press("Enter");
+    await page.waitForFunction(() => window.__historyConfirmTest.pending.length === 1);
+    assert.equal(await restore.isDisabled(), true);
+    const prompts = await page.evaluate(() => window.__historyConfirmTest.messages.length);
+    await page.keyboard.press("Enter");
+    assert.equal(await page.evaluate(() => window.__historyConfirmTest.messages.length), prompts);
+    await unchanged();
+    if (scenario === "change-version") await select.selectOption(current.id);
+    if (scenario === "close") await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+    await page.evaluate(scenario => {
+      const decision = window.__historyConfirmTest.pending.shift();
+      if (scenario === "error") decision.reject(new Error("native confirmation failed"));
+      else decision.resolve(scenario !== "cancel");
+    }, scenario);
+    if (scenario === "approve") break;
+    if (scenario === "error") await waitFor(async () => assert.match(await page.locator("#writingHistoryStatus").innerText(), /确认未完成/));
+    if (scenario === "close") { await dialog.waitFor({ state: "detached" }); await open(); }
+    else { await select.selectOption(first.id); await waitFor(async () => assert.equal(await restore.isEnabled(), true)); }
+    await unchanged();
+  }
+  await dialog.waitFor({ state: "detached" });
+  const restoredProject = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item;
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].sourceScaffoldId, first.id);
+  assert.notEqual(restoredProject.scaffold_id, current.id);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${restoredProject.scaffold_id}`)).json.item.sections, first.sections);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${first.id}`)).json.item, first);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${current.id}`)).json.item, current);
+  assert.deepEqual(await fs.readFile(noteFile), baselineFile);
+});
+
 for (const width of [1366, 320]) {
   test(`real outline history is accessible and restoration persists without modifying older versions (${width}px)`, async t => {
     const h = await historyWorkspace(t, width, width === 320 ? { beforeNavigate: page => page.addInitScript(() => {

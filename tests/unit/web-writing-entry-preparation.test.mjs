@@ -87,3 +87,64 @@ test("preparation is only shown for an ineligible permanent note", () => {
   assert.equal(renderWritingEntryPreparation({ ...note, noteType: "fleeting" }, deps), "");
   assert.equal(renderWritingEntryPreparation(note, { ...deps, isWritingEligibleNote: () => true }), "");
 });
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+for (const accepted of [false, true]) {
+  test(`writing preparation waits for asynchronous decision (${accepted}) before any checking or writing`, async () => {
+    const decision = deferred(), started = deferred();
+    const h = fixture({ confirm: () => { started.resolve(); return decision.promise; } });
+    let hydration = 0;
+    h.deps.editor.linkedLiteratureForHydratedOriginality = async () => { hydration++; return []; };
+    const pending = prepareWritingEntryNote("n", h.deps);
+    await started.promise;
+    assert.equal(hydration, 0);
+    assert.deepEqual(h.writes, []);
+    await assert.rejects(prepareWritingEntryNote("n", h.deps), /正在确认或检查/);
+    decision.resolve(accepted);
+    assert.equal(await pending, accepted);
+    assert.equal(hydration, accepted ? 1 : 0);
+    assert.equal(h.writes.length, accepted ? 1 : 0);
+  });
+}
+
+for (const change of ["scope", "path", "switching", "uncertain", "move", "dirty", "module", "theme", "project", "title", "body", "revision", "authorship"]) {
+  test(`late author approval aborts before originality work when ${change} changes`, async () => {
+    const decision = deferred(), started = deferred();
+    let vaultPath = "test-vault";
+    const h = fixture({ getVaultPath: () => vaultPath, confirm: () => { started.resolve(); return decision.promise; }, writingState: { project: { id: "p1" }, selectedThemeIndexId: "t1" } });
+    let hydration = 0;
+    h.deps.editor.linkedLiteratureForHydratedOriginality = async () => { hydration++; return []; };
+    const pending = prepareWritingEntryNote("n", h.deps);
+    await started.promise;
+    if (change === "scope") h.state.noteMoveVaultScope = {};
+    if (change === "path") vaultPath = "new-vault";
+    if (change === "switching") h.state.noteMoveVaultSwitching = true;
+    if (change === "uncertain") h.state.noteMoveVaultUncertain = true;
+    if (change === "move") h.state.unresolvedNoteMove = {};
+    if (change === "dirty") h.state.tabs.push({ noteId: "n", dirty: true });
+    if (change === "module") h.state.module = "explorer";
+    if (change === "theme") h.deps.writingState.selectedThemeIndexId = "t2";
+    if (change === "project") h.deps.writingState.project = { id: "p2" };
+    if (change === "title") h.note.title = "Changed title";
+    if (change === "body") h.note.body = "Changed body";
+    if (change === "revision") h.note.fileRevision = "b".repeat(64);
+    if (change === "authorship") h.note.authorship = { user_confirmed: true, ai_assisted: false };
+    decision.resolve(true);
+    await assert.rejects(pending);
+    assert.equal(hydration, 0);
+    assert.deepEqual(h.writes, []);
+  });
+}
+
+test("native author confirmation error releases the pending guard for retry", async () => {
+  const h = fixture({ confirm: async () => { throw new Error("native confirmation failed"); } });
+  await assert.rejects(prepareWritingEntryNote("n", h.deps), /confirmation failed/);
+  assert.deepEqual(h.writes, []);
+  h.deps.confirm = async () => true;
+  assert.equal(await prepareWritingEntryNote("n", h.deps), true);
+});
