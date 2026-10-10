@@ -9,6 +9,7 @@ import { createNoteMoveOperations } from "./note-move-operations.mjs";
 import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { deleteInRequestVault } from "./request-vault-deletion.mjs";
+import { importDemoInRequestVault } from "./request-vault-demo-import.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
 import { bindDesktopParentLifecycle } from "./desktop-parent-lifecycle.mjs";
@@ -5403,14 +5404,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/api/v1/demo/product-thinking/smart-notes") {
       try {
-        await readJson(req);
-        const item = await seedSmartNotesProductThinking(VAULT_PATH);
+        const item = await importDemoInRequestVault(req, { vaultPath: VAULT_PATH, currentVaultPath: () => VAULT_PATH,
+          readJson, initVault, seed: seedSmartNotesProductThinking });
         return sendJson(res, 200, {
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
+        if (error?.code === "VAULT_CHANGED") return sendJson(res, 409, err(error.code, error.message, rid));
         return sendJson(
           res,
           400,

@@ -4,6 +4,18 @@ import assert from "node:assert/strict";
 const moduleUrl = new URL("../../apps/web/src/prototype-api.js", import.meta.url);
 let importCounter = 0;
 
+test("demo import sends the original client vault without forwarding arbitrary options", async t => {
+  const api = await importPrototypeApi("demo-vault-context", { __API_BASE__: "http://127.0.0.1:3999" });
+  let body;
+  t.mock.method(globalThis, "fetch", async (_url, options) => {
+    body = JSON.parse(options.body); return Response.json({ item: { imported: true } });
+  });
+  await api.seedSmartNotesProductThinkingDemo({ expectedVaultPath: "E:/original 中文", ignored: true });
+  assert.deepEqual(body, { expectedVaultPath: "E:/original 中文" });
+  await api.seedSmartNotesProductThinkingDemo({ expectedVaultPath: undefined });
+  assert.deepEqual(body, {});
+});
+
 test("all deletion clients carry the confirmed vault and preserve unscoped legacy requests", async t => {
   const api = await importPrototypeApi("delete-vault-context", { __API_BASE__: "http://127.0.0.1:3999" });
   const calls = [];

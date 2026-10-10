@@ -5329,12 +5329,12 @@ function shouldRetrySmartNotesDemoImport(error = null) {
   return code === "api_unavailable" || code === "desktop_api_unavailable";
 }
 
-async function seedSmartNotesProductThinkingDemoWithStartupRetry() {
+async function seedSmartNotesProductThinkingDemoWithStartupRetry(payload = {}) {
   let lastError = null;
   for (let attempt = 0; attempt <= SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
       resetDesktopServiceStatusCache();
-      return await seedSmartNotesProductThinkingDemo();
+      return await seedSmartNotesProductThinkingDemo(payload);
     } catch (error) {
       lastError = error;
       const retryDelay = SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS[attempt];
@@ -5351,7 +5351,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
   const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
   setStatus("正在导入 Smart Notes Demo...", "");
   try {
-    const result = await seedSmartNotesProductThinkingDemoWithStartupRetry();
+    const result = await seedSmartNotesProductThinkingDemoWithStartupRetry({ expectedVaultPath: currentVaultPath() || undefined });
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
     if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");
     await syncDirectoriesFromApi();
