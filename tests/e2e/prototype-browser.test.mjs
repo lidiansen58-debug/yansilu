@@ -5086,9 +5086,12 @@ test("prototype falls back to default literature template when stored template i
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 出处/);
+    assert.match(value, /- 标题：/);
+    assert.match(value, /- 页码 \/ 定位：/);
+    assert.match(value, /- 链接 \/ 文件：/);
     assert.match(value, /## 原文/);
-    assert.match(value, /## 转述/);
+    assert.match(value, /## 我的理解/);
     assert.doesNotMatch(value, /## Research Notes/);
   }, 5000);
   const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
@@ -5099,7 +5102,10 @@ test("prototype falls back to default literature template when stored template i
     const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
     assert.equal(selectedFileId, originalUntitledNoteId);
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 出处/);
+    assert.match(value, /- 标题：/);
+    assert.match(value, /- 页码 \/ 定位：/);
+    assert.match(value, /- 链接 \/ 文件：/);
     assert.doesNotMatch(value, /## Research Notes/);
   }, 5000);
 });
