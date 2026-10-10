@@ -96,6 +96,14 @@ for (const width of [1366, 390, 320]) {
         .map(item => ({ id: item.closest('[data-node-id]').dataset.nodeId, text: item.textContent })));
     assert.deepEqual(labelledMembers.map(item => item.id).sort(), [...members].sort(), "Every enlarged group member needs a rendered title");
     for (const item of labelledMembers) assert.ok(nodes.get(item.id).title.startsWith(item.text.replace(/…$/, '')));
+    const overlaps = await page.locator('.graph-map-node.is-theme-selected .graph-map-node-label').evaluateAll(items => {
+      const labels = items.map(item => ({ id: item.closest('[data-node-id]').dataset.nodeId,
+        rect: item.getBoundingClientRect() }));
+      return labels.flatMap((a, index) => labels.slice(index + 1).filter(b =>
+        a.rect.left < b.rect.right + 3 && a.rect.right + 3 > b.rect.left &&
+        a.rect.top < b.rect.bottom + 3 && a.rect.bottom + 3 > b.rect.top).map(b => [a.id, b.id]));
+    });
+    assert.equal(overlaps.length, 0, `Detail titles must not overlap: ${JSON.stringify(overlaps.slice(0, 5))}`);
     const internalEdges = graph.edges.filter(edge => members.includes(edge.fromNoteId) && members.includes(edge.toNoteId));
     const highlightedEdges = await page.locator('.graph-map-edge-group.is-theme-selected').evaluateAll(items => items.map(item => ({
       from: item.dataset.edgeFrom, to: item.dataset.edgeTo, type: item.dataset.edgeRelationType,

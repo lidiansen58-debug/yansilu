@@ -29,12 +29,13 @@ test("graph visual map runtime state derives layout zoom and active selection co
     graphFocusDepthMeta: () => ({ key: "1", label: "1", note: "one hop" }),
     graphReadingModeMeta: () => ({ key: "argument", label: "Argument" }),
     graphViewModeForRelationType: () => "argument",
-    graphBuildVisualLayout: (layoutNodes) => ({
+    graphBuildVisualLayout: (layoutNodes, layoutEdges, options) => ({
       nodes: layoutNodes,
       width: 1000,
       height: 600,
       nodeMap: new Map(layoutNodes.map((node) => [node.id, node])),
-      clusterMeta: []
+      clusterMeta: [],
+      options
     }),
     graphZoomOption: () => ({ key: "wide", scale: 1.5 }),
     graphReadingLensMeta: () => ({ key: "questions" }),
@@ -54,6 +55,7 @@ test("graph visual map runtime state derives layout zoom and active selection co
   });
 
   assert.equal(state.zoomWidth, 1500);
+  assert.equal(state.layout.options.zoomKey, "wide");
   assert.equal(state.zoomHeight, 900);
   assert.equal(state.zoomIndex, 1);
   assert.equal(state.activeSelection.normalized, true);

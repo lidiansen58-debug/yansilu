@@ -4,6 +4,7 @@ export function buildGraphVisualMapLayoutInput({
   relationFilterEdges = [],
   filterActive = false,
   focusedNoteId = "",
+  zoomKey = "fit",
   structureFallback = false
 } = {}) {
   return {
@@ -12,6 +13,7 @@ export function buildGraphVisualMapLayoutInput({
     relationFilterEdges,
     filterActive: filterActive === true,
     focusedNoteId: String(focusedNoteId || "").trim(),
+    zoomKey: String(zoomKey || "fit").trim().toLowerCase(),
     structureFallback: structureFallback === true
   };
 }

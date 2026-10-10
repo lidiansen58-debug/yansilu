@@ -3,6 +3,7 @@ import {
 } from "./graph-visual-map-view.js";
 import { buildGraphLayoutClusters } from "./graph-layout-clusters.js";
 import { separateSmallGraphNodes } from "./graph-small-node-spacing.js";
+import { spaceReadableGraphNodes } from "./graph-readable-node-spacing.js";
 
 export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, deps = {}) {
   const {
@@ -71,8 +72,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
 
   const nodeTotal = nodeMap.size;
   const smallGraph = nodeTotal <= 12 && edges.length < 140;
-  const width = nodeTotal > 48 ? 1560 : nodeTotal > 28 ? 1320 : 1080;
-  const height = nodeTotal > 48 ? 820 : nodeTotal > 28 ? 700 : 560;
+  let width = nodeTotal > 48 ? 1560 : nodeTotal > 28 ? 1320 : 1080;
+  let height = nodeTotal > 48 ? 820 : nodeTotal > 28 ? 700 : 560;
   const centerX = width / 2;
   const centerY = height / 2;
   const layoutNodes = [...nodeMap.values()].sort(
@@ -246,6 +247,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
   });
 
   if (smallGraph) separateSmallGraphNodes(layoutNodes, { width, height, fixedNoteId: focusedNoteId });
+  const readableLayout = (nodeTotal > 48 || edges.length >= 140) && ["read", "detail"].includes(options.zoomKey);
+  if (readableLayout) ({ width, height } = spaceReadableGraphNodes(layoutNodes, { width, height }));
 
   const clusterMeta = !focusedNoteId
     ? clusterMembers
@@ -266,8 +269,8 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
             y: Math.round((minY + maxY) / 2),
             angle: anchorAngles[clusterIndex] || 0
           };
-          const cx = clusterCenter.x;
-          const cy = clusterCenter.y;
+          const cx = readableLayout ? anchorNode?.x ?? (minX + maxX) / 2 : clusterCenter.x;
+          const cy = readableLayout ? anchorNode?.y ?? (minY + maxY) / 2 : clusterCenter.y;
           const rx = Math.max(56, Math.round((maxX - minX) * 0.62 + 54));
           const ry = Math.max(44, Math.round((maxY - minY) * 0.66 + 38));
           const tone = ["teal", "sky", "bridge", "mist"][clusterIndex % 4];
