@@ -22,7 +22,7 @@
 | 远程 AI | 安装包内配置/测试/保存/重启，真实 DeepSeek 任务；故障及取消不误写；记录费用与耗时 | 诊断候选包内真实连接、保存、重启、错误与取消通过；发现前端凭据暂存问题并修复源码，待重建复验与真实任务 |
 | 性能 | 窗口首次及重开可操作时间、保存、搜索、密集图谱与 AI 任务耗时；慢操作及持续响应检查 | 待执行 |
 | 跨平台实机 | 同一 Universal DMG 在 Intel 与 Apple Silicon；Linux AppImage/DEB 安装、运行、退出及主流程 | 用户确认仅有本台 Windows；Mac Intel/ARM 和 Linux 实机仍待环境，CI 构建不替代实机 |
-| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | 分段证书已成功导入；`38028819962` 的 Windows/Linux 成功，Mac 在 app-only 中间步骤提前要求最终清单而失败；清单时机修复待重新演练，公证尚未完成 |
+| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | 分段证书及清单时机已通过真实 CI；`38030669704` 应用签名/严格验签成功，内嵌 Node JIT 读取失败；XML 读取修复待重新演练，公证尚未完成 |
 | 升级及回退 | 从旧版更新、重启后版本与数据正确，失败反馈明确，旧版本与恢复路径可用 | 待执行 |
 | 交付信息 | 下载、版本说明、离线帮助、SHA256、更新清单、已知限制都对应最终同一批产物 | 待最终产物确定 |
 
@@ -76,6 +76,9 @@
 - 证书修复后的正式 core：4672 项，4263 通过、0 失败、409 项需另行启用，日志 `core-after-macos-certificate-chunks.log`。旧批次 Windows 产物另补验 SHA256 文本清单与 JSON 清单逐行一致；完整浏览器、安装版完整流程与跨平台实机 gate 仍未完成。
 - `38028819962` 最终 Windows/Linux 作业成功、Mac 失败。Universal `.app` 已编译完成，但 `build-desktop.mjs` 无条件要求最终安装包清单，而签名脚本此时只构建 app、关闭 updater 归档，尚未生成 DMG；严格收集器正确拒绝中间文件，导致公证前退出。现只对 Mac 的 app-only 且 updater 关闭步骤推迟清单，其余平台、DMG 与 updater 构建继续要求清单，正式签名脚本仍在公证和最终打包后生成严格清单。真实文件夹回归覆盖仅 app 时没有可发布文件、最终四文件暂存及原 app 保留，相关 28 项通过，日志 `macos-app-stage-manifest-tests.log`；新源码完整 core 及 CI 待完成。旧批次 Linux 下载明确报 unexpected EOF，未完成下载核对，不作为产物校验失败或通过。
 - app-only 清单时机修复后的正式 core：4673 项，4264 通过、0 失败、409 项需另行启用，日志 `core-after-app-stage-manifest.log`；编码检查无新增问题，diff 检查通过。新 CI 的真实签名、公证结果仍待验证。
+- 固定提交 `b1f38521550e9fc9bcef5140235d040d66df5e72` 的 [演练 38030669704](https://github.com/lidiansen58-debug/yansilu/actions/runs/38030669704) 中 Windows/Linux 构建成功，Mac 成功通过 app-only 清单步骤、应用签名和 `codesign --verify --deep --strict`，随后在内嵌 Node 的 JIT 权限读取检查退出，尚未提交公证。原读取没有明确输出 XML，现按 [Apple 官方方法](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/) 使用 `codesign -d --entitlements - --xml` 将标准输出写入临时 plist，再严格检查 JIT 权限，不删除权限 gate。增加 Mac 原生回归，对临时复制的 Node 实际签名，区分授予和缺失 JIT；Windows 相关回归 26 项中 25 通过、1 项仅 Mac 执行。此修改尚待真实 Mac 演练确认，不能认定实际权限已通过。
+- 空提纲浏览器回归改走当前可见操作：实际主题生成提纲、逐节删除并读回磁盘、出现“添加第一节”、添加和修改章节后重载同一文章；不强制启用隐藏按钮或覆盖内部状态。定向 1 项通过，三条来源正文保持一致且不创建重复文章，日志 `writing-empty-outline-visible.log`。
+- JIT XML 读取修复后正式 core：4674 项，4264 通过、0 失败、410 项需另行启用（含新增 Mac 原生权限回归），日志 `core-after-jit-xml.log`；编码与 diff 检查通过。Windows/Linux 的 `b1f38521` 演练资产下载仍在运行，未将构建成功替代下载核对或安装验收。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
