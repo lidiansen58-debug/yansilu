@@ -168,7 +168,8 @@ export function createGraphRouteRuntime(deps = {}) {
         if (!stillCurrent()) return card;
         await openWritingModule({
           statusMessage: `已从可写主题打开写作：${cleanTitle}`,
-          preserveFocusedCandidateScope: true,
+          focusedCandidateNoteIds: selectedIds,
+          focusedCandidateScopeLabel: "已确认主题材料",
           entryReason: "从图谱可写主题继续写作",
           entrySourceLabel: "可写主题"
         });
