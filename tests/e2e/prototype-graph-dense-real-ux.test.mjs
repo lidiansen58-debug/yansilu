@@ -152,6 +152,13 @@ for (const width of [1366, 390, 320]) {
     await page.locator('.graph-selection-panel.is-edge').waitFor();
     const relation = graph.edges.find(edge => edge.fromNoteId === endpoints[0] && edge.toNoteId === endpoints[1] && edge.relationType === 'supports');
     assert.ok((await page.locator('.graph-selection-panel.is-edge').textContent()).includes(relation.rationale));
+    const closeHit = await page.locator('.graph-selection-panel.is-edge [data-graph-selection-close]').evaluate(button => {
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { reachable: hit === button || button.contains(hit), x: rect.x, y: rect.y, hit: hit?.outerHTML?.slice(0, 240) };
+    });
+    await page.screenshot({ path: path.join(output, '02-edge-details.png'), fullPage: true });
+    assert.ok(closeHit.reachable, `Relation close button must remain reachable: ${JSON.stringify(closeHit)}`);
     await page.locator('.graph-selection-panel.is-edge [data-graph-selection-close]').click();
     await page.locator('#graphRelationTypeFilter').selectOption('all');
     await page.locator('[data-graph-select-cluster]').first().focus();

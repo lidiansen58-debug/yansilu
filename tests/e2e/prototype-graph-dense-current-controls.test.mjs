@@ -36,6 +36,22 @@ test("current dense graph keeps 132 nodes selectable, filters edges, zooms and e
   await panel.waitFor({ state: 'visible' });
   assert.match(await panel.innerText(), /Synthetic density fixture/);
   await panel.locator('[data-graph-selection-close]').click();
+  await page.locator('[data-graph-toggle-expanded="on"]').click();
+  for (const size of [{ width: 768, height: 900 }, { width: 740, height: 480 }, { width: 390, height: 900 }, { width: 320, height: 900 }]) {
+    await page.setViewportSize(size);
+    await page.locator('.graph-map-edge-group').first().focus();
+    await page.keyboard.press('Enter');
+    await panel.waitFor({ state: 'visible' });
+    assert.equal(await panel.locator('[data-graph-selection-close]').evaluate(button => {
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return hit === button || button.contains(hit);
+    }), true, `Expanded relation details must be closable at ${size.width}x${size.height}`);
+    await panel.locator('[data-graph-selection-close]').click();
+    assert.equal(await panel.count(), 0);
+  }
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.locator('[data-graph-toggle-expanded="off"]').click();
   await page.locator('.graph-map-node[data-node-id="dense-0"]').focus();
   await page.keyboard.press('Enter');
   await page.locator('.graph-selection-panel.is-node', { hasText: 'Dense note 0' }).waitFor({ state: 'visible' });

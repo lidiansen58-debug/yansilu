@@ -137,6 +137,32 @@
     grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
   }
 }
+@media (max-width: 920px) {
+  /* Share the expanded screen between the canvas and details instead of
+     giving both the full viewport height and pushing details off screen. */
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-map-head { flex: none; }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-map-stage {
+    flex: 1;
+    min-height: 0;
+    height: 0;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded :is(.graph-map-body, .graph-map-canvas, .graph-map-viewport) {
+    min-height: 0;
+    height: 100%;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .has-side-panel .graph-map-canvas {
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+  #moduleWorkspace.graph-mode .graph-map-panel.is-expanded .graph-side-stack {
+    max-height: min(40dvh, calc(100dvh - 260px));
+  }
+}
 @media (max-width: 700px) {
   #moduleWorkspace.graph-mode .graph-map-tools { top: 8px; left: 8px; margin-left: 8px; max-width: calc(100% - 16px); }
   #moduleWorkspace.graph-mode .graph-map-floater { gap: 6px; flex-wrap: wrap; }
