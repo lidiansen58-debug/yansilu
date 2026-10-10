@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { EditorSemanticRelationsView } from "../../apps/web/src/editor-semantic-relations-view.js";
 
 import {
   editorRelatedNotesSummary,
+  relationRowsForDisplay,
   renderEditorBodyRelationActions,
   renderEditorRelatedNotesPanel
 } from "../../apps/web/src/editor-related-notes-panel.js";
@@ -14,6 +16,30 @@ const notes = [
   { id: "body-link", title: "正文提到的笔记" },
   { id: "backlink", title: "提到当前的笔记" }
 ];
+
+test("incoming and reciprocal body links share display groups without hiding saved external relations", () => {
+  const body = (id, fromNoteId, toNoteId, status = "confirmed") => ({ id, fromNoteId, toNoteId, status,
+    relationType: "associated_with", rationale: "markdown_wikilink" });
+  const relations = { outgoingLinks: [body("body-out", "current", "target"),
+    { id: "formal", fromNoteId: "current", toNoteId: "target", relationType: "supports", rationale: "有效的支持说明" },
+    body("hidden", "current", "body-link", "dismissed")],
+    backlinks: [body("body-back", "target", "current"), body("body-in", "source", "current")] };
+  const display = relationRowsForDisplay(relations, notes);
+  assert.deepEqual(display.externalRows.map(row => row.endpoint.id), ["target"]);
+  assert.deepEqual(display.externalRows[0].links.map(item => item.link.id), ["formal"]);
+  assert.deepEqual(display.bodyRows.map(row => row.endpoint.id), ["target", "source"]);
+  assert.deepEqual(display.bodyRows[0].links.map(item => item.direction), ["outgoing", "incoming"]);
+  const summary = editorRelatedNotesSummary({ relations, notes, relationState: "loaded" });
+  assert.equal(summary.savedCount, 4);
+  assert.equal(summary.externalRelationCount, 1);
+  assert.equal(summary.bodyRelationCount, 2);
+  assert.equal(summary.totalRelationCount, 3);
+  const html = new EditorSemanticRelationsView({ state: { notes } }).renderSemanticRelationsSection(relations, "current");
+  assert.match(html, /双方正文互相引用/);
+  assert.match(html, /对方正文引用当前笔记/);
+  assert.match(html, /有效的支持说明/);
+  assert.doesNotMatch(html, /markdown_wikilink/);
+});
 
 test("editor related notes summary counts body relations equally without counting them twice", () => {
   const summary = editorRelatedNotesSummary({

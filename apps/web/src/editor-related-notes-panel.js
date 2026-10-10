@@ -1,6 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import {
-  isHiddenRelation,
   isMarkdownWikilinkRelation,
   relationTypeLabel
 } from "./editor-relation-helpers.js";
@@ -85,15 +84,21 @@ export function relationRowsByEndpoint(items = [], notes = []) {
   return [...rows.values()];
 }
 
-function relationRowCountByEndpoint(items = [], notes = []) {
-  return relationRowsByEndpoint(items, notes).length;
+export function relationRowsForDisplay(relations = null, notes = []) {
+  const visible = explicitPermanentNoteRelations(relations);
+  const items = [...visible.outgoing.map(link => ({ link, direction: "outgoing" })),
+    ...visible.backlinks.map(link => ({ link, direction: "incoming" }))];
+  return {
+    bodyRows: relationRowsByEndpoint(items.filter(({ link }) => isMarkdownWikilinkRelation(link)), notes),
+    externalRows: relationRowsByEndpoint(items.filter(({ link }) => !isMarkdownWikilinkRelation(link)), notes)
+  };
 }
 
 function renderExistingRelationPopover(note, relations = []) {
   const id = noteId(note);
   if (!id || !relations.length) return "";
   const rows = relations.map((relation) => {
-    const reason = relation.rationale || "还没有关系理由。";
+    const reason = isMarkdownWikilinkRelation(relation) ? "正文中的笔记链接" : relation.rationale || "还没有关系理由。";
     return `
       <article class="editor-related-existing-row">
         <div>
@@ -168,20 +173,8 @@ export function editorRelatedNotesSummary({
   const bodyLinks = uniqueNotes(forward);
   const allBodyLinks = uniqueNotes([...forward, ...backward]);
   const linkedBodyCount = bodyLinks.filter((note) => (relationMap.get(noteId(note)) || []).length > 0).length;
-  const rawOutgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
-  const bodyRelationCount = relationRowCountByEndpoint(
-    rawOutgoing
-      .filter((link) => isMarkdownWikilinkRelation(link))
-      .map((link) => ({ link, direction: "outgoing" })),
-    notes
-  );
-  const externalRelationCount = relationRowCountByEndpoint(
-    [
-      ...explicit.outgoing.filter((link) => !isMarkdownWikilinkRelation(link)).map((link) => ({ link, direction: "outgoing" })),
-      ...explicit.backlinks.map((link) => ({ link, direction: "incoming" }))
-    ],
-    notes
-  );
+  const { bodyRows, externalRows } = relationRowsForDisplay(relations, notes);
+  const bodyRelationCount = bodyRows.length, externalRelationCount = externalRows.length;
   const totalRelationCount = bodyRelationCount + externalRelationCount;
   return {
     relationState: String(relationState || "idle"),

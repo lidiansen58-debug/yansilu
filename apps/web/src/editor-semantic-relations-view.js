@@ -1,14 +1,11 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { highlightMatch, relationCreateDefaultTypeForNote, sortRelationTargetCandidatesForNote } from "./editor-link-picker.js";
-import { relationRowsByEndpoint } from "./editor-related-notes-panel.js";
+import { relationRowsForDisplay } from "./editor-related-notes-panel.js";
 import { typeFromFolder } from "./prototype-store.js";
 import {
-  explicitPermanentNoteRelations,
   permanentNoteSidebarExplicitRelationCount
 } from "./permanent-note-sidebar-model.js";
 import {
-  isHiddenRelation,
-  isMarkdownWikilinkRelation,
   noteTypeText,
   parseInlineRelationAnnotations,
   relationStatusLabel,
@@ -316,6 +313,9 @@ export class EditorSemanticRelationsView {
     const primary = row.links[0] || {};
     const link = primary.link || {};
     const endpoint = row.endpoint || {};
+    const incomingBodyLink = row.links.some(item => item.direction === "incoming");
+    const outgoingBodyLink = row.links.some(item => item.direction === "outgoing");
+    const bodyContext = incomingBodyLink ? (outgoingBodyLink ? "双方正文互相引用" : "对方正文引用当前笔记") : "当前正文链接到对方";
     const actions = kind === "external"
       ? row.links.map(({ link: item, direction }) => `
         <div class="semantic-relation-card-actions">
@@ -326,7 +326,7 @@ export class EditorSemanticRelationsView {
           <button class="mini-btn is-ghost" type="button" aria-label="编辑${escapeHtml(endpoint.title || "笔记")}的${direction === "incoming" ? "入向" : "出向"}关联" data-relation-action="open-edit" data-relation-id="${escapeHtml(item?.id || "")}">编辑</button>
         </div>
       `).join("")
-      : `<button class="mini-btn is-ghost" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">打开</button>`;
+      : `<div class="semantic-relation-card-actions"><div class="relation-summary-context"><p>${bodyContext}</p></div><button class="mini-btn is-ghost" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">打开</button></div>`;
 
     return `
       <article class="related-item semantic-relation-item semantic-relation-summary-row" data-relation-tone="${escapeHtml(relationTone(link))}">
@@ -341,18 +341,7 @@ export class EditorSemanticRelationsView {
   }
 
   renderSemanticRelationsSection(relations, noteId) {
-    const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
-    const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks.filter((link) => !isHiddenRelation(link)) : [];
-    const { outgoing: explicitOutgoing, backlinks: explicitBacklinks } = explicitPermanentNoteRelations(relations);
-    const bodyLinks = outgoing.filter((link) => isMarkdownWikilinkRelation(link));
-    const externalRows = relationRowsByEndpoint([
-      ...explicitOutgoing.map((link) => ({ link, direction: "outgoing" })),
-      ...explicitBacklinks.map((link) => ({ link, direction: "incoming" }))
-    ], this.host.state.notes || []);
-    const bodyRows = relationRowsByEndpoint(
-      bodyLinks.map((link) => ({ link, direction: "outgoing" })),
-      this.host.state.notes || []
-    );
+    const { bodyRows, externalRows } = relationRowsForDisplay(relations, this.host.state.notes || []);
     const activeTab = externalRows.length ? "external" : "body";
     const bodyPanel = bodyRows.length
       ? `<div class="inspector-list">${bodyRows.map((row) => this.renderRelationSummaryRow(row, { kind: "body" })).join("")}</div>`
