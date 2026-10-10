@@ -18,6 +18,7 @@ function setup(t, confirm) {
   const requests = [], effects = [];
   const link = { id: "relation-1", fromNoteId: "source", toNoteId: "target", target: { title: "目标" } };
   const host = {
+    currentVaultPath: "E:/original-vault", vaultScope: () => host.currentVaultPath,
     state: { notes: [], module: "graph", noteMoveVaultScope: {} }, activeId: "source",
     activeNote: () => ({ id: host.activeId }), isActiveNoteId: id => id === host.activeId,
     currentSemanticRelations: { outgoingLinks: [link], backlinks: [] },
@@ -30,7 +31,7 @@ function setup(t, confirm) {
   t.mock.method(globalThis, "fetch", async (url, options) => {
     assert.equal(new URL(url).pathname, "/api/v1/relations/relation-1");
     assert.equal(options.method, "DELETE");
-    requests.push({ url, method: options.method });
+    requests.push({ url, method: options.method, body: JSON.parse(options.body) });
     return new Response(JSON.stringify({ deleted: true }), { status: 200 });
   });
   return { controller: new EditorSemanticRelationsController(host), host, requests, effects };
@@ -53,18 +54,20 @@ test("native async relation confirmation waits, cancellation preserves the relat
   window.confirm = async () => true;
   await controller.deleteRelation("relation-1");
   assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body, { expectedVaultPath: "E:/original-vault" });
   assert.deepEqual(effects.filter(item => item[0] === "statuses"), [["statuses", "source", "target"]]);
   assert.deepEqual(effects.filter(item => item[0] === "graph"), [["graph"]]);
   assert.deepEqual(effects.filter(item => item[0] === "relations"), [["relations", "source"]]);
 });
 
-for (const change of ["note", "vault", "switching", "uncertain", "endpoints", "removed"]) {
+for (const change of ["note", "vault", "vault-path", "switching", "uncertain", "endpoints", "removed"]) {
   test(`late confirmed relation deletion does nothing after ${change} changes`, async t => {
     const gate = deferred();
     const { controller, host, requests, effects } = setup(t, () => gate.promise);
     const pending = controller.deleteRelation("relation-1");
     if (change === "note") host.activeId = "other-note";
     if (change === "vault") host.state.noteMoveVaultScope = {};
+    if (change === "vault-path") host.currentVaultPath = "E:/other-vault";
     if (change === "switching") host.state.noteMoveVaultSwitching = true;
     if (change === "uncertain") host.state.noteMoveVaultUncertain = true;
     if (change === "endpoints") host.currentSemanticRelations.outgoingLinks = [{ id: "relation-1", fromNoteId: "source", toNoteId: "other-target" }];

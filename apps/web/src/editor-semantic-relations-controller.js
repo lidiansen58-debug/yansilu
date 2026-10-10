@@ -543,8 +543,9 @@ export class EditorSemanticRelationsController {
     const activeNoteId = String(host.activeNote()?.id || "").trim();
     if (!link || !activeNoteId || this.pendingRelationDeletes.has(id)) return;
     const vaultScope = host.state?.noteMoveVaultScope;
+    const vaultPath = host.vaultScope?.() || "";
     const isCurrent = () => host.isActiveNoteId(activeNoteId) && host.state?.noteMoveVaultScope === vaultScope &&
-      !host.state?.noteMoveVaultSwitching && !host.state?.noteMoveVaultUncertain;
+      (host.vaultScope?.() || "") === vaultPath && !host.state?.noteMoveVaultSwitching && !host.state?.noteMoveVaultUncertain;
     const peerNoteId = String(link?.fromNoteId === activeNoteId ? link?.toNoteId || "" : link?.fromNoteId || "").trim();
     const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === host.activeNote()?.id ? "outgoing" : "incoming") : null;
     const label = endpoint?.title || "这条关联";
@@ -553,7 +554,7 @@ export class EditorSemanticRelationsController {
       if (!await window.confirm(`取消与“${label}”的外部关联？正文内容不会被删除。`) || !isCurrent()) return;
       const currentLink = this.findRelation(id);
       if (!currentLink || currentLink.fromNoteId !== link.fromNoteId || currentLink.toNoteId !== link.toNoteId) return;
-      await deleteNoteRelation(id);
+      await deleteNoteRelation(id, { expectedVaultPath: vaultPath });
       if (!isCurrent()) return;
       await host.refreshRelationNetworkStatuses(activeNoteId, peerNoteId);
       await refreshGraphAfterRelationMutation(host);

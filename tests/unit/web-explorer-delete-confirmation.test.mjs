@@ -132,6 +132,22 @@ for (const [kind, handler, payload] of [
   ["file", handleNoteDeleteStateChange, { noteId: "n" }],
   ["folder", handleDirectoryDeleteStateChange, { directoryId: "d" }]
 ]) {
+  test(`${kind} delete sends the confirmed path and ignores a late result after only the path changes`, async () => {
+    const host = fixture(), mutation = deferred(), requests = [];
+    let vaultPath = "E:/confirmed-vault";
+    const remove = (id, options) => { requests.push([id, options]); return mutation.promise; };
+    const pending = handler(payload, {
+      state: host.state, getVaultPath: () => vaultPath, deleteNote: remove, deleteDirectory: remove,
+      removeNoteFromClientState: () => assert.fail("late client mutation"),
+      setStatus: () => assert.fail("late status"), renderAll: () => assert.fail("late render")
+    });
+    assert.deepEqual(requests, [[kind === "file" ? "n" : "d", { expectedVaultPath: "E:/confirmed-vault" }]]);
+    vaultPath = "E:/copied-vault";
+    mutation.resolve();
+    assert.equal(await pending, false);
+    assert.equal(host.state.notes.length, 1);
+    assert.equal(host.state.folders.length, 2);
+  });
   test(`${kind} deletion state handler rejects stale confirmation scope before calling API`, async () => {
     const host = fixture();
     assert.equal(await handler({ ...payload, expectedVaultScope: {} }, {

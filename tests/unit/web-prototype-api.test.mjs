@@ -4,6 +4,23 @@ import assert from "node:assert/strict";
 const moduleUrl = new URL("../../apps/web/src/prototype-api.js", import.meta.url);
 let importCounter = 0;
 
+test("all deletion clients carry the confirmed vault and preserve unscoped legacy requests", async t => {
+  const api = await importPrototypeApi("delete-vault-context", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url, options) => {
+    calls.push({ url, method: options.method, body: JSON.parse(options.body) });
+    return Response.json({ deleted: true });
+  });
+  for (const [name, segment] of [["deleteNote", "notes"], ["deleteDirectory", "directories"], ["deleteNoteRelation", "relations"]]) {
+    await api[name]("same id", { expectedVaultPath: "E:/original 中文" });
+    await api[name]("same id");
+    assert.deepEqual(calls.splice(0), [
+      { url: `http://127.0.0.1:3999/api/v1/${segment}/same%20id`, method: "DELETE", body: { expectedVaultPath: "E:/original 中文" } },
+      { url: `http://127.0.0.1:3999/api/v1/${segment}/same%20id`, method: "DELETE", body: {} }
+    ]);
+  }
+});
+
 async function importPrototypeApi(caseName, windowValue) {
   const previousWindow = globalThis.window;
   if (windowValue === undefined) delete globalThis.window;

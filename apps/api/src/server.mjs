@@ -8,6 +8,7 @@ import { execFileQuiet } from "./quiet-command-probe.mjs";
 import { createNoteMoveOperations } from "./note-move-operations.mjs";
 import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
+import { deleteInRequestVault } from "./request-vault-deletion.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
 import { bindDesktopParentLifecycle } from "./desktop-parent-lifecycle.mjs";
@@ -5463,15 +5464,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "DELETE" && directoryId) {
       try {
-        await initVault(VAULT_PATH);
-        const result = await deleteDirectory(VAULT_PATH, directoryId);
+        const result = await deleteInRequestVault(req, { vaultPath: VAULT_PATH, currentVaultPath: () => VAULT_PATH,
+          readJson, initVault, remove: deleteDirectory, itemId: directoryId });
         return sendJson(res, 200, {
           ...result,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("DIRECTORY_DELETE_INVALID", String(error?.message || error), rid));
+        return sendJson(res, error?.code === "VAULT_CHANGED" ? 409 : 400, err(error?.code || "DIRECTORY_DELETE_INVALID", String(error?.message || error), rid));
       }
     }
 
@@ -5887,15 +5888,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "DELETE" && relationId) {
       try {
-        await initVault(VAULT_PATH);
-        const result = await deleteNoteRelation(VAULT_PATH, relationId);
+        const result = await deleteInRequestVault(req, { vaultPath: VAULT_PATH, currentVaultPath: () => VAULT_PATH,
+          readJson, initVault, remove: deleteNoteRelation, itemId: relationId });
         return sendJson(res, 200, {
           ...result,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err(error?.code || "NOTE_RELATION_DELETE_INVALID", String(error?.message || error), rid, error?.details));
+        return sendJson(res, error?.code === "VAULT_CHANGED" ? 409 : 400, err(error?.code || "NOTE_RELATION_DELETE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 
@@ -6013,15 +6014,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "DELETE" && noteId) {
       try {
-        await initVault(VAULT_PATH);
-        const result = await deleteNoteById(VAULT_PATH, noteId);
+        const result = await deleteInRequestVault(req, { vaultPath: VAULT_PATH, currentVaultPath: () => VAULT_PATH,
+          readJson, initVault, remove: deleteNoteById, itemId: noteId });
         return sendJson(res, 200, {
           ...result,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("NOTE_DELETE_INVALID", String(error?.message || error), rid));
+        return sendJson(res, error?.code === "VAULT_CHANGED" ? 409 : 400, err(error?.code || "NOTE_DELETE_INVALID", String(error?.message || error), rid));
       }
     }
 

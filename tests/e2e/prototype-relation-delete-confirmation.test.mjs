@@ -30,7 +30,7 @@ test("visible relation deletion awaits native-shaped confirmation, cancellation 
   const originalFiles = await Promise.all(notes.map(note => fs.readFile(path.join(vaultPath, note.markdownPath))));
   const deletes = [];
   page.on("request", request => {
-    if (request.method() === "DELETE" && request.url().endsWith(`/api/v1/relations/${relationId}`)) deletes.push(request.url());
+    if (request.method() === "DELETE" && request.url().endsWith(`/api/v1/relations/${relationId}`)) deletes.push({ url: request.url(), body: request.postDataJSON() });
   });
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-original"]').click();
@@ -78,6 +78,7 @@ test("visible relation deletion awaits native-shaped confirmation, cancellation 
     assert.deepEqual((await fetchJson(apiBase, `/api/v1/notes/${target.id}/relations`)).json.item.backlinks, []);
   });
   assert.equal(deletes.length, 1);
+  assert.deepEqual(deletes[0].body, { expectedVaultPath: vaultPath });
   await workspace.waitFor({ state: "detached" });
   await page.evaluate(() => { window.__nativeConfirmTest.restore(); delete window.__nativeConfirmTest; });
   await page.locator('#btnHideRelated').click();

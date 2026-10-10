@@ -142,12 +142,14 @@ export async function handleNoteDeleteStateChange(payload = {}, deps = {}) {
     state = {},
     usingLocalFallbackData = false,
     deleteNote = async () => {},
+    getVaultPath = () => "",
     removeNoteFromClientState = () => {},
     setStatus = () => {},
     renderAll = () => {}
   } = deps;
   const scope = state.noteMoveVaultScope;
-  const isCurrent = () => state.noteMoveVaultScope === scope && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+  const vaultPath = getVaultPath();
+  const isCurrent = () => state.noteMoveVaultScope === scope && getVaultPath() === vaultPath && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
   if (!isCurrent() || (Object.hasOwn(payload, "expectedVaultScope") && payload.expectedVaultScope !== scope)) return false;
   if (state.unresolvedNoteMove && state.unresolvedNoteMove.noteId === payload.noteId) {
     setStatus("移动结果尚未确认，请先重新核查，此笔记暂不能删除。", "warn", { notify: true });
@@ -155,7 +157,7 @@ export async function handleNoteDeleteStateChange(payload = {}, deps = {}) {
   }
   try {
     if (!usingLocalFallbackData) {
-      await deleteNote(payload.noteId);
+      await deleteNote(payload.noteId, { expectedVaultPath: vaultPath });
     }
     if (!isCurrent()) return false;
     removeNoteFromClientState(payload.noteId);
@@ -251,14 +253,16 @@ export async function handleDirectoryDeleteStateChange(payload = {}, deps = {}) 
   const {
     state = {},
     deleteDirectory = async () => {},
+    getVaultPath = () => "",
     setStatus = () => {},
     renderAll = () => {}
   } = deps;
   const scope = state.noteMoveVaultScope;
-  const isCurrent = () => state.noteMoveVaultScope === scope && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+  const vaultPath = getVaultPath();
+  const isCurrent = () => state.noteMoveVaultScope === scope && getVaultPath() === vaultPath && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
   if (!isCurrent() || (Object.hasOwn(payload, "expectedVaultScope") && payload.expectedVaultScope !== scope)) return false;
   try {
-    await deleteDirectory(payload.directoryId);
+    await deleteDirectory(payload.directoryId, { expectedVaultPath: vaultPath });
     if (!isCurrent()) return false;
     state.folders = (state.folders || []).filter((folder) => folder.id !== payload.directoryId);
     if (state.selectedFolderId === payload.directoryId) {

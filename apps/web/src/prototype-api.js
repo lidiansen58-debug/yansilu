@@ -809,9 +809,14 @@ export async function updateDirectory(directoryId, payload) {
   return json.item || null;
 }
 
-export async function deleteDirectory(directoryId) {
+function requestDeletion(route, options = {}) {
+  return request(route, { method: "DELETE", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options.expectedVaultPath ? { expectedVaultPath: options.expectedVaultPath } : {}) });
+}
+
+export async function deleteDirectory(directoryId, options = {}) {
   if (!directoryId) throw new Error("directoryId is required");
-  return request(`/api/v1/directories/${encodeURIComponent(directoryId)}`, { method: "DELETE" });
+  return requestDeletion(`/api/v1/directories/${encodeURIComponent(directoryId)}`, options);
 }
 
 export async function fetchDirectoryNotes(directoryId, options = {}) {
@@ -1016,9 +1021,9 @@ export async function updateNoteRelation(relationId, payload) {
   return json.item || null;
 }
 
-export async function deleteNoteRelation(relationId) {
+export async function deleteNoteRelation(relationId, options = {}) {
   if (!relationId) throw new Error("relationId is required");
-  return request(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "DELETE" });
+  return requestDeletion(`/api/v1/relations/${encodeURIComponent(relationId)}`, options);
 }
 
 export async function checkNoteSave(noteId, operationId, options = {}) {
@@ -1073,9 +1078,9 @@ export async function moveNote(noteId, directoryId, options = {}) {
   return json.item || null;
 }
 
-export async function deleteNote(noteId) {
+export async function deleteNote(noteId, options = {}) {
   if (!noteId) throw new Error("noteId is required");
-  return request(`/api/v1/notes/${encodeURIComponent(noteId)}`, { method: "DELETE" });
+  return requestDeletion(`/api/v1/notes/${encodeURIComponent(noteId)}`, options);
 }
 
 export async function uploadNoteAsset(noteId, payload) {

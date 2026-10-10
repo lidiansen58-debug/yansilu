@@ -28,7 +28,7 @@ test("visible explorer deletion waits for async confirmation, cancellation keeps
   const notePath = path.join(vaultPath, note.markdownPath);
   const baseline = await fs.readFile(notePath);
   const deletes = [];
-  page.on("request", request => { if (request.method() === "DELETE") deletes.push(request.url()); });
+  page.on("request", request => { if (request.method() === "DELETE") deletes.push({ url: request.url(), body: request.postDataJSON() }); });
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-original"]').click();
   const openDelete = async locator => {
@@ -92,6 +92,7 @@ test("visible explorer deletion waits for async confirmation, cancellation keeps
     assert.equal(await emptyRow.count(), 0);
   });
   assert.equal(deletes.length, 2);
+  assert.deepEqual(deletes.map(item => item.body), [{ expectedVaultPath: vaultPath }, { expectedVaultPath: vaultPath }]);
   await page.evaluate(() => { window.__explorerConfirmTest.restore(); delete window.__explorerConfirmTest; });
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('[data-action="quick-original"]').click();
