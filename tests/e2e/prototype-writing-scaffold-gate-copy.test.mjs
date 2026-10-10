@@ -1,96 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createWritingReadyPermanentNote, optionalPlaywright, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { addWritingSupportNotes, createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
 
-async function ensureNoteMode(page) {
-  const alreadyNoteMode = await page.evaluate(() =>
-    document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg")
-  ).catch(() => false);
-  if (alreadyNoteMode) return;
-  const modeButton = page.locator("#btnModeToggle");
-  if (!(await modeButton.isVisible().catch(() => false))) return;
-  await modeButton.click();
-  await page.waitForFunction(() => {
-    const split = document.querySelector("#markdownSplit");
-    const host = document.querySelector("#wysiwygHost");
-    if (!split || !host) return false;
-    return split.classList.contains("editor-mode-wysiwyg") && window.getComputedStyle(host).display !== "none";
-  });
-}
-
-test("prototype scaffold gate asks to create 项目 before generating a scaffold", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype visible outline action prepares one project and reuses it on regeneration", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const note = await createWritingReadyPermanentNote(apiBase, {
-    title: "Scaffold Gate Note",
-    body: "# Scaffold Gate Note\n\nA confirmed note with one explicit relation and a boundary.",
-    thesis: "A project-ready note should still ask to create a project before generating a scaffold.",
-    threeLineSummary: [
-      "The note has a reusable judgment.",
-      "It matters because scaffold generation should be gated behind project creation.",
-      "The warning copy should match the newer create-project wording."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This only applies once the note is ready for project creation."
-  });
-
-  const target = await createWritingReadyPermanentNote(apiBase, {
-    title: "Scaffold Gate Target",
-    body: "# Scaffold Gate Target\n\nA target note for project readiness.",
-    thesis: "A supporting note helps the source note reach project-ready status.",
-    threeLineSummary: [
-      "The target note already has a reusable judgment.",
-      "It matters because the source note should not remain isolated.",
-      "It helps unlock project creation before scaffold generation."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This target note is only useful when its relation is explicit."
-  });
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}/relations`, {
-    toNoteId: target.json.item.id,
-    relationType: "supports",
-    rationale: "The target note gives the source note enough structure to justify project creation first.",
-    insightQuestion: "What should the writing center ask for before scaffold generation?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.goto(`${webBase}/prototype?note=${encodeURIComponent(note.json.item.id)}`, { waitUntil: "networkidle" });
-  await page.waitForFunction(
-    (noteId) => Array.isArray(window.__prototypeState?.notes) && window.__prototypeState.notes.some((item) => item?.id === noteId),
-    note.json.item.id
-  );
-  await page.evaluate((noteId) => {
-    window.__prototypeState.selectedFileId = noteId;
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeEditor?.openNoteTab?.(noteId, { preferTitleSelection: false });
-  }, note.json.item.id);
-  await ensureNoteMode(page);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
-  await page.click("#btnWritingUseCurrent");
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateScaffold");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create scaffold button not found");
-    button.disabled = false;
-    button.click();
-  });
-
+  const { page, apiBase } = stack;
+  const source = (await createWritingReadyPermanentNote(apiBase, {
+    title: "检验理解", body: "# 检验理解\n\n用自己的话解释能够暴露理解中的缺口。",
+    thesis: "解释能够暴露理解中的缺口。", threeLineSummary: ["写出自己的解释。", "核对遗漏的依据。", "先阅读材料再检验理解。"],
+    boundaryOrCounterpoint: "这不适用于尚未阅读材料的情形。"
+  })).json.item;
+  const notes = await addWritingSupportNotes(apiBase, source);
+  const title = "提纲自动准备文章";
+  await createManualWritingTheme(stack, notes, { title });
+  assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
+  assert.equal(await page.locator("#btnWritingCreateProject").isVisible(), false);
+  assert.equal(await page.locator("#btnWritingCreateScaffold").isEnabled(), true);
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  const project = await findWritingProject(stack, notes, title);
+  assert.ok(project.scaffold_id);
+  const first = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
+  assert.deepEqual([...new Set(first.sections.flatMap(section => section.evidence_note_ids))].sort(), notes.map(note => note.id).sort());
+  await page.locator('[data-writing-tab="theme"]').click();
+  await page.locator("#btnWritingCreateScaffold").click();
   await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.equal(String(statusText || "").trim(), "请先创建项目");
-  }, 10000);
+    const projects = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items;
+    assert.equal(projects.length, 1);
+    assert.equal(projects[0].id, project.id);
+    assert.notEqual(projects[0].scaffold_id, first.id);
+  });
+  const versions = (await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}/scaffolds?limit=50`)).json.items;
+  assert.equal(versions.length, 2);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/draft-scaffolds/${first.id}`)).json.item.sections, first.sections);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
 });

@@ -22,7 +22,7 @@
 | 远程 AI | 安装包内配置/测试/保存/重启，真实 DeepSeek 任务；故障及取消不误写；记录费用与耗时 | 诊断候选包内真实连接、保存、重启、错误与取消通过；发现前端凭据暂存问题并修复源码，待重建复验与真实任务 |
 | 性能 | 窗口首次及重开可操作时间、保存、搜索、密集图谱与 AI 任务耗时；慢操作及持续响应检查 | 待执行 |
 | 跨平台实机 | 同一 Universal DMG 在 Intel 与 Apple Silicon；Linux AppImage/DEB 安装、运行、退出及主流程 | 用户确认仅有本台 Windows；Mac Intel/ARM 和 Linux 实机仍待环境，CI 构建不替代实机 |
-| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | 旧诊断提交的 Windows/Linux updater 验签通过；更新 Secrets 后重跑 `38027415784`，Mac 证书导入报 Unknown format，用户将重新导出并更新；本轮 Windows/Linux 构建进行中 |
+| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | `38027415784` 首次运行 Windows/Linux 构建通过、Mac 导入报 Unknown format；用户再次确认更新 Secrets，已重跑失败任务 attempt 2；最新产物摘要与签名正在核对 |
 | 升级及回退 | 从旧版更新、重启后版本与数据正确，失败反馈明确，旧版本与恢复路径可用 | 待执行 |
 | 交付信息 | 下载、版本说明、离线帮助、SHA256、更新清单、已知限制都对应最终同一批产物 | 待最终产物确定 |
 
@@ -68,6 +68,8 @@
 - 用户确认 Apple Secrets 已更新后，已从提交 `4e21926b3ddafec6d80850e014bf3eac97f6e31b` 启动 [签名发布演练 38027415784](https://github.com/lidiansen58-debug/yansilu/actions/runs/38027415784)。手动运行只生成演练附件，不创建公开版本或改变更新源。Mac 在证书导入阶段报 `SecKeychainItemImport: Unknown format in import`，尚未执行签名、公证；与上一轮密码 MAC 失败区别记录。用户确认原配置是 P12 Base64，将重新导出并更新，尚未收到第二次更新确认。日志 `apple-signing-retry-38027415784.log`。
 - 实际界面生成提纲后，一句话判断和摘要缺失提醒原来只出现在隐藏的旧工作区，当前提纲页遗漏。写作预检复用领域就绪检查并携带精确笔记 ID，现有来源核对区域显示相关提醒，可用鼠标或键盘打开笔记；不恢复旧诊断面板、不改变正文。缺失来源和重新分类单独提示，不产生无法打开的缺失笔记按钮。笔记补齐后读回提纲与恢复历史版本使用当前来源元数据，提醒消失且文件字节保持用户修改后的状态。相关单元/集成 71 项通过，浏览器缺失判断、缺失摘要以及写作/导出/备份恢复共 3 项通过；390 像素窄屏无横向溢出，截图 `output/note-editor-validation/outline-note-readiness-390.png`。此修复尚未进入已安装的 `42c8477d` 包，全量浏览器最终 gate 仍待复验。
 - 提纲笔记核对修复后的正式 core：4668 项，4259 通过、0 失败、409 项需另行启用，日志 `core-after-writing-note-readiness.log`。定向浏览器日志 `writing-note-readiness-visible.log`，71 项相关检查日志 `writing-note-readiness-integration.log`；不将这些结果替代完整浏览器最终回归。
+- 两个仍通过隐藏旧按钮和强制修改界面状态执行的浏览器用例改走当前可见操作，定向 2 项通过，日志 `writing-visible-continuation.log`。确认“新建主题”不提前创建文章，“生成提纲”自动创建且重复生成复用同一文章、保留原提纲版本和来源正文；保存草稿后重载，从主题的“继续草稿”恢复磁盘正文，并由更多菜单打开同一草稿笔记，不创建重复文章或改动已保存正文。
+- 用户第二次确认 GitHub Secrets 更新后，对 `38027415784` 执行仅失败任务重跑（attempt 2），保持源码 `4e21926b`，复用该次已通过的 Windows/Linux 作业。首次运行总结果失败、演练资产汇总未执行；不能把 Windows/Linux 作业成功记为三平台签名已完成。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
