@@ -22,7 +22,7 @@
 | 远程 AI | 安装包内配置/测试/保存/重启，真实 DeepSeek 任务；故障及取消不误写；记录费用与耗时 | 诊断候选包内真实连接、保存、重启、错误与取消通过；发现前端凭据暂存问题并修复源码，待重建复验与真实任务 |
 | 性能 | 窗口首次及重开可操作时间、保存、搜索、密集图谱与 AI 任务耗时；慢操作及持续响应检查 | 待执行 |
 | 跨平台实机 | 同一 Universal DMG 在 Intel 与 Apple Silicon；Linux AppImage/DEB 安装、运行、退出及主流程 | 用户确认仅有本台 Windows；Mac Intel/ARM 和 Linux 实机仍待环境，CI 构建不替代实机 |
-| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | 分段证书及清单时机已通过真实 CI；`38030669704` 应用签名/严格验签成功，内嵌 Node JIT 读取失败；XML 读取修复待重新演练，公证尚未完成 |
+| 签名及公证 | 新产物的 Apple Developer ID、公证和验签成功；Windows 签名状态如实记录；updater 签名核验 | `38031883042` 已通过 Developer ID 签名、严格验签、JIT 权限及 Universal 架构检查；公证提交返回 HTTP 403，团队必需协议未签署或过期，待 Account Holder 处理；尚无最终 Mac 公证包 |
 | 升级及回退 | 从旧版更新、重启后版本与数据正确，失败反馈明确，旧版本与恢复路径可用 | 待执行 |
 | 交付信息 | 下载、版本说明、离线帮助、SHA256、更新清单、已知限制都对应最终同一批产物 | 待最终产物确定 |
 
@@ -82,6 +82,8 @@
 - `b1f38521` 的 Windows 演练资产已下载并核对：33855213 字节，SHA256 `c94450d55d0273e24d4431d5abfba558e13315668ca227a3afe5beffdcb6363f`；两个最终文件与上传清单、文本校验清单一致，按配置公钥的 updater 验签通过，改动一字节的反证被拒绝。证据 `ci-windows-b1f38521-verification.json`；尚未安装，不能替代本机 `42c8477d` 安装版或新源码实机验收。
 - 提纲输出失败回归改走当前可见“更多”菜单：真实生成提纲后，只在剪贴板和浏览器下载边界注入失败，检查错误可见、菜单关闭、已保存提纲完整不变；恢复下载后读取实际下载文件，核对中文提纲及来源名称，三条来源正文保持一致。定向 1 项通过，日志 `writing-outline-output-failure.log`；不强制启用隐藏按钮或覆盖内部写作状态。首次断言误读仅含元数据的诊断对象，改为读取实际文件后通过，未改动产品源码。
 - JIT XML 修复的 [演练 38031883042](https://github.com/lidiansen58-debug/yansilu/actions/runs/38031883042) 固定在 `4d28955d42e8bda77ecf4b1a796e714d79be439c`，Mac 原生包装检查成功、Universal 签名与公证步骤仍在运行；Linux 构建成功、Windows 正在构建。手工演练没有创建公开版本或改变更新源。
+- `38031883042` 最终 Windows/Linux 成功、Mac 失败。Mac 原生 codesign 权限回归通过，真实应用签名和严格验签、内嵌 Node JIT 权限、Universal 架构均通过；随后 `notarytool submit` 返回 HTTP 403：必需协议未签署或已过期，公证未成功、未装订票据、未生成最终 DMG。已请求团队 Account Holder 登录开发者账户核对协议/会员提示；[Apple 官方角色说明](https://developer.apple.com/help/account/access/roles)要求账号持有人接受更新条款，不能代为接受法律协议。等待用户完成后再重跑失败的 Mac 作业，不反复重跑同一已确认的账户拒绝。日志 `apple-signing-failure-38031883042.log` 和最终 CI JSON 分别保留。
+- 空库写作入口回归改为实际可见操作：桌面 1280px 与窄屏 320px 显示选材引导；新建主题在材料不足时给出明确且可见的提示、不弹创建表单，相关笔记选择器没有可添加条目，退出选择器后没有横向溢出，也未创建文章。定向 1 项通过，日志 `writing-empty-entry-visible.log`；等待主题加载完成后验证，不将加载中的文案误判为最终状态，不假定入口按钮必须禁用。产品源码未改动，全量浏览器最终 gate 仍待完成。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
