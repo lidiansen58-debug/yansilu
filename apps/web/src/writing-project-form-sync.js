@@ -42,7 +42,8 @@ export async function createWritingProjectKeepingForm(deps, context, payload) {
   const before = formSnapshot(deps);
   writingState.projectCreationPending = token;
   try {
-    const project = await deps.createWritingProject(context.bindPayload(payload));
+    // Check persisted sources on the API, including changes made after opening a theme.
+    const project = await deps.createWritingProject(context.bindPayload({ ...payload, requireEligibleSources: true }));
     context.assertCurrent();
     writingState.project = project;
     context.acceptLocalChanges();

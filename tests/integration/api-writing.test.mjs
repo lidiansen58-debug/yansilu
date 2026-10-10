@@ -1832,3 +1832,42 @@ test("existing writing work stays readable when an old source note file is missi
   assert.equal(replacementScaffold.status, 400, JSON.stringify(replacementScaffold.json));
   assert.equal(replacementScaffold.json.error.code, "DRAFT_SCAFFOLD_INVALID");
 });
+
+for (const requirement of ["authorship", "originality"]) test(`new article source validation rejects ${requirement} before any project write and preserves existing articles`, async t => {
+  const vaultPath = await makeTempDir("yansilu-writing-source-gate-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const source = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: `# 来源确认-${requirement}\n\n解释后需要核对材料。`
+  })).json.item;
+  const update = async (id, payload) => {
+    const response = await fetch(`${baseUrl}/api/v1/notes/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const json = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(json));
+    return json.item;
+  };
+  const changed = await update(source.id, { status: "draft", authorshipConfirmed: requirement !== "authorship" });
+  assert.equal(changed.status, "draft");
+  assert.equal(changed.authorship.user_confirmed, requirement !== "authorship");
+  const file = path.join(vaultPath, changed.markdownPath), bytes = await fs.readFile(file);
+  const payload = { title: "新文章来源确认", basketNoteIds: [source.id], requireEligibleSources: true };
+  const rejected = await postJson(baseUrl, "/api/v1/writing-projects", payload);
+  assert.equal(rejected.status, 400, JSON.stringify(rejected.json));
+  assert.match(rejected.json.error.message, requirement === "authorship" ? /还没完成作者确认/ : /还未通过原创性检查/);
+  assert.match(rejected.json.error.message, new RegExp(source.title));
+  assert.deepEqual((await getJson(baseUrl, "/api/v1/writing-projects?limit=50")).json.items, []);
+  assert.deepEqual(await fs.readFile(file), bytes);
+  const ready = await update(source.id, { status: "active", authorshipConfirmed: true, originalityStatus: "pass" });
+  assert.equal(ready.status, "active");
+  const created = await postJson(baseUrl, "/api/v1/writing-projects", payload);
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  await update(source.id, { status: "draft", authorshipConfirmed: false });
+  const existing = await getJson(baseUrl, `/api/v1/writing-projects/${created.json.item.id}`);
+  assert.equal(existing.status, 200);
+  assert.deepEqual(existing.json.item.basket_note_ids, [source.id]);
+  const edited = await patchJson(baseUrl, `/api/v1/writing-projects/${created.json.item.id}`, { title: "保留历史文章并修改题目" });
+  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  assert.equal(edited.json.item.title, "保留历史文章并修改题目");
+});
