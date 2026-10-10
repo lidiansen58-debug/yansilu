@@ -14,6 +14,9 @@ import { adoptWhileTyping } from "./prototype-ai-adoption-input-helpers.mjs";
 import { runAiMixedGroupReview } from "./prototype-ai-mixed-review-helpers.mjs";
 import { runAiFilterWhileRefreshing } from "./prototype-ai-filter-input-helpers.mjs";
 import { runAiReturnToEditor, runAiStructuredInputValidation } from "./prototype-ai-review-editor-validation-helpers.mjs";
+import { runAiRejectedReview, runAiPendingContinuity, runAiEditedContinuity } from "./prototype-ai-review-continuity-helpers.mjs";
+import { runAiAdoptedReadOnly } from "./prototype-ai-review-adoption-helpers.mjs";
+import { runAiStaleReview } from "./prototype-ai-review-stale-helpers.mjs";
 import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -9236,579 +9239,78 @@ test("prototype AI inbox reviewed reopen continuity keeps canonical detail align
   await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
   await runAiReviewReopenContinuity(stack, fixture);
 });
-test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const firstFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity first target",
-    body: "Rejecting this pending inbox item should move detail to another visible pending item."
-  });
-  const secondFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity second target",
-    body: "This pending inbox item should stay visible after the first one is rejected."
-  });
-  const loneFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity lone target",
-    body: "Rejecting the last filtered pending inbox item should clear list and detail."
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-
-  const firstItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${firstFixture.artifactId}"]`);
-  await firstItem.waitFor();
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, firstFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstFixture.noteId)));
-    assert.match(String(detailText || ""), /Reject/);
-  }, 8000);
-
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(firstFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(firstFixture.noteId)));
-    const switchedToRemainingSuggestion =
-      new RegExp(escapeRegExp(secondFixture.noteId)).test(String(detailText || "")) ||
-      new RegExp(escapeRegExp(loneFixture.noteId)).test(String(detailText || ""));
-    assert.equal(switchedToRemainingSuggestion, true);
-  }, 8000);
-
-  await waitFor(async () => {
-    assert.equal(await firstItem.count(), 0);
-    const activeRows = await page.locator("#aiInboxPanel .ai-inbox-list-pane .ai-inbox-item.is-active").count();
-    assert.equal(activeRows >= 1, true);
-  }, 8000);
-
-  await filterAiInboxBySourceNote(page, loneFixture.noteId);
-
-  const loneItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${loneFixture.artifactId}"]`);
-  await waitFor(async () => {
-    assert.equal(await loneItem.count(), 1);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, loneFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.suggestionId)));
-    assert.match(String(detailText || ""), /Reject/);
-  }, 8000);
-
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(loneFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const loneReviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${loneFixture.artifactId}"]`);
-  await waitFor(async () => {
-    assert.equal(await loneReviewedItem.count(), 1);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, loneFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected|已拒绝/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.suggestionId)));
-    assert.doesNotMatch(String(detailText || ""), /AI inbox review failed/);
-    assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-decision="archived"]').count(), 0);
-  }, 8000);
-
-  const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(loneFixture.artifactId)}?canonical=true`);
-  assert.equal(detail.status, 200);
-  assert.equal(detail.json.canonical.artifact.status, "ignored");
-  assert.equal(detail.json.canonical.suggestion.status, "rejected");
+  const first = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox filtered first target" });
+  const second = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox filtered final target" });
+  await runAiPendingContinuity(stack, first, second);
 });
 
-test("prototype AI inbox guards stale detail selection and duplicate reviewed submit", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox guards stale detail selection and duplicate reviewed submit", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const slowFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox stale selection slow target",
-    body: "The first inbox detail request should resolve too late and must not overwrite the second reviewed selection."
-  });
-  const fastFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox stale selection fast target",
-    body: "The second inbox detail request should win and stay visible in reviewed AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, slowFixture);
-  await adoptSuggestionAsDraftViaApi(apiBase, fastFixture);
-
-  let delayedSlowDetail = false;
-  await page.route(`${apiBase}/api/v1/ai/inbox/${slowFixture.artifactId}?canonical=true`, async (route) => {
-    if (!delayedSlowDetail) {
-      delayedSlowDetail = true;
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    }
-    await route.continue();
-  });
-
-  let editRequestCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fastFixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") {
-      editRequestCount += 1;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const slowItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${slowFixture.artifactId}"]`);
-  const fastItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fastFixture.artifactId}"]`);
-  await slowItem.waitFor();
-  await fastItem.waitFor();
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, slowFixture.artifactId);
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fastFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fastFixture.suggestionId)));
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(slowFixture.suggestionId)));
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: "Duplicate inbox click should still submit once." }, null, 2));
-  const editButton = page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]');
-  const firstClick = editButton.click({ force: true });
-
-  await waitFor(async () => {
-    assert.equal(await editButton.isDisabled(), true);
-  }, 4000);
-
-  await editButton.click({ force: true, timeout: 250 }).catch(() => {});
-  await firstClick;
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fastFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(
-      suggestion.json.item.history.filter((entry) => entry.toStatus === "edited").length,
-      1
-    );
-  }, 8000);
-
-  assert.equal(editRequestCount, 1);
+  const slow = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox stale slow target" });
+  const fast = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox stale current target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, slow);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fast);
+  await runAiStaleReview(stack, slow, fast);
 });
 
-test("prototype AI inbox shows inline no-op UX for already adopted reviewed field suggestions without resubmitting", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox shows inline no-op UX for already adopted reviewed field suggestions without resubmitting", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox no-op reviewed adopt target",
-    body: "Triggering adopt again from reviewed detail should no-op inline instead of resubmitting."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  let adoptPostCount = 0;
-  await page.route(`${apiBase}/api/v1/ai/inbox/${fixture.artifactId}/adopt-field-suggestion?canonical=true`, async (route, request) => {
-    if (request.method() === "POST") adoptPostCount += 1;
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const button = page.locator(`#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-adopt-field="${fixture.artifactId}"]`);
-    assert.equal(await button.isDisabled(), true);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    const button = document.querySelector(`#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-adopt-field="${artifactId}"]`);
-    if (!button) throw new Error("missing adopt-field button");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /This field suggestion is already (Adopted as draft|已采纳为草稿)\./);
-    assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-action-notice="true"]').count(), 1);
-  }, 8000);
-
-  assert.equal(adoptPostCount, 0);
-  const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-  assert.equal(suggestion.status, 200);
-  assert.equal(suggestion.json.item.status, "adopted_as_draft");
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox no-op reviewed adopt target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiAdoptedReadOnly(stack, fixture);
 });
 
-test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const editableFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings editable target",
-    body: "This suggestion should be edited and then confirmed from settings."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, editableFixture);
-
-  const rejectFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings reject target",
-    body: "This suggestion should be rejected from settings."
-  });
-  const editedThesis = "Settings browser review produced the final user-owned thesis.";
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  await filterAiSuggestionsByTarget(page, editableFixture.noteId);
-  const editableRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${editableFixture.suggestionId}"]`);
-  await editableRow.waitFor();
-  await editableRow.click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  const firstConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]');
-  await waitFor(async () => {
-    assert.equal(await firstConfirmButton.isEnabled(), true);
-  }, 8000);
-  await firstConfirmButton.click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
-  }, 8000);
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail.is-busy").count(), 0);
-  }, 8000);
-
-  await waitFor(async () => {
-    await page.locator("#aiSuggestionStatusFilter").selectOption("all");
-    await page.locator("#aiSuggestionTargetIdFilter").fill("");
-    assert.equal(await page.locator("#aiSuggestionStatusFilter").inputValue(), "all");
-    assert.equal(await page.locator("#aiSuggestionTargetIdFilter").inputValue(), "");
-  }, 8000);
-  await page.locator("#btnAiSuggestionsApplyFilters").click();
-  const rejectRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${rejectFixture.suggestionId}"]`);
-  await rejectRow.waitFor();
-  await rejectRow.click();
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="rejected"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(rejectFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected|已拒绝/);
-  }, 8000);
+  const editable = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings editable target" });
+  const rejected = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings rejected target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, editable);
+  await runAiReviewedLifecycle(stack, editable);
+  await runAiRejectedReview(stack, rejected, { refresh: true });
 });
 
-test("prototype settings AI suggestions guards stale detail selection and duplicate review submits", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions guards stale detail selection and duplicate review submits", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const slowFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings stale selection slow target",
-    body: "The first detail request should resolve too late and must not overwrite the second selection."
-  });
-  const fastFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings stale selection fast target",
-    body: "The second detail request should win and stay visible."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, slowFixture);
-  await adoptSuggestionAsDraftViaApi(apiBase, fastFixture);
-
-  let delayedSlowDetail = false;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${slowFixture.suggestionId}?canonical=true`, async (route) => {
-    if (!delayedSlowDetail) {
-      delayedSlowDetail = true;
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    }
-    await route.continue();
-  });
-
-  let editRequestCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fastFixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") {
-      editRequestCount += 1;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  const slowRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${slowFixture.suggestionId}"]`);
-  const fastRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${fastFixture.suggestionId}"]`);
-  await slowRow.waitFor();
-  await fastRow.waitFor();
-
-  await slowRow.click();
-  await fastRow.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fastFixture.noteId)));
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(slowFixture.noteId)));
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: "Duplicate click should still submit once." }, null, 2));
-  const editButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]');
-  const firstClick = editButton.click();
-
-  await waitFor(async () => {
-    assert.equal(await editButton.isDisabled(), true);
-  }, 4000);
-
-  await editButton.click({ timeout: 250 }).catch(() => {});
-  await firstClick;
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fastFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(
-      suggestion.json.item.history.filter((entry) => entry.toStatus === "edited").length,
-      1
-    );
-  }, 8000);
-
-  assert.equal(editRequestCount, 1);
+  const slow = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings stale slow target" });
+  const fast = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings stale current target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, slow);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fast);
+  await runAiStaleReview(stack, slow, fast);
 });
 
-test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const firstEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity first edited target",
-    body: "Confirming this edited suggestion should move selection to the next filtered suggestion."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, firstEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, firstEditedFixture, "First edited fixture should leave the edited filter after confirm.");
-
-  const secondEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity second edited target",
-    body: "This edited suggestion should become the next visible detail after the first one is confirmed."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, secondEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, secondEditedFixture, "Second edited fixture should stay visible in the edited filter.");
-
-  const loneEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity lone edited target",
-    body: "Confirming the last edited suggestion should clear the filtered list and detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, loneEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, loneEditedFixture, "Lone edited fixture should empty the edited filter after confirm.");
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  await filterAiSuggestionsByStatus(page, "edited");
-  const firstEditedRow = page.locator(
-    `#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${firstEditedFixture.suggestionId}"]`
-  );
-  await firstEditedRow.waitFor();
-  await firstEditedRow.click({ force: true });
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
-    assert.match(String(detailText || ""), /Confirm|确认/);
-    assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  const loneConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]:visible');
-  await waitFor(async () => {
-    assert.equal(await loneConfirmButton.isEnabled(), true);
-  }, 8000);
-  await loneConfirmButton.click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(
-      apiBase,
-      `/api/v1/ai-suggestions/${encodeURIComponent(firstEditedFixture.suggestionId)}?canonical=true`
-    );
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
-    const switchedToRemainingSuggestion =
-      new RegExp(escapeRegExp(secondEditedFixture.noteId)).test(String(detailText || "")) ||
-      new RegExp(escapeRegExp(loneEditedFixture.noteId)).test(String(detailText || ""));
-    assert.equal(switchedToRemainingSuggestion, true);
-  }, 8000);
-
-  await waitFor(async () => {
-    assert.equal(await firstEditedRow.count(), 0);
-    const activeRows = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane .ai-inbox-item.is-active").count();
-    assert.equal(activeRows >= 1, true);
-  }, 8000);
-
-  await filterAiSuggestionsByTarget(page, loneEditedFixture.noteId);
-  const loneEditedRow = page.locator(
-    `#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${loneEditedFixture.suggestionId}"]`
-  );
-
-  await waitFor(async () => {
-    const listText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane").textContent();
-    assert.match(String(listText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-    assert.doesNotMatch(String(listText || ""), new RegExp(escapeRegExp(secondEditedFixture.noteId)));
-    assert.equal(await loneEditedRow.count(), 1);
-  }, 8000);
-
-  await loneEditedRow.first().click({ force: true });
-
-  await waitFor(async () => {
-    const className = await loneEditedRow.first().getAttribute("class");
-    assert.match(String(className || ""), /is-active/);
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-  }, 8000);
-
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(
-      apiBase,
-      `/api/v1/ai-suggestions/${encodeURIComponent(loneEditedFixture.suggestionId)}?canonical=true`
-    );
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const listText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane").textContent();
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(listText || ""), /No AI suggestions match these filters|没有符合这些筛选条件的待确认建议/);
-    assert.match(String(detailText || ""), /Pick a suggestion to inspect its target, content, and review history|选择一条建议后/);
-    assert.doesNotMatch(String(detailText || ""), /Loading suggestion detail/);
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-  }, 8000);
+  const first = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings edited first target" });
+  const second = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings edited final target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, first);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, second);
+  await markSuggestionEditedViaApi(stack.apiBase, first, "第一条人工修改应确认后离开筛选。");
+  await markSuggestionEditedViaApi(stack.apiBase, second, "最后一条确认后应清空已修改列表。");
+  await runAiEditedContinuity(stack, first, second);
 });
