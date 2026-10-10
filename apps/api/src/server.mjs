@@ -9,6 +9,7 @@ import { createNoteMoveOperations } from "./note-move-operations.mjs";
 import { createNoteSaveOperations } from "./note-save-operations.mjs";
 import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { deleteInRequestVault } from "./request-vault-deletion.mjs";
+import { updateIndexCardInRequestVault } from "./request-vault-index-card-update.mjs";
 import { importDemoInRequestVault } from "./request-vault-demo-import.mjs";
 import { writeSuggestionIntoNote, suggestionNoteWriteBase } from "./ai-suggestion-note-confirmation.mjs";
 import { readAiFieldAdoptionContext } from "./ai-field-adoption-context.mjs";
@@ -6438,17 +6439,17 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "PATCH" && indexCardMatch) {
-      const body = await readJson(req);
       try {
-        await initVault(VAULT_PATH);
-        const item = await updateIndexCard(VAULT_PATH, decodeURIComponent(indexCardMatch[1]), body);
+        const item = await updateIndexCardInRequestVault(req, { vaultPath: VAULT_PATH, currentVaultPath: () => VAULT_PATH,
+          readJson, initVault, update: updateIndexCard, itemId: decodeURIComponent(indexCardMatch[1]) });
         return sendJson(res, 200, {
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+        const conflict = ["VAULT_CHANGED", "INDEX_CARD_CONFLICT"].includes(error?.code);
+        return sendJson(res, conflict ? 409 : 400, err(conflict ? error.code : "INDEX_CARD_INVALID", String(error?.message || error), rid));
       }
     }
 

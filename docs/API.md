@@ -2668,14 +2668,35 @@ Export record shape:
 | `NOT_FOUND` | 404 | Route not found. |
 | `INTERNAL_ERROR` | 500 | Unhandled server error. |
 
+## Index Card Metadata
+
+- `POST /api/v1/index-cards` creates a card from permanent notes, using `directoryId`, `indexType`, `title`, and `noteIds` or `items`.
+- `GET /api/v1/index-cards` lists cards; `GET /api/v1/index-cards/:id` reads a card with its `updated_at` revision and member items.
+- `PATCH /api/v1/index-cards/:id` updates metadata such as `title`, `summary`, `thesis`, `centralQuestion`, and `threeLineSummary`. Omitted metadata stays unchanged; an empty string clears a text field. A nonempty three-line summary must contain exactly three nonempty lines.
+
+For a metadata editor, include the active Vault path and the exact `updated_at` value from the card read before editing:
+
+```json
+{
+  "centralQuestion": "What question do these notes answer together?",
+  "expectedVaultPath": "E:/Notes/Example",
+  "expectedUpdatedAt": "<updated_at from the card read before editing>"
+}
+```
+
+The PATCH is bound to the Vault selected when the request begins. A Vault switch while reading the request or initializing the Vault, or a mismatched `expectedVaultPath`, returns `409 / VAULT_CHANGED` before updating. A started update keeps its original path.
+
+`expectedUpdatedAt` is optional for compatibility. When supplied, a stale revision returns `409 / INDEX_CARD_CONFLICT` without updating. Revision validation and the update occur in the same transaction; each successful update advances the revision, including saves in the same millisecond. Preserve the user's input after a conflict and reread the card before reconciling changes.
+
+A metadata-only PATCH preserves member IDs, labels, rationales, order, source note files, and writing projects. Supply `items` or `noteIds` only when intentionally replacing membership. Successful responses use the standard `{ item, requestId, timestamp }` envelope; invalid fields return `400 / INDEX_CARD_INVALID`.
+
 ## Not Implemented In Current API
 
 These ideas exist in product/spec discussions but are not active API contracts in the current server:
 
 - Type-specific note routes such as `/api/v1/notes/fleeting`
-- Index card CRUD APIs
 - Explicit link CRUD APIs
-- Thought-distillation routes such as `/api/v1/permanent-notes/:id/distill` and `/api/v1/index-cards/:id/distill`
+- Thought-distillation routes such as `/api/v1/permanent-notes/:id/distill`
 - Idempotency-key persistence
 - Export scopes other than all Markdown, explicit `noteIds`, or directory trees
 

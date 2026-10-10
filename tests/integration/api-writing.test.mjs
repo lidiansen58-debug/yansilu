@@ -37,6 +37,66 @@ function assertRestoredSourceNotice(scaffold, project, checkId, noteId) {
   }
 }
 
+async function indexCardSafetyFixture(t) {
+  const vaultPath = await makeTempDir("yansilu-index-card-safety-");
+  const baseUrl = `http://127.0.0.1:${await findFreePort()}`, child = startApi(Number(new URL(baseUrl).port), vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const notes = [];
+  for (const title of ["主题依据一", "主题依据二"]) {
+    const result = await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: `# ${title}\n\n保留中文正文和 [[正文链接]]。` });
+    assert.equal(result.status, 201, JSON.stringify(result.json)); notes.push(result.json.item);
+  }
+  const created = await postJson(baseUrl, "/api/v1/index-cards", { directoryId: "dir_original_default", indexType: "topic",
+    title: "可编辑主题", centralQuestion: "原来的问题？", noteIds: notes.map(note => note.id) });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  return { vaultPath, baseUrl, notes, card: created.json.item, route: `/api/v1/index-cards/${created.json.item.id}` };
+}
+
+test("index card metadata rejects stale revisions and keeps members and note bytes intact", async t => {
+  const f = await indexCardSafetyFixture(t);
+  const bytes = await Promise.all(f.notes.map(note => fs.readFile(path.join(f.vaultPath, note.markdownPath))));
+  const saved = await patchJson(f.baseUrl, f.route, { centralQuestion: "后来保存的问题？", expectedUpdatedAt: f.card.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.notEqual(saved.json.item.updated_at, f.card.updated_at);
+  const stale = await patchJson(f.baseUrl, f.route, { centralQuestion: "不能覆盖后来问题", expectedUpdatedAt: f.card.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(stale.status, 409, JSON.stringify(stale.json));
+  assert.equal(stale.json.error.code, "INDEX_CARD_CONFLICT");
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, saved.json.item);
+  assert.deepEqual(saved.json.item.items, f.card.items);
+  const cleared = await patchJson(f.baseUrl, f.route, { centralQuestion: "", expectedUpdatedAt: saved.json.item.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.json));
+  assert.equal(cleared.json.item.central_question, "");
+  for (const [i, note] of f.notes.entries()) assert.deepEqual(await fs.readFile(path.join(f.vaultPath, note.markdownPath)), bytes[i]);
+});
+
+test("incomplete index card updates cannot follow a vault switch into cloned IDs", async t => {
+  const f = await indexCardSafetyFixture(t), copiedVault = await makeTempDir("yansilu-index-card-clone-");
+  await fs.cp(f.vaultPath, copiedVault, { recursive: true });
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(f.baseUrl + f.route, { method: "PATCH", headers: { "Content-Type": "application/json" } }, res => {
+      let body = ""; res.on("data", chunk => { body += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(body) }));
+    });
+    pending.on("error", reject); pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(f.baseUrl, "/api/v1/vault", { vaultPath: copiedVault })).status, 200);
+  pending.end(JSON.stringify({ centralQuestion: "跨库错误写入", expectedVaultPath: copiedVault }).slice(1));
+  const rejected = await response;
+  assert.equal(rejected.status, 409, JSON.stringify(rejected.json));
+  assert.equal(rejected.json.error.code, "VAULT_CHANGED");
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, f.card);
+  assert.equal((await patchJson(f.baseUrl, f.route, { centralQuestion: "旧库请求", expectedVaultPath: f.vaultPath })).status, 409);
+  const saved = await patchJson(f.baseUrl, f.route, { centralQuestion: "新库正常保存", expectedVaultPath: copiedVault, expectedUpdatedAt: f.card.updated_at });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.equal(saved.json.item.central_question, "新库正常保存");
+  await postJson(f.baseUrl, "/api/v1/vault", { vaultPath: f.vaultPath });
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, f.card);
+});
+
 test("outline note-gap warnings follow repaired source metadata on readback and historical restore", async t => {
   const vaultPath = await makeTempDir("yansilu-outline-note-gaps-");
   const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;

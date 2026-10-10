@@ -278,31 +278,34 @@ export async function updateIndexCard(vaultPath, indexCardId, input = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
-    const existing = loadIndexCardById(db, id);
-    if (!existing) throw new Error(`indexCardId not found: ${id}`);
-
-    const title = input.title === undefined ? existing.title : cleanText(input.title);
-    if (!title) throw new Error("title is required");
-    const summary = input.summary === undefined ? existing.summary : cleanText(input.summary);
-    const thesis = input.thesis === undefined ? existing.thesis : cleanText(input.thesis);
-    const centralQuestion = input.centralQuestion === undefined && input.central_question === undefined
-      ? existing.central_question
-      : cleanText(input.centralQuestion || input.central_question);
-    const orderingStrategy = input.orderingStrategy === undefined && input.ordering_strategy === undefined
-      ? existing.ordering_strategy
-      : normalizeOrderingStrategy(input.orderingStrategy || input.ordering_strategy);
-    const threeLineSummary = input.threeLineSummary === undefined && input.three_line_summary === undefined
-      ? normalizeThreeLineSummary(existing.three_line_summary)
-      : normalizeThreeLineSummary(input.threeLineSummary || input.three_line_summary);
-    const itemsExplicit = Array.isArray(input.items) || Array.isArray(input.noteIds || input.note_ids);
-    const items = itemsExplicit
-      ? normalizeIndexItems(input.items, input.noteIds || input.note_ids)
-      : normalizeIndexItems(existing.items);
-    const now = new Date().toISOString();
-    validateIndexItems(db, items);
-
     db.exec("BEGIN IMMEDIATE;");
     try {
+      const existing = loadIndexCardById(db, id);
+      if (!existing) throw new Error(`indexCardId not found: ${id}`);
+      if (input.expectedUpdatedAt !== undefined && String(input.expectedUpdatedAt) !== existing.updated_at) {
+        throw Object.assign(new Error("主题已被修改，本次保存未执行。请保留输入，重新打开主题后核对。"), { code: "INDEX_CARD_CONFLICT" });
+      }
+
+      const title = input.title === undefined ? existing.title : cleanText(input.title);
+      if (!title) throw new Error("title is required");
+      const summary = input.summary === undefined ? existing.summary : cleanText(input.summary);
+      const thesis = input.thesis === undefined ? existing.thesis : cleanText(input.thesis);
+      const centralQuestion = input.centralQuestion === undefined && input.central_question === undefined
+        ? existing.central_question
+        : cleanText(input.centralQuestion || input.central_question);
+      const orderingStrategy = input.orderingStrategy === undefined && input.ordering_strategy === undefined
+        ? existing.ordering_strategy
+        : normalizeOrderingStrategy(input.orderingStrategy || input.ordering_strategy);
+      const threeLineSummary = input.threeLineSummary === undefined && input.three_line_summary === undefined
+        ? normalizeThreeLineSummary(existing.three_line_summary)
+        : normalizeThreeLineSummary(input.threeLineSummary || input.three_line_summary);
+      const itemsExplicit = Array.isArray(input.items) || Array.isArray(input.noteIds || input.note_ids);
+      const items = itemsExplicit
+        ? normalizeIndexItems(input.items, input.noteIds || input.note_ids)
+        : normalizeIndexItems(existing.items);
+      const now = new Date(Math.max(Date.now(), (Date.parse(existing.updated_at) || 0) + 1)).toISOString();
+      validateIndexItems(db, items);
+
       db.prepare(
         `UPDATE index_cards
          SET title = ?, summary = ?, thesis = ?, three_line_summary_json = ?, central_question = ?, ordering_strategy = ?, updated_at = ?
