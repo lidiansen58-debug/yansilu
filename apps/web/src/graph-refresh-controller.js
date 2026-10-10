@@ -12,9 +12,11 @@ export async function refreshDirectoryGraphForRuntime(deps = {}) {
     graphLoadErrorMessage = (error) => String(error?.message || error || ""),
     renderGraphPanel = () => {},
     renderAll = () => {},
-    nowIso = () => new Date().toISOString()
+    nowIso = () => new Date().toISOString(),
+    isCurrent = () => true
   } = deps;
 
+  if (!isCurrent()) return false;
   const directoryId = graphScopeDirectoryId();
   const networkDirectoryId = graphOriginalScopeDirectoryId;
   const requestSerial = (graphState.requestSerial || 0) + 1;
@@ -26,7 +28,8 @@ export async function refreshDirectoryGraphForRuntime(deps = {}) {
   renderGraphPanel();
 
   try {
-    await syncNotesForDirectoryTree(networkDirectoryId);
+    await syncNotesForDirectoryTree(networkDirectoryId, { isCurrent });
+    if (!isCurrent() || requestSerial !== graphState.requestSerial) return false;
     const [graph, conflicts, reviewQueue] = await Promise.all([
       fetchDirectoryGraph(networkDirectoryId, { includeDescendants: true, timeoutMs: 15000 }),
       fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
@@ -36,7 +39,7 @@ export async function refreshDirectoryGraphForRuntime(deps = {}) {
         total: 0
       }))
     ]);
-    if (requestSerial !== graphState.requestSerial) return false;
+    if (requestSerial !== graphState.requestSerial || !isCurrent()) return false;
     graphState.item = graph;
     graphState.lastLoadedDirectoryId = graph ? networkDirectoryId : "";
     graphState.lastLoadedAt = graph ? nowIso() : "";
@@ -46,7 +49,7 @@ export async function refreshDirectoryGraphForRuntime(deps = {}) {
     upsertGraphNodeSummaries(Array.isArray(graph?.nodes) ? graph.nodes : []);
     succeeded = true;
   } catch (error) {
-    if (requestSerial !== graphState.requestSerial) return false;
+    if (requestSerial !== graphState.requestSerial || !isCurrent()) return false;
     graphState.error = graphLoadErrorMessage(error);
     graphState.lastErrorAt = nowIso();
     if (!canReuseScopedGraph) {
@@ -59,7 +62,7 @@ export async function refreshDirectoryGraphForRuntime(deps = {}) {
   } finally {
     if (requestSerial !== graphState.requestSerial) return false;
     graphState.loading = false;
-    renderAll();
+    if (isCurrent()) renderAll();
   }
   return succeeded;
 }

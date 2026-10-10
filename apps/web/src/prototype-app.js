@@ -42,7 +42,8 @@ import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-stat
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
 import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
-import { SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID, smartNotesDemoExistingFolder, smartNotesDemoImportedStatus, smartNotesDemoOpenedExistingGuideStatus, smartNotesDemoStartupNoteId, shouldRefreshHomeAfterSmartNotesDemoImport } from "./smart-notes-demo-startup-note.js";
+import { createSmartNotesDemoImportController } from "./smart-notes-demo-import-controller.js";
+import { loadWritingThemeIndexesForRuntime } from "./writing-theme-index-loader.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -3046,9 +3047,9 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
   }
 }
 
-async function syncNotesForDirectoryTree(rootDirectoryId) {
+async function syncNotesForDirectoryTree(rootDirectoryId, { isCurrent = () => true } = {}) {
   return syncDirectoryTreeNotes(rootDirectoryId, {
-    state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory
+    state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory, isCurrent
   });
 }
 
@@ -4480,22 +4481,10 @@ function writingThemeIndexScopeDirectoryId() {
   });
 }
 
-async function loadWritingThemeIndexes() {
-  const directoryId = writingThemeIndexScopeDirectoryId();
-  writingState.loadingThemeIndexes = true;
-  renderWritingPanel();
-  try {
-    writingState.themeIndexes = await listIndexCards({
-      directoryId,
-      includeDescendants: true,
-      indexType: "topic",
-      limit: 12
-    });
-    return writingState.themeIndexes;
-  } finally {
-    writingState.loadingThemeIndexes = false;
-    renderWritingPanel();
-  }
+async function loadWritingThemeIndexes({ isCurrent = () => true } = {}) {
+  return loadWritingThemeIndexesForRuntime({
+    writingState, directoryId: writingThemeIndexScopeDirectoryId(), listIndexCards, renderWritingPanel, isCurrent
+  });
 }
 
 function writingThemeDetailHintText(indexCard) {
@@ -5245,10 +5234,11 @@ function renderGraphPanel() {
   }, graphPanelRuntimeDeps());
 }
 
-async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelation = () => true } = {}) {
+async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelation = () => true, isCurrent = () => true } = {}) {
   const revealScope = graphScopeDirectoryId();
   const refreshed = await refreshDirectoryGraphForRuntime({
     graphState,
+    isCurrent,
     graphScopeDirectoryId,
     graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
     graphLoadedScopeCoversDirectory,
@@ -5261,7 +5251,7 @@ async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelat
     renderGraphPanel,
     renderAll
   });
-  if (refreshed && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
+  if (refreshed && isCurrent() && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
     revealSavedGraphRelation(graphState, savedRelation, { setRelationTypeFilter: setGraphRelationTypeFilter, renderGraphPanel });
     window.requestAnimationFrame(() => centerGraphViewportIfZoomed());
   }
@@ -5315,107 +5305,14 @@ const {
   createGraphThemeIndexFromNoteIds,
   createGraphThemeIndexFromButton
 } = graphRouteRuntime;
-const SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS = [1000, 1500, 2000, 2500, 3000];
+const importSmartNotesProductThinkingDemo = createSmartNotesDemoImportController(() => ({
+  state, editor, getVaultPath: currentVaultPath, fetchDirectories, mapDirectoryItem,
+  fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory, rootBoxIdFromFolder,
+  resetDesktopServiceStatusCache, seedSmartNotesProductThinkingDemo,
+  waitForRetry: delayMs => new Promise(resolve => window.setTimeout(resolve, delayMs)),
+  loadWritingThemeIndexes, refreshDirectoryGraph, activateModule, renderAll, openNoteById, setStatus
+}));
 
-function waitForSmartNotesDemoImportRetry(delayMs = 0) {
-  return new Promise((resolve) => {
-    const timerHost = typeof window !== "undefined" ? window : globalThis;
-    timerHost.setTimeout(resolve, Math.max(0, Number(delayMs || 0) || 0));
-  });
-}
-
-function shouldRetrySmartNotesDemoImport(error = null) {
-  const code = String(error?.code || "").trim();
-  return code === "api_unavailable" || code === "desktop_api_unavailable";
-}
-
-async function seedSmartNotesProductThinkingDemoWithStartupRetry(payload = {}) {
-  let lastError = null;
-  for (let attempt = 0; attempt <= SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      resetDesktopServiceStatusCache();
-      return await seedSmartNotesProductThinkingDemo(payload);
-    } catch (error) {
-      lastError = error;
-      const retryDelay = SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS[attempt];
-      if (!shouldRetrySmartNotesDemoImport(error) || retryDelay === undefined) throw error;
-      setStatus("本地服务正在启动，正在自动重试导入 Demo...", "busy");
-      await waitForSmartNotesDemoImportRetry(retryDelay);
-    }
-  }
-  throw lastError;
-}
-
-async function importSmartNotesProductThinkingDemo(options = {}) {
-  const { startup = false } = options;
-  const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
-  setStatus("正在导入 Smart Notes Demo...", "");
-  try {
-    const result = await seedSmartNotesProductThinkingDemoWithStartupRetry({ expectedVaultPath: currentVaultPath() || undefined });
-    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");
-    await syncDirectoriesFromApi();
-    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
-    state.selectedFolderId = directoryId;
-    await syncNotesForDirectoryTree(directoryId);
-    for (const contentDirectoryId of result.directoryIds || []) {
-      if (contentDirectoryId !== directoryId) await syncNotesForDirectory(contentDirectoryId);
-    }
-    if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
-    await syncNotesForDirectory("dir_fleeting_default");
-    await syncNotesForDirectory("dir_literature_default");
-    await loadWritingThemeIndexes();
-    const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
-    const shouldOpenGuide = Boolean(firstNoteId) && (startup || !shouldRefreshHome);
-    if (shouldOpenGuide) {
-      state.selectedFileId = firstNoteId;
-      openNoteById(firstNoteId, { preferTitleSelection: false });
-    }
-    await refreshDirectoryGraph();
-    if (shouldOpenGuide) activateModule("explorer");
-    else if (shouldRefreshHome) activateModule("today");
-    renderAll();
-    if (shouldOpenGuide) {
-      state.selectedFileId = firstNoteId;
-      openNoteById(firstNoteId, { preferTitleSelection: false });
-      editor?.resetEditorViewportToStart?.();
-    }
-    const refreshedHome = shouldRefreshHome && !shouldOpenGuide;
-    const importedStatus = smartNotesDemoImportedStatus(result, { openedGuide: shouldOpenGuide, refreshedHome });
-    if (refreshedHome) {
-      state.todayNoticeMessage = importedStatus;
-      renderAll();
-    }
-    setStatus(importedStatus, "ok");
-    return true;
-  } catch (error) {
-    if (startup) {
-      if (!state.notes.length) {
-        try {
-          await syncDirectoriesFromApi();
-          const demoFolder = smartNotesDemoExistingFolder(state.folders);
-          if (demoFolder?.id) {
-            state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
-            state.selectedFolderId = demoFolder.id;
-            await syncNotesForDirectory(demoFolder.id);
-            if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
-          }
-        } catch {}
-      }
-      const fallbackNoteId = smartNotesDemoStartupNoteId({ result: {}, notes: state.notes });
-      if (fallbackNoteId) {
-        state.selectedFileId = fallbackNoteId;
-        activateModule("explorer");
-        openNoteById(fallbackNoteId, { preferTitleSelection: false });
-        editor?.resetEditorViewportToStart?.();
-        setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
-        return true;
-      }
-    }
-    setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
-    throw error;
-  }
-}
 function openImportModule() {
   activateModule("imports");
   setStatus("先选择 Obsidian 文件夹，生成预览后再确认导入。", "ok");
@@ -6396,6 +6293,7 @@ function appStartupDeps() {
     renderAll,
     confirm: window.confirm.bind(window),
     importSmartNotesProductThinkingDemo,
+    getVaultPath: currentVaultPath,
     preferredLocalFallbackNote,
     fetchNote, mapNoteItem,
     openNoteById,

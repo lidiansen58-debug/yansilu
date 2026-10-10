@@ -354,6 +354,26 @@ test("startup route opener reads late auto-open suppression before creating an u
   assert.equal(created, 0);
 });
 
+for (const change of ["page", "vault", "selection"]) {
+  test(`cancelled startup demo does not resume an old route after changing ${change}`, async () => {
+    let finish, path = "original";
+    const state = { module: "today", noteMoveVaultScope: 1, notes: [] };
+    const work = openInitialStartupRouteForRuntime({
+      state, getVaultPath: () => path, windowRef: { location: { search: "?demo=smart-notes&note=old" } },
+      importSmartNotesProductThinkingDemo: () => new Promise(resolve => { finish = resolve; }),
+      preferredLocalFallbackNote: () => assert.fail("obsolete fallback must not run"),
+      openNoteById: () => assert.fail("obsolete explicit note must not open"),
+      activateModule: () => assert.fail("obsolete route must not navigate"),
+      renderAll: () => assert.fail("obsolete route must not render")
+    });
+    if (change === "page") state.module = "writing";
+    if (change === "vault") path = "new-vault";
+    if (change === "selection") state.selectedFolderId = "new-folder";
+    finish(false);
+    assert.deepEqual(await work, { route: "skipped" });
+  });
+}
+
 test("startup route opener defaults to organizer when no note is requested", async () => {
   const calls = [];
   const route = await openInitialStartupRouteForRuntime({

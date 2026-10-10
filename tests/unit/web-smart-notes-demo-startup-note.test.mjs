@@ -64,24 +64,11 @@ test("smart notes demo import refreshes home for first-run entry points", () => 
   assert.equal(shouldRefreshHomeAfterSmartNotesDemoImport({ source: "manual-toolbar" }), false);
 });
 
-test("smart notes demo import reopens the guide after the final render", () => {
+test("smart notes demo import is assembled in the shell with current vault and editor dependencies", () => {
   const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
-
-  assert.match(source, /const shouldOpenGuide = Boolean\(firstNoteId\) && \(startup \|\| !shouldRefreshHome\);/);
-  assert.match(source, /renderAll\(\);\s*if \(shouldOpenGuide\) \{\s*state\.selectedFileId = firstNoteId;\s*openNoteById\(firstNoteId, \{ preferTitleSelection: false \}\);/);
-});
-
-test("smart notes demo import syncs the directory tree and refreshes the home module", () => {
-  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
-
-  assert.match(source, /const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport\(options\);/);
-  assert.match(source, /seedSmartNotesProductThinkingDemoWithStartupRetry\(\{ expectedVaultPath: currentVaultPath\(\) \|\| undefined \}\)/);
-  assert.match(source, /await syncNotesForDirectoryTree\(directoryId\);/);
-  assert.match(source, /if \(shouldRefreshHome\) activateModule\("today"\);/);
-  assert.match(source, /const refreshedHome = shouldRefreshHome && !shouldOpenGuide;/);
-  assert.match(source, /const importedStatus = smartNotesDemoImportedStatus\(result, \{ openedGuide: shouldOpenGuide, refreshedHome \}\);/);
-  assert.match(source, /if \(refreshedHome\) \{\s*state\.todayNoticeMessage = importedStatus;\s*renderAll\(\);\s*\}/);
-  assert.match(source, /setStatus\(importedStatus, "ok"\);/);
+  assert.match(source, /createSmartNotesDemoImportController/);
+  assert.match(source, /state, editor, getVaultPath: currentVaultPath/);
+  assert.doesNotMatch(source, /async function importSmartNotesProductThinkingDemo/);
 });
 
 test("smart notes demo import notice clears after leaving the home module", () => {
@@ -90,27 +77,7 @@ test("smart notes demo import notice clears after leaving the home module", () =
   assert.match(source, /if \(state\.module === "today" && normalizedModule !== "today"\) \{\s*state\.todayNoticeMessage = "";\s*\}/);
 });
 
-test("smart notes demo import keeps progress visible while the desktop API starts", () => {
-  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
+test("smart notes demo import retains the API timeout for large imports", () => {
   const apiSource = fs.readFileSync("apps/web/src/prototype-api.js", "utf8");
-
-  assert.match(source, /const SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS = \[/);
-  assert.match(source, /function shouldRetrySmartNotesDemoImport\(error = null\)/);
-  assert.match(source, /async function seedSmartNotesProductThinkingDemoWithStartupRetry\(payload = \{\}\)/);
-  assert.match(source, /return await seedSmartNotesProductThinkingDemo\(payload\);/);
-  assert.match(source, /if \(!shouldRetrySmartNotesDemoImport\(error\) \|\| retryDelay === undefined\) throw error;/);
-  assert.match(source, /setStatus\("本地服务正在启动，正在自动重试导入 Demo\.\.\.", "busy"\);/);
-  assert.match(source, /await waitForSmartNotesDemoImportRetry\(retryDelay\);/);
   assert.match(apiSource, /timeoutMs: 60000/);
-});
-
-test("smart notes demo startup falls back to an existing guide when seed is locked", () => {
-  const source = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
-
-  assert.match(source, /await syncDirectoriesFromApi\(\);/);
-  assert.match(source, /const demoFolder = smartNotesDemoExistingFolder\(state\.folders\);/);
-  assert.match(source, /await syncNotesForDirectory\(demoFolder\.id\);/);
-  assert.match(source, /const fallbackNoteId = smartNotesDemoStartupNoteId\(\{ result: \{\}, notes: state\.notes \}\);/);
-  assert.match(source, /openNoteById\(fallbackNoteId, \{ preferTitleSelection: false \}\);/);
-  assert.match(source, /setStatus\(smartNotesDemoOpenedExistingGuideStatus\(\), "ok"\);/);
 });

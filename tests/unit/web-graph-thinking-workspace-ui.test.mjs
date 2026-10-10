@@ -2261,8 +2261,9 @@ test("note box and graph tree sync all notes under the selected root", async () 
   const settingsEventSource = readSettingsEventBindings();
   const calls = [];
 
-  assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId\) \{/);
+  assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId, \{ isCurrent = \(\) => true \} = \{\}\) \{/);
   assert.match(source, /return syncDirectoryTreeNotes\(rootDirectoryId, \{[\s\S]*state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory/);
+  assert.match(source, /mapNoteItem, upsertNotesForDirectory, isCurrent/);
   assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
   assert.match(settingsEventSource, /createSettingsVaultSwitcher/);
   assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-vault-switch.js"), "utf8"), /await fetchDirectories\(true, \{ signal \}\);[\s\S]*Promise\.all\(rootIds\.map\(async id => \{[\s\S]*await fetchDirectoryNotes\(id, \{ signal, includeDescendants: true \}\);/);

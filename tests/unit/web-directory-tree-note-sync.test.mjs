@@ -50,3 +50,13 @@ test('unknown roots, active switches and failures do not partially apply directo
   await assert.rejects(syncDirectoryTreeNotes('root', { ...deps, fetchDirectoryNotes: fail }), /读取失败/);
   assert.deepEqual(applied, []);
 });
+
+test('subtree hydration honors the caller context after a late response', async () => {
+  const { deps, applied } = context();
+  let current = true, finish;
+  const work = syncDirectoryTreeNotes('root', { ...deps, isCurrent: () => current,
+    fetchDirectoryNotes: () => new Promise(resolve => { finish = resolve; }) });
+  current = false; finish([{ id: 'old', directoryId: 'root' }]);
+  assert.equal(await work, false);
+  assert.deepEqual(applied, []);
+});
