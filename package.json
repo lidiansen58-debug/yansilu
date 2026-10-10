@@ -73,7 +73,13 @@
   "dependencies": {
     "@openai/agents": "^0.11.3",
     "@toast-ui/editor": "^3.2.2",
+    "dompurify": "^3.4.16",
     "qrcode": "^1.5.4",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "@toast-ui/editor": {
+      "dompurify": "$dompurify"
+    }
   }
 }

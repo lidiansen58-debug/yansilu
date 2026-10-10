@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { syncRichEditorValue } from "./editor-rich-render-sync.js";
 import { createNoteSaveShortcutHandler } from "./editor-save-shortcuts.js";
 import { aiErrorMessage } from "./ai-error-message.js";
 import { beginNoteAnalysisRequest, prepareNoteAnalysisRequest, isCurrentNoteAnalysisRequest, cancelRelationAnalysisRequest, discardNoteAnalysisRequest } from "./note-analysis-request.js";
@@ -814,16 +815,7 @@ export class EditorPane {
         this.suppressEditorChange = false;
       }
     }
-    if (this.richEditor && this.richEditor.getValue() !== text) {
-      this.suppressEditorChange = true;
-      try {
-        this.suppressRichEditorChange = true;
-        this.richEditor.setValue(text);
-      } finally {
-        this.suppressRichEditorChange = false;
-        this.suppressEditorChange = false;
-      }
-    }
+    syncRichEditorValue(this, text);
     this.scheduleRichAssetRefresh();
   }
 
@@ -1535,7 +1527,7 @@ export class EditorPane {
       const { createWysiwygMarkdownEditor } = await import("/vendor/toastui-editor.bundle.js");
       this.richEditor = createWysiwygMarkdownEditor({
         parent: this.els.wysiwygHost,
-        doc: this.els.body.value || "",
+        doc: "",
         initialMode: "wysiwyg",
         onChange: (value) => {
           if (this.suppressRichEditorChange || this.suppressEditorChange) return;
@@ -1651,6 +1643,7 @@ export class EditorPane {
         if (files.length) void this.insertAssetFiles(files, { sourceLabel: "拖入" });
       });
       this.setEditorValue(this.els.body.value || "");
+      this.renderPreviewVisibility();
       this.scheduleRichAssetRefresh();
     } catch (error) {
       this.onStatus(`所见即所得编辑器加载失败，暂时保留源代码模式：${String(error?.message || error)}`, "warn");
@@ -1870,16 +1863,7 @@ export class EditorPane {
     const tab = this.activeTab();
     const text = String(tab?.body || this.getEditorValue() || "");
     this.setUnderlyingEditorValue(text);
-    if (this.richEditor?.editor && typeof this.richEditor.editor.setMarkdown === "function") {
-      this.suppressEditorChange = true;
-      try {
-        this.suppressRichEditorChange = true;
-        this.richEditor.editor.setMarkdown(text, false);
-      } finally {
-        this.suppressRichEditorChange = false;
-        this.suppressEditorChange = false;
-      }
-    }
+    if (!this.isSourceMode()) syncRichEditorValue(this, text, { force: true });
     this.resetEditorViewportToStart();
   }
 

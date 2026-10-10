@@ -230,6 +230,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "settings-event-bindings.js": 434,
     "settings-ai-event-bindings.js": 507,
     "settings-ai-key-events.js": 45,
+    "editor-rich-render-sync.js": 45,
     "settings-feedback-event-bindings.js": 60,
     "ai-inbox-host-deps.js": 45,
     "ai-inbox-action-routes.js": 190,
