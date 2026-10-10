@@ -25,11 +25,12 @@ test("current AI settings test before saving, reload config and cancel a pending
     "-out", cert, "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost"], { stdio: "ignore" });
   let calls = 0, insufficientBalance = true, hold = false, heldResponse = null;
   let invalidReply = true;
+  let expectedKey = "synthetic-ui-key";
   const provider = https.createServer({ key: await fs.readFile(key), cert: await fs.readFile(cert) }, async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     calls++;
-    assert.equal(req.headers.authorization, "Bearer synthetic-ui-key");
+    assert.equal(req.headers.authorization, `Bearer ${expectedKey}`);
     assert.equal(JSON.parse(raw).model, "deepseek-flash");
     assert.equal(JSON.parse(raw).max_tokens, 256);
     assert.equal(req.url, "/chat/completions");
@@ -49,6 +50,9 @@ test("current AI settings test before saving, reload config and cancel a pending
   const stack = await startPrototypeStack(t, pw, { apiEnv: { NODE_EXTRA_CA_CERTS: cert } });
   if (!stack) return;
   const { page, apiBase, webBase, vaultPath } = stack;
+  await page.evaluate(() => localStorage.setItem("yansilu:ai:remote-api-key", "legacy-unsaved-key"));
+  await page.reload({ waitUntil: "networkidle" });
+  assert.equal(await page.evaluate(() => localStorage.getItem("yansilu:ai:remote-api-key")), null, "discard legacy browser credential copies on startup");
   const base = `https://127.0.0.1:${provider.address().port}`;
   const openAi = async () => {
     await page.locator('.rail-btn[data-module="settings"]').click();
@@ -61,6 +65,7 @@ test("current AI settings test before saving, reload config and cancel a pending
   await page.locator('#settingsAiSecretRef').fill("synthetic-ui-key");
   await page.locator('#settingsAiRemoteRuntimeModel').fill("deepseek-flash");
   await page.locator('#settingsAiRemoteConsent').check();
+  assert.equal(await page.evaluate(() => localStorage.getItem("yansilu:ai:remote-api-key")), null, "draft credentials remain in memory only");
   assert.equal(await page.locator('#settingsAiSaveProviderConfig').isDisabled(), true);
   await page.locator('#settingsAiCheckProviderHealth').click();
   await page.locator('#settingsAiTestDialog').waitFor({ state: "visible" });
@@ -89,7 +94,15 @@ test("current AI settings test before saving, reload config and cancel a pending
   if (!(await page.locator('#settingsAiRemoteSection').evaluate(node => node.open))) await page.locator('#settingsAiRemoteSection > summary').click();
   assert.equal(normalizeOpenAiCompatibleBaseUrl(await page.locator('#settingsAiProviderEndpointUrl').inputValue()), `${base}/chat/completions`);
   assert.equal(await page.locator('#settingsAiRemoteRuntimeModel').inputValue(), "deepseek-flash");
+  await page.setViewportSize({ width: 320, height: 844 });
+  assert.equal(await page.locator('#settingsAiSecretRef').inputValue(), "", "saved credentials are not restored into the browser input");
+  assert.match(await page.locator('#settingsAiSecretRef').getAttribute("placeholder"), /已保存/);
+  assert.equal(await page.evaluate(() => localStorage.getItem("yansilu:ai:remote-api-key")), null);
+  await page.locator('#settingsAiSecretRef').click();
+  await page.locator('#settingsAiRemoteRuntimeModel').click();
+  assert.equal(await page.locator('#settingsAiRemoteRuntimeModel').inputValue(), "deepseek-flash", "focusing the saved key preserves the model");
   await page.locator('#settingsAiRemoteConsent').check();
+  assert.equal(await page.locator('#settingsAiRemoteRuntimeModel').inputValue(), "deepseek-flash", "consent preserves the saved model");
   hold = true;
   await page.locator('#settingsAiCheckProviderHealth').click();
   await page.locator('#settingsAiTestPrompt').fill("Synthetic cancelled test");
@@ -100,4 +113,21 @@ test("current AI settings test before saving, reload config and cancel a pending
   assert.match(await page.locator('#settingsAiTestChatOutput').innerText(), /取消/);
   assert.equal(await page.locator('#btnAiTestChatRun').isEnabled(), true);
   assert.equal(JSON.parse(await fs.readFile(path.join(vaultPath, '.yansilu/ai-secrets.json'), 'utf8')).secrets['local:settings-remote-api-key'], "synthetic-ui-key");
+  await page.locator('#settingsAiTestDialog [data-settings-ai-dialog-close]').click();
+  hold = false;
+  expectedKey = "synthetic-replacement-key";
+  await page.locator('#settingsAiSecretRef').fill(expectedKey);
+  await page.locator('#settingsAiRemoteConsent').check();
+  assert.equal(await page.locator('#settingsAiSaveProviderConfig').isDisabled(), true);
+  await page.locator('#settingsAiCheckProviderHealth').click();
+  await page.locator('#btnAiTestChatRun').click();
+  await waitFor(async () => assert.match(await page.locator('#settingsAiTestChatOutput').innerText(), /Synthetic UI connection ready/));
+  await page.locator('#settingsAiTestDialog [data-settings-ai-dialog-close]').click();
+  await page.locator('#settingsAiSaveProviderConfig').click();
+  await waitFor(async () => assert.equal(JSON.parse(await fs.readFile(path.join(vaultPath, '.yansilu/ai-secrets.json'), 'utf8')).secrets['local:settings-remote-api-key'], expectedKey));
+  assert.equal(await page.evaluate(() => localStorage.getItem("yansilu:ai:remote-api-key")), null);
+  await page.locator('#settingsAiClearRemoteKey').click();
+  assert.equal(JSON.parse(await fs.readFile(path.join(vaultPath, '.yansilu/ai-secrets.json'), 'utf8')).secrets['local:settings-remote-api-key'], expectedKey, "removal stays a draft until saved");
+  await page.locator('#settingsAiSaveProviderConfig').click();
+  await waitFor(async () => assert.equal(JSON.parse(await fs.readFile(path.join(vaultPath, '.yansilu/ai-secrets.json'), 'utf8')).secrets['local:settings-remote-api-key'], undefined));
 });

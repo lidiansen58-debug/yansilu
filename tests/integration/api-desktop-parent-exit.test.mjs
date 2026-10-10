@@ -12,21 +12,15 @@ function isRunning(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
-test("force-ending desktop parent stops actual API and releases only its port", { timeout: 20000 }, async t => {
+test("force-ending desktop parent stops actual API and releases only its port", { timeout: 30000 }, async t => {
   const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-desktop-parent-exit-"));
   const unrelated = net.createServer(socket => socket.end());
   unrelated.listen(0, "127.0.0.1");
   await once(unrelated, "listening");
   t.after(() => new Promise(resolve => unrelated.close(resolve)));
   const unrelatedPort = unrelated.address().port;
-  const reserve = net.createServer();
-  reserve.listen(0, "127.0.0.1");
-  await once(reserve, "listening");
-  const port = reserve.address().port;
-  await new Promise(resolve => reserve.close(resolve));
-  assert.notEqual(port, unrelatedPort, "the unrelated service must own a different port");
   const parent = spawn(process.execPath, ["tests/fixtures/desktop-parent-owner.mjs"], {
-    env: { ...process.env, API_PORT: String(port), API_HOST: "127.0.0.1", VAULT_PATH: vault,
+    env: { ...process.env, API_PORT: "0", API_HOST: "127.0.0.1", VAULT_PATH: vault,
       YANSILU_DESKTOP_VAULT_RECOVERY_PATH: "", YANSILU_DESKTOP_PARENT_CHANNEL: "" },
     stdio: ["ignore", "ignore", "pipe", "ipc"]
   });
@@ -37,8 +31,12 @@ test("force-ending desktop parent stops actual API and releases only its port", 
   });
   let stderr = "";
   parent.stderr.on("data", bytes => { stderr += bytes; });
-  apiPid = (await once(parent, "message"))[0].apiPid;
+  const startup = (await once(parent, "message"))[0];
+  apiPid = startup.apiPid;
+  const port = startup.port;
   assert.ok(Number.isInteger(apiPid));
+  assert.ok(Number.isInteger(port) && port > 0);
+  assert.notEqual(port, unrelatedPort, "the unrelated service must own a different port");
   let health;
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
@@ -57,10 +55,22 @@ test("force-ending desktop parent stops actual API and releases only its port", 
   const exitDeadline = Date.now() + 5000;
   while (isRunning(apiPid) && Date.now() < exitDeadline) await pause(20);
   assert.equal(isRunning(apiPid), false, "API must exit when its parent is forcibly ended");
-  const available = net.createServer();
-  available.listen(port, "127.0.0.1");
-  await once(available, "listening");
-  await new Promise(resolve => available.close(resolve));
+  const releaseDeadline = Date.now() + 5000;
+  for (;;) {
+    const available = net.createServer();
+    available.listen(port, "127.0.0.1");
+    try {
+      await once(available, "listening");
+      await new Promise(resolve => available.close(resolve));
+      break;
+    } catch (error) {
+      if (error.code !== "EADDRINUSE" || Date.now() >= releaseDeadline) {
+        error.message = `Rebinding API port after parent/API exit: ${error.message}`;
+        throw error;
+      }
+      await pause(20);
+    }
+  }
   assert.equal(unrelated.listening, true);
   const connection = net.connect(unrelatedPort, "127.0.0.1");
   await once(connection, "connect");

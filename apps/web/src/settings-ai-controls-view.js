@@ -203,6 +203,12 @@ export function renderAiProviderConfigControlsForRuntime(deps = {}) {
   }
   syncInput($("settingsAiProviderEndpointUrl"), ai.providerEndpointUrl);
   syncInput($("settingsAiSecretRef"), ai.remoteApiKey);
+  const savedKey = Boolean(ai.secretRef && !ai.providerDraftTouched?.secretRef);
+  const keyInput = $("settingsAiSecretRef");
+  if (keyInput) keyInput.placeholder = savedKey ? "已保存 API Key；填写新 Key 可替换" : "粘贴服务商提供的 API Key";
+  $("settingsAiClearRemoteKeyRow")?.classList.toggle("hidden", !savedKey);
+  const clearKey = $("settingsAiClearRemoteKey");
+  if (clearKey) clearKey.disabled = !remoteConfigurable || ai.providerConfigSaving || ai.providerHealthChecking;
   syncInput($("settingsAiProviderHealthEndpointUrl"), ai.providerHealthEndpointUrl);
   renderProviderBadge({ $, ai, providerId, remoteConfigurable, activeAiProviderConfig, remoteRuntimeModelFromMap });
   renderProviderButtons({ $, ai, providerId, defaultProviderEndpointUrl, defaultProviderHealthEndpointUrl });

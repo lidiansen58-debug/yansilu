@@ -6870,7 +6870,7 @@ const server = http.createServer(async (req, res) => {
 bindDesktopParentLifecycle({ server });
 
 server.listen(PORT, HOST, async () => {
-  console.log(`API running on http://${HOST}:${PORT}`);
+  console.log(`API running on http://${HOST}:${server.address().port}`);
   console.log(`Vault path: ${VAULT_PATH}`);
   try {
     await initVault(VAULT_PATH);

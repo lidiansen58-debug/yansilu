@@ -82,3 +82,35 @@ test("unchanged refresh applies preferences then configs with the refreshed base
   assert.equal(settingsState.ai.localModel, "new");
   assert.deepEqual(calls, ["preferences", "persist", "configs", "persist"]);
 });
+
+test("remote model never becomes temporarily blank while provider readback is pending", async () => {
+  const settingsState = { ai: { remoteRuntimeModel: "saved-model", secretRef: "saved-ref" } };
+  let resolveConfigs;
+  const refreshing = refreshAiSettingsReadback({
+    aiRefresh: createAiSettingsRefreshGuard(() => settingsState.ai), settingsState,
+    fetchPreferences: async () => ({ mode: "remote" }),
+    fetchProviderConfigs: () => new Promise(resolve => { resolveConfigs = resolve; }),
+    applyPreferences: () => { settingsState.ai.remoteRuntimeModel = ""; },
+    applyProviderConfig: () => { settingsState.ai.remoteRuntimeModel = "saved-model"; }
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settingsState.ai.remoteRuntimeModel, "saved-model");
+  resolveConfigs([{ id: "saved-provider" }]);
+  await refreshing;
+  assert.equal(settingsState.ai.remoteRuntimeModel, "saved-model");
+  assert.equal(settingsState.ai.secretRef, "saved-ref");
+});
+
+test("failed provider readback cannot clear a working remote configuration through preferences", async () => {
+  const settingsState = { ai: { remoteRuntimeModel: "saved-model", providerEndpointUrl: "https://saved.test/v1" } };
+  let applied = false;
+  await refreshAiSettingsReadback({
+    aiRefresh: createAiSettingsRefreshGuard(() => settingsState.ai), settingsState,
+    fetchPreferences: async () => ({ mode: "remote" }),
+    fetchProviderConfigs: async () => { throw new Error("offline"); },
+    applyPreferences: () => { applied = true; settingsState.ai.remoteRuntimeModel = ""; },
+    applyProviderConfig: () => {}
+  });
+  assert.equal(applied, false);
+  assert.equal(settingsState.ai.remoteRuntimeModel, "saved-model");
+});

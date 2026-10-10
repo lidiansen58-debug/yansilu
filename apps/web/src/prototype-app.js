@@ -1205,7 +1205,7 @@ function loadAiSettingsFromStorage() {
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
-  const storedRemoteApiKey = String(readStoredText(AI_REMOTE_API_KEY_KEY, "") || "").trim();
+  writeStoredText(AI_REMOTE_API_KEY_KEY, "");
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
@@ -1224,8 +1224,8 @@ function loadAiSettingsFromStorage() {
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
-  settingsState.ai.remoteApiKey = storedRemoteApiKey;
-  settingsState.ai.secretRef = storedRemoteApiKey ? remoteApiKeySecretRef() : storedSecretRef;
+  settingsState.ai.remoteApiKey = "";
+  settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
@@ -1247,7 +1247,7 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
-  writeStoredText(AI_REMOTE_API_KEY_KEY, settingsState.ai.remoteApiKey);
+  writeStoredText(AI_REMOTE_API_KEY_KEY, "");
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);

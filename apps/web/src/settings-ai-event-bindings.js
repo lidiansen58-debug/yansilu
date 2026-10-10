@@ -1,7 +1,7 @@
 import {
-  displayOpenAiCompatibleBaseUrl,
-  remoteApiKeySecretRef
+  displayOpenAiCompatibleBaseUrl
 } from "./ai-settings-remote-config-model.js";
+import { installSettingsAiKeyEvents } from "./settings-ai-key-events.js";
 import { aiTestReply } from "./ai-test-result.js";
 import { aiErrorMessage } from "./ai-error-message.js";
 import { setRemoteAiConfigurationConsent } from "./remote-ai-consent.js";
@@ -142,29 +142,9 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   setStatus(next ? "指定模型已保存" : "指定模型已清空（恢复自动选择）", "ok");
 });
 
-$("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
-  const next = String(event?.target?.value || "").trim();
-  const previous = String(settingsState.ai.remoteApiKey || "").trim();
-  markAiProviderDraftTouched("secretRef");
-  settingsState.ai.remoteApiKey = next;
-  settingsState.ai.secretRef = next ? remoteApiKeySecretRef() : "";
-  if (previous !== next) clearAiTestResultForSettingsChange();
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
-  setStatus(next ? "API Key 已暂存；测试连接后再保存远程设置。" : "API Key 已清空。", next ? "warn" : "ok");
-});
-
-$("settingsAiSecretRef")?.addEventListener("input", (event) => {
-  const previous = String(settingsState.ai.remoteApiKey || "").trim();
-  const next = String(event?.target?.value || "").trim();
-  markAiProviderDraftTouched("secretRef");
-  settingsState.ai.remoteApiKey = next;
-  settingsState.ai.secretRef = next ? remoteApiKeySecretRef() : "";
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  if (previous !== next) clearAiTestResultForSettingsChange();
-  persistAiSettingsToStorage();
-  renderSettingsPanel();
+installSettingsAiKeyEvents({
+  $, settingsState, markAiProviderDraftTouched, clearAiTestResultForSettingsChange,
+  persistAiSettingsToStorage, renderSettingsPanel, setStatus
 });
 
 $("settingsAiRemoteRuntimeModel")?.addEventListener("input", (event) => {
