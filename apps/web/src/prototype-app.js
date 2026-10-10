@@ -44,6 +44,7 @@ import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
 import { createSmartNotesDemoImportController } from "./smart-notes-demo-import-controller.js";
 import { loadWritingThemeIndexesForRuntime } from "./writing-theme-index-loader.js";
+import { createWritingRelationCountLoader } from "./writing-relation-count-loader.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -4182,32 +4183,18 @@ function currentWritingBasketReadiness() {
 
 function countExplicitRelationsForWriting(relations = null) { return countExplicitSemanticRelations(relations); }
 
-async function loadWritingRelationCounts(noteIds = []) {
-  const ids = uniqueStrings(noteIds);
-  if (!ids.length) return { counts: {}, errors: {} };
-  const results = await Promise.all(
-    ids.map(async (noteId) => {
-      try {
-        const relations = await fetchNoteRelations(noteId);
-        return [noteId, { count: countExplicitRelationsForWriting(relations), error: false }];
-      } catch {
-        return [noteId, { count: 0, error: true }];
-      }
-    })
-  );
-  return results.reduce(
-    (acc, [noteId, value]) => {
-      acc.counts[noteId] = value.count;
-      acc.errors[noteId] = value.error;
-      return acc;
-    },
-    { counts: {}, errors: {} }
-  );
-}
+const loadWritingRelationCounts = createWritingRelationCountLoader({
+  fetchNoteRelations,
+  countRelations: countExplicitRelationsForWriting,
+  getScope: () => [currentVaultPath(), state.noteMoveVaultScope],
+  canRead: () => !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain && !state.unresolvedNoteMove
+});
 
 async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.relationCountRequestSerial;
+  const vaultPath = currentVaultPath(), vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => requestSerial === writingState.relationCountRequestSerial && vaultPath === currentVaultPath() && vaultScope === state.noteMoveVaultScope;
   writingState.loadingRelationCounts = ids.length > 0;
   if (!ids.length) {
     writingState.relationCounts = {};
@@ -4218,14 +4205,17 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
   if (render && state.module === "writing") renderWritingPanel();
   try {
     const payload = await loadWritingRelationCounts(ids);
-    if (requestSerial !== writingState.relationCountRequestSerial) {
+    if (!isCurrent()) {
       return { counts: writingState.relationCounts, errors: writingState.relationCountErrors };
     }
     writingState.relationCounts = payload.counts;
     writingState.relationCountErrors = payload.errors;
     return payload;
+  } catch (error) {
+    if (error?.code !== "WRITING_CONTEXT_CHANGED") throw error;
+    return { counts: writingState.relationCounts, errors: writingState.relationCountErrors };
   } finally {
-    if (requestSerial === writingState.relationCountRequestSerial) {
+    if (isCurrent()) {
       writingState.loadingRelationCounts = false;
       if (render && state.module === "writing") renderWritingPanel();
     }
@@ -4235,6 +4225,8 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
 async function refreshWritingThemeRelationCounts(noteIds = [], { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.themeRelationCountRequestSerial;
+  const vaultPath = currentVaultPath(), vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => requestSerial === writingState.themeRelationCountRequestSerial && vaultPath === currentVaultPath() && vaultScope === state.noteMoveVaultScope && sameUniqueStringSet(ids, writingState.themeRelationNoteIds);
   writingState.themeRelationNoteIds = ids;
   writingState.loadingThemeRelationCounts = ids.length > 0;
   if (!ids.length) {
@@ -4246,14 +4238,17 @@ async function refreshWritingThemeRelationCounts(noteIds = [], { render = true }
   if (render && state.module === "writing") renderWritingPanel();
   try {
     const payload = await loadWritingRelationCounts(ids);
-    if (requestSerial !== writingState.themeRelationCountRequestSerial || !sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+    if (!isCurrent()) {
       return { counts: writingState.themeRelationCounts, errors: writingState.themeRelationCountErrors };
     }
     writingState.themeRelationCounts = payload.counts;
     writingState.themeRelationCountErrors = payload.errors;
     return payload;
+  } catch (error) {
+    if (error?.code !== "WRITING_CONTEXT_CHANGED") throw error;
+    return { counts: writingState.themeRelationCounts, errors: writingState.themeRelationCountErrors };
   } finally {
-    if (requestSerial === writingState.themeRelationCountRequestSerial && sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+    if (isCurrent()) {
       writingState.loadingThemeRelationCounts = false;
       if (render && state.module === "writing") renderWritingPanel();
     }

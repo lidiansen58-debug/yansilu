@@ -30,6 +30,15 @@ for (const width of [1366, 390, 320]) {
     await fs.mkdir(output, { recursive: true });
     const errors = [];
     const writingResponses = [];
+    const requestStarts = new WeakMap(), requestTimings = [];
+    page.on('request', request => requestStarts.set(request, Date.now()));
+    page.on('response', response => {
+      if (!response.url().includes('/api/v1/')) return;
+      const request = response.request();
+      requestTimings.push({ path: new URL(response.url()).pathname, method: request.method(),
+        status: response.status(), startedAt: requestStarts.get(request), elapsedMs: Date.now() - requestStarts.get(request) });
+    });
+    t.after(() => fs.writeFile(path.join(output, 'request-timings.json'), JSON.stringify(requestTimings, null, 2), 'utf8'));
     page.on("pageerror", error => errors.push(error.message));
     page.on("response", async response => {
       if (!/\/api\/v1\/(writing-projects|draft-scaffolds)/.test(response.url())) return;

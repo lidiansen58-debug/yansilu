@@ -271,6 +271,7 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "note-runtime-controller.js": 170,
     "note-placeholder-runtime.js": 170,
     "note-loading-runtime.js": 80,
+    "writing-relation-count-loader.js": 60,
     "note-template-runtime-helpers.js": 150,
     "note-persistence-policy.js": 90,
     "scheduled-tasks-runtime-controller.js": 340,
