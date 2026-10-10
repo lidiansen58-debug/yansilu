@@ -595,7 +595,7 @@ function renderDetail(state = {}) {
   const displayStatus = display.status || String(item.status || "").trim();
   const displayItem = { ...item, status: displayStatus };
   const displayGroupItems = groupItems.map((entry) => String(entry.id || "") === String(item.id || "") ? displayItem : entry);
-  const canHandleAsGroup = displayGroupItems.some((entry) => String(entry.status || "").trim() === "suggested");
+  const canHandleAsGroup = displayStatus === "suggested";
   return `
     <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">

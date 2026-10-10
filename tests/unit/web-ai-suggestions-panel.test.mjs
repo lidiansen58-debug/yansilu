@@ -231,6 +231,19 @@ test("AI suggestions panel only lets the selected grouped suggestion be edited",
   assert.doesNotMatch(summarySection, /我已改好/);
 });
 
+for (const status of ["adopted_as_draft", "edited"]) test(`a pending sibling cannot hide ${status} review controls`, () => {
+  const selected = { ...suggestion, status };
+  const pending = { ...suggestion, id: "pending_summary", content: { three_line_summary: ["Summary candidate"] },
+    target: { ...suggestion.target, field: "three_line_summary" } };
+  const pane = detailPane(renderAiSuggestionsPanel({ items: [pending, selected], total: 2,
+    selectedSuggestionId: selected.id, detail: selected }));
+  assert.match(pane, /id="aiSuggestionContentEditor"/);
+  assert.match(pane, new RegExp(`data-ai-suggestion-status="${status === "edited" ? "confirmed" : "edited"}"`));
+  assert.match(pane, /data-ai-suggestion-id="pending_summary"[\s\S]*处理这项/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-group-status=/);
+  assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-pending_summary"/);
+});
+
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "adopted_as_draft" }],
