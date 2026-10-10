@@ -1,6 +1,7 @@
 name: desktop-release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -22,7 +23,14 @@ jobs:
           cache: npm
 
       - name: Validate release tag
-        run: node ./scripts/release-validate-tag.mjs "${GITHUB_REF_NAME}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$(node -p "require('./package.json').version")"
+          fi
+          node ./scripts/release-validate-tag.mjs "$tag"
 
   build:
     needs: validate
@@ -207,6 +215,9 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$(node -p "require('./package.json').version")"
+          fi
           node ./scripts/collect-release-assets.mjs --dist dist --out release-assets
           npm run release:update-manifest -- \
             --bundle-manifest release-assets/bundle-manifest.json \
@@ -218,7 +229,16 @@ jobs:
           test -f release-assets/update-manifest.json
           test -f release-assets/latest.json
 
+      - name: Upload signed release rehearsal assets
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: yansilu-signed-release-rehearsal-assets
+          path: release-assets/**
+          if-no-files-found: error
+
       - name: Create or update draft GitHub release
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail

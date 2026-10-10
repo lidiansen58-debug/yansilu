@@ -14,15 +14,17 @@ function isRunning(pid) {
 
 test("force-ending desktop parent stops actual API and releases only its port", { timeout: 20000 }, async t => {
   const vault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-desktop-parent-exit-"));
+  const unrelated = net.createServer(socket => socket.end());
+  unrelated.listen(0, "127.0.0.1");
+  await once(unrelated, "listening");
+  t.after(() => new Promise(resolve => unrelated.close(resolve)));
+  const unrelatedPort = unrelated.address().port;
   const reserve = net.createServer();
   reserve.listen(0, "127.0.0.1");
   await once(reserve, "listening");
   const port = reserve.address().port;
   await new Promise(resolve => reserve.close(resolve));
-  const unrelated = net.createServer(socket => socket.end());
-  unrelated.listen(0, "127.0.0.1");
-  await once(unrelated, "listening");
-  const unrelatedPort = unrelated.address().port;
+  assert.notEqual(port, unrelatedPort, "the unrelated service must own a different port");
   const parent = spawn(process.execPath, ["tests/fixtures/desktop-parent-owner.mjs"], {
     env: { ...process.env, API_PORT: String(port), API_HOST: "127.0.0.1", VAULT_PATH: vault,
       YANSILU_DESKTOP_VAULT_RECOVERY_PATH: "", YANSILU_DESKTOP_PARENT_CHANNEL: "" },
@@ -32,7 +34,6 @@ test("force-ending desktop parent stops actual API and releases only its port", 
   t.after(async () => {
     if (parent.exitCode === null && parent.signalCode === null) { const stopped = once(parent, "exit"); parent.kill(); await stopped; }
     if (apiPid && isRunning(apiPid)) process.kill(apiPid);
-    await new Promise(resolve => unrelated.close(resolve));
   });
   let stderr = "";
   parent.stderr.on("data", bytes => { stderr += bytes; });

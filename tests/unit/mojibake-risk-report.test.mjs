@@ -1,10 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import {
   classifyMojibakeFileText,
-  classifyMojibakeText
+  classifyMojibakeText,
+  collectMojibakeRiskReport
 } from "../../scripts/mojibake-risk-report.mjs";
+
+test("encoding audit counts source corruption once even after preparing desktop runtime", async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-encoding-audit-"));
+  t.after(async () => {
+    assert.equal(path.dirname(root), os.tmpdir());
+    await fs.rm(root, { recursive: true });
+  });
+  const generated = path.join(root, "apps/desktop/src-tauri/desktop-api-runtime");
+  await fs.mkdir(generated, { recursive: true });
+  await fs.mkdir(path.join(root, "apps/api/src"), { recursive: true });
+  const corrupted = `title = '${String.fromCharCode(0xfffd)}'`;
+  await fs.writeFile(path.join(root, "apps/api/src/source.mjs"), corrupted);
+  await fs.writeFile(path.join(generated, "source.mjs"), corrupted);
+  const report = await collectMojibakeRiskReport({ rootDir: root, roots: ["apps"] });
+  assert.equal(report.totals.replacementCount, 1);
+  assert.deepEqual(report.items.map(item => item.path), ["apps/api/src/source.mjs"]);
+});
 
 test("mojibake risk report detects replacement character corruption", () => {
   const result = classifyMojibakeText(`标题${String.fromCharCode(0xfffd)}正文`);

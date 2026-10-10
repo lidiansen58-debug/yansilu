@@ -34,6 +34,13 @@
 
 ## 证据位置与边界
 
+- 第二次 core：4644 项，4238 通过、0 失败、406 个浏览器/外部服务待单独启用项。全 MVP 尚未通过：旧导入浏览器用例关闭了已包含确认按钮的预览对话框，并仍断言把永久笔记降为文献笔记；按当前“保留类型、先作为草稿”的产品行为更新断言，保留磁盘文件与状态验证。
+- 桌面父进程退出测试的端口冲突：临时预留端口释放后才启动无关服务，系统可能把相同端口分配给无关服务。先启动无关服务再预留 API 端口，保证测试实际验证两个不同服务；定向通过。
+- 已取得旧 dump 与匹配私有 PDB 的真实主线程栈：`KeyEventBuilder::process_message → PeekMessageW → Controller::MoveFocus → EventLoopRunner::catch_unwind → RawMutex::lock_slow`。主线程在持有输入锁时泵消息，引发焦点回调重入等待；其他 UIAutomation 线程等待窗口只是后果，不将其记为根因。与 [Tao #1215](https://github.com/tauri-apps/tao/pull/1215) 修复的机制一致。
+- 原锁定 Tao 0.34.8 不包含此修复。升级到稳定 Tauri 2.12.2，实际锁定 Tao 0.37.1 / Wry 0.57.0，包含官方修复；新增防止输入运行时退回旧版的检查。原生安装复验仍未完成，不以升级本身声明卡死已关闭。
+- 第一份本机 beta.3 包仅用于诊断，源自 `0aff3504`，SHA256 `ffd9533a66809323718669eb287eeeb9fbc9bd556e7f3ff621b4de9ac9f4bf10`，Windows Authenticode 未签名，更新签名关闭。保留到忽略目录，修复输入死锁后重新构建，旧包不能作为最终验收对象。
+- 正式发布 workflow 增加手工演练：使用相同三平台和 Apple 签名、公证流程，保存签名产物与清单为 CI 附件；只有 tag push 才执行创建/上传 draft release，手工演练不改公开下载和更新源。
+
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
 - 所有写入和 AI 输入仅使用独立合成测试库。用户正式库保留，不作为生成任务素材。

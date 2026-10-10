@@ -5548,7 +5548,7 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
 
-  await page.click("#btnCloseImportOperationResult");
+  await page.locator("#btnImportConfirm").waitFor({ state: "visible" });
   await page.click("#btnImportConfirm");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
@@ -5559,26 +5559,28 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
 
   const confirmResultText = await page.locator("#importResult").textContent();
   assert.match(confirmResultText || "", /"sources":\s*2/);
-  assert.match(confirmResultText || "", /"literatureNotes":\s*2/);
-  assert.match(confirmResultText || "", /"permanentNotes":\s*0/);
+  assert.match(confirmResultText || "", /"literatureNotes":\s*1/);
+  assert.match(confirmResultText || "", /"permanentNotes":\s*1/);
   assert.match(confirmResultText || "", /"selectedCandidates":\s*4/);
 
   const importedLiteratureNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
     assert.equal(result.status, 200);
-    assert.equal(result.json.total, 2);
+    assert.equal(result.json.total, 1);
     return result;
   }, 7000);
   const importedPermanentNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
-    assert.equal(result.json.total, 0);
+    assert.equal(result.json.total, 1);
     return result;
   }, 7000);
 
   assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "中文阅读卡片"));
-  assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "Spacing Note"));
-  assert.equal(importedPermanentNotes.json.total, 0);
+  const importedJudgment = importedPermanentNotes.json.items.find((item) => item.title === "Spacing Note");
+  assert.ok(importedJudgment, "an existing permanent note must keep its note type");
+  const importedFile = await fs.readFile(path.join(stack.vaultPath, importedJudgment.markdownPath), "utf8");
+  assert.match(importedFile, /status:\s*['"]?draft['"]?/);
 
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
