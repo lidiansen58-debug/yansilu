@@ -69,7 +69,9 @@ test("prototype writing center discovers a writable theme suggestion and saves i
   await page.locator('.rail-btn[data-module="settings"]').click();
   await page.locator('.rail-btn[data-module="writing"]').click();
   assert.equal(await suggestion.locator('[data-theme-discovery-field="title"]').inputValue(), "User Confirmed Discovery Theme");
+  const creationRequest = page.waitForRequest(req => req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/index-cards");
   await suggestion.locator('[data-theme-discovery-action="save"]').click();
+  assert.equal((await creationRequest).postDataJSON().expectedVaultPath, stack.vaultPath);
 
   let savedIndex = null;
   await waitFor(async () => {

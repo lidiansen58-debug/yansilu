@@ -2671,6 +2671,7 @@ Export record shape:
 ## Index Card Metadata
 
 - `POST /api/v1/index-cards` creates a card from permanent notes, using `directoryId`, `indexType`, `title`, and `noteIds` or `items`.
+- Creation is bound to the Vault selected when the request begins. Include `expectedVaultPath` from the initiating interface to reject a stale complete request as well. A Vault switch while reading the body or initializing the Vault, or a mismatched expected path, returns `409 / VAULT_CHANGED` before creation. Legacy requests without the field still reject a switch during the request. Once creation starts, its captured path cannot follow a later switch.
 - `GET /api/v1/index-cards` lists cards; `GET /api/v1/index-cards/:id` reads a card with its `updated_at` revision and member items.
 - `PATCH /api/v1/index-cards/:id` updates metadata such as `title`, `summary`, `thesis`, `centralQuestion`, and `threeLineSummary`. Omitted metadata stays unchanged; an empty string clears a text field. A nonempty three-line summary must contain exactly three nonempty lines.
 

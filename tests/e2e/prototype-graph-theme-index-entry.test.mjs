@@ -70,7 +70,9 @@ test("mixed eligible theme materials remain saved without entering writing", asy
   await page.locator(".graph-selection-panel [data-graph-create-theme-index]").click();
   const question = "知识关联怎样成为可靠的写作材料？";
   await page.locator("#graphThemeQuestion").fill(question);
+  const creationRequest = page.waitForRequest(req => req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/index-cards");
   await page.locator('[data-graph-theme-confirmation-form] button[type="submit"]').click();
+  assert.equal((await creationRequest).postDataJSON().expectedVaultPath, stack.vaultPath);
   await waitFor(async () => {
     assert.match(await page.locator("#statusText").textContent(), /已保存.*1 条材料.*作者或原创确认/);
     assert.equal(await page.evaluate(() => window.__prototypeState.module), "graph");

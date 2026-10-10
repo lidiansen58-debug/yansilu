@@ -2846,7 +2846,7 @@ const writableThemeDiscoveryController = createWritableThemeDiscoveryController(
   aiTopicCandidates: () => graphState.aiAnalysis?.topicCandidates || [],
   parseTags,
   noteById: writingNoteById,
-  createIndexCard,
+  createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   writingThemeIndexScopeDirectoryId,
   upsertWritingThemeIndex,
   setWritingSourceIndexIds,
@@ -5259,7 +5259,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   graphThemeContextKey: () => [currentVaultPath(), state.noteMoveVaultScope, graphScopeDirectoryId(), state.module],
   addSystemMessage,
   analyzeDirectoryGraph,
-  createIndexCard,
+  createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   graphAiConnectRuntimeController,
   graphDataList: graphDataListFromElement,
   graphFindPotentialRelationCandidate,
@@ -5561,7 +5561,7 @@ const permanentNoteDialog = new PermanentNoteDialog({
 const requestTextInput = createTextInputDialog({ documentRef: document });
 const writingManualThemeController = createWritingManualThemeController({
   state, writingState, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
-  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard,
+  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   upsertWritingThemeIndex, useThemeIndexAsWritingEntry,
   openTheme: () => {
     const root = $("writingPanel")?.querySelector?.(".writing-shell");

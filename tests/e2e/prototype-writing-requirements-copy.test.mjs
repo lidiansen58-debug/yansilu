@@ -19,7 +19,9 @@ for (const requirement of ["authorship", "originality"]) {
     });
     const notes = await addWritingSupportNotes(apiBase, created.json.item);
     const title = `写作要求恢复-${requirement}`;
+    const creationRequest = page.waitForRequest(req => req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/index-cards");
     await createManualWritingTheme(stack, notes, { title });
+    assert.equal((await creationRequest).postDataJSON().expectedVaultPath, stack.vaultPath);
     const theme = (await fetchJson(apiBase, "/api/v1/index-cards?limit=50")).json.items.find(item => item.title === title);
     assert.ok(theme?.id);
     const changed = await putJson(apiBase, `/api/v1/notes/${created.json.item.id}`, {
