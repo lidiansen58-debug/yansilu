@@ -11,6 +11,7 @@ import { createNoteSaveJournal } from "./note-save-journal.mjs";
 import { deleteInRequestVault } from "./request-vault-deletion.mjs";
 import { importDemoInRequestVault } from "./request-vault-demo-import.mjs";
 import { confirmSuggestionIntoNote, suggestionNoteWriteBase } from "./ai-suggestion-note-confirmation.mjs";
+import { readAiFieldAdoptionContext } from "./ai-field-adoption-context.mjs";
 import { createImportRecordJournal } from "./import-record-journal.mjs";
 import { createDesktopVaultRecovery } from "./desktop-vault-recovery.mjs";
 import { bindDesktopParentLifecycle } from "./desktop-parent-lifecycle.mjs";
@@ -4526,9 +4527,11 @@ const server = http.createServer(async (req, res) => {
 
     const aiInboxAdoptFieldSuggestionId = parseAiInboxAdoptFieldSuggestionPath(url.pathname);
     if (req.method === "POST" && aiInboxAdoptFieldSuggestionId) {
+      const vaultPath = VAULT_PATH;
+      let artifactStore, suggestionStore;
       try {
-        await initVault(VAULT_PATH);
-        const body = await readJson(req);
+        const { body, assertCurrent } = await readAiFieldAdoptionContext(req, { vaultPath,
+          currentVaultPath: () => VAULT_PATH, readJson, initVault });
         if (!hasExplicitConfirmation(body)) {
           return sendJson(
             res,
@@ -4537,7 +4540,9 @@ const server = http.createServer(async (req, res) => {
           );
         }
 
-        const artifactStore = await aiArtifactStore();
+        artifactStore = await createSqliteArtifactStore({ vaultPath });
+        suggestionStore = await createSqliteSuggestionStore({ vaultPath });
+        assertCurrent();
         const existingArtifact = artifactStore.getArtifact(aiInboxAdoptFieldSuggestionId);
         if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
         const existingAdoption = (Array.isArray(existingArtifact.userDecisions) ? existingArtifact.userDecisions : [])
@@ -4552,9 +4557,9 @@ const server = http.createServer(async (req, res) => {
               existingArtifact.payload?.adopted_note_id
           );
           if (adoptedNoteId) {
-            const adoptedNote = await getNoteById(VAULT_PATH, adoptedNoteId);
+            const adoptedNote = await getNoteById(vaultPath, adoptedNoteId);
             const suggestionId = fieldSuggestionIdFromArtifactPayload(existingArtifact);
-            const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
+            assertCurrent();
             const suggestion = suggestionId ? suggestionStore.get(suggestionId) : null;
             const inbox = createAiInbox({ artifactStore });
             const item = inbox.getItem(aiInboxAdoptFieldSuggestionId);
@@ -4588,7 +4593,8 @@ const server = http.createServer(async (req, res) => {
         }
 
         const fieldSuggestion = fieldSuggestionInputFromArtifact(existingArtifact, body);
-        const note = await getNoteById(VAULT_PATH, fieldSuggestion.noteId);
+        const note = await getNoteById(vaultPath, fieldSuggestion.noteId);
+        assertCurrent();
         if (note.noteType !== "permanent") {
           return sendJson(
             res,
@@ -4606,8 +4612,7 @@ const server = http.createServer(async (req, res) => {
             : [];
           fieldSuggestion.update.viewpointChangeStatus = "draft";
         }
-        const suggestionId = fieldSuggestionIdFromArtifactPayload(existingArtifact);
-        const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
+        let writtenNote;
         const adoption = await adoptSuggestionAndLinkedArtifactAtomically({
           suggestionStore,
           artifactStore,
@@ -4615,8 +4620,11 @@ const server = http.createServer(async (req, res) => {
           fieldSuggestion,
           body,
           originalNote: note,
-          applyNoteUpdate: () => updateNoteContent(VAULT_PATH, fieldSuggestion.noteId, fieldSuggestion.update),
-          restoreNote: (input) => updateNoteContent(VAULT_PATH, fieldSuggestion.noteId, input),
+          applyNoteUpdate: async () => writtenNote = await updateNoteContent(vaultPath, fieldSuggestion.noteId,
+            { ...fieldSuggestion.update, expectedRevision: body.expectedRevision === undefined ? note.fileRevision : body.expectedRevision },
+            { beforeWrite: assertCurrent, commitTransaction: assertCurrent }),
+          restoreNote: (input) => updateNoteContent(vaultPath, fieldSuggestion.noteId,
+            { ...input, expectedRevision: writtenNote.fileRevision }),
           buildAdoptedArtifactPayload: payloadWithAdoptedFieldSuggestion,
           getSuggestionIdFromArtifact: fieldSuggestionIdFromArtifactPayload,
           loadSqliteDatabaseSync
@@ -4659,10 +4667,13 @@ const server = http.createServer(async (req, res) => {
         const status =
           error?.code === "AI_ARTIFACT_NOT_FOUND" || error?.code === "NOTE_NOT_FOUND" || error?.code === "AI_SUGGESTION_NOT_FOUND"
             ? 404
-            : error?.code === "AI_FIELD_SUGGESTION_ALREADY_ADOPTED"
+            : ["AI_FIELD_SUGGESTION_ALREADY_ADOPTED", "NOTE_SAVE_CONFLICT", "VAULT_CHANGED"].includes(error?.code)
               ? 409
               : 400;
         return sendJson(res, status, err(error?.code || "AI_FIELD_SUGGESTION_ADOPT_FAILED", String(error?.message || error), rid, error?.details));
+      } finally {
+        artifactStore?.close();
+        suggestionStore?.close();
       }
     }
 

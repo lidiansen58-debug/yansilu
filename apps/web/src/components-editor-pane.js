@@ -13,6 +13,7 @@ import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
 import { markdownCharacterIsEscaped, selectionTouchesMarkdownCode } from "./markdown-code-context.js";
 import { literatureSourceCompletion } from "./literature-source-readiness.js";
 import { distillationPanelHasFocus } from "./distillation-editor-result.js";
+import { captureNoteAiAdoptionBaseline } from "./note-ai-adoption-baseline.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -5538,6 +5539,7 @@ export class EditorPane {
     const isCurrent = () => this.noteAiSuggestionsState === actionState && this.state.noteMoveVaultScope === scope && this.isActiveNoteId(noteId) && !this.state.vaultSwitching && !this.state.vaultSwitchUncertain;
     this.renderEmbeddedAiWorkspaceMount(noteId);
     try {
+      const adoptionBaseline = cleanAction === "adopted_as_draft" ? captureNoteAiAdoptionBaseline(this, note) : null;
       let latest = null;
       if (!cleanArtifactId || cleanAction === "edited" || cleanAction === "confirmed") {
         latest = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
@@ -5546,11 +5548,14 @@ export class EditorPane {
       if (!cleanArtifactId) cleanArtifactId = String(latest?.sourceArtifactId || currentSuggestion?.sourceArtifactId || "").trim();
       if (cleanAction === "adopted_as_draft") {
         if (!cleanArtifactId) throw new Error("这条建议缺少来源内容，暂时不能采纳为草稿。");
-        await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true });
+        await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true,
+          expectedRevision: adoptionBaseline.noteRevision, expectedVaultPath: adoptionBaseline.vaultPath || undefined });
         if (!isCurrent()) return;
         const refreshed = await fetchNote(noteId);
         if (!isCurrent()) return;
-        if (refreshed) this.permanentNoteDistillation().applyAdoptedNote(note, refreshed);
+        if (refreshed && this.permanentNoteDistillation().applyAdoptedNote(note, refreshed, adoptionBaseline) === false) {
+          throw new Error("AI 草稿已采纳，但当前编辑存在变化。请保留输入并重新打开笔记核对。");
+        }
       } else {
         const payload = {
           canonical: true,

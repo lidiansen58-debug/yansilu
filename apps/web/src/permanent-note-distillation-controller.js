@@ -1,5 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { distillationPanelHasFocus, syncDistillationEditorResult } from "./distillation-editor-result.js";
+import { applyNoteAiAdoptionBaseline } from "./note-ai-adoption-baseline.js";
 import { PermanentNoteAssociationFollowup, renderPermanentNoteAssociationFollowup } from "./permanent-note-association-followup.js";
 import {
   applyPermanentNoteDistillationToNote,
@@ -121,8 +122,8 @@ export class PermanentNoteDistillationController {
     return true;
   }
 
-  applyAdoptedNote(note, refreshed) {
-    Object.assign(note, refreshed);
+  applyAdoptedNote(note, refreshed, baseline = null) {
+    if (!applyNoteAiAdoptionBaseline(this.host, note, refreshed, baseline)) return false;
     const prefill = this.currentPrefill(note.id);
     if (prefill.viewpointDraft) {
       this.setPrefill(note.id, { ...prefill, viewpointDraft: {

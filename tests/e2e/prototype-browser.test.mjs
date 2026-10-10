@@ -10,6 +10,7 @@ import { snapshotDemoNoteInventory } from "./prototype-demo-inventory-helpers.mj
 import { runVisibleWritingReadinessFlow } from "./prototype-writing-readiness-flow-helpers.mjs";
 import { runVisibleRelationCreateFlow, runVisibleRelationEditFlow } from "./prototype-visible-relation-flow-helpers.mjs";
 import { runAiReviewedLifecycle, runAiReviewReopenContinuity, runAiReviewConflict } from "./prototype-ai-review-flow-helpers.mjs";
+import { adoptWhileTyping } from "./prototype-ai-adoption-input-helpers.mjs";
 import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -8996,7 +8997,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
 
   assert.equal(await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
 
-  await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='adopted_as_draft']").click();
+  const pendingHumanBody = await adoptWhileTyping({ page, apiBase, fixture });
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -9020,11 +9021,22 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   await waitFor(async () => {
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
     assert.equal(note.status, 200);
-    assert.equal(note.json.item.thesis, editedThesis);
+    const diagnostics = note.json.item.thesis !== editedThesis ? await page.evaluate(() => ({
+      status: document.querySelector('#statusText')?.textContent,
+      forms: [...document.querySelectorAll('[data-note-distillation-form]')].map(form => ({
+        valid: form.checkValidity(), fields: [...form.querySelectorAll('input,textarea')].map(field => ({ name: field.name, value: field.value, required: field.required, valid: field.validity.valid, hidden: !field.getClientRects().length }))
+      }))
+    })) : null;
+    assert.equal(note.json.item.thesis, editedThesis, JSON.stringify(diagnostics));
   }, 10000);
 
   await page.waitForFunction(thesis => window.__prototypeEditor.activeNote()?.thesis === thesis, editedThesis);
+  const savedViewpointNote = (await fetchJson(apiBase, `/api/v1/notes/${fixture.noteId}`)).json.item;
+  const humanParagraphs = pendingHumanBody.slice(pendingHumanBody.indexOf('\n\n') + 2);
+  assert.ok(savedViewpointNote.body.includes(humanParagraphs), "viewpoint save retains original and pending human paragraphs verbatim");
+  assert.equal((await page.locator('#editorBody').inputValue()).trimEnd(), savedViewpointNote.body.trimEnd());
   await page.locator('[data-permanent-workspace-tab="viewpoint"]').click();
+  await page.locator('[data-note-association-next="edit"]').click();
   if (!await page.locator('.viewpoint-optional-details').evaluate(details => details.open)) {
     await page.locator('.viewpoint-optional-details > summary').click();
   }
@@ -9052,6 +9064,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
     assert.equal(note.status, 200);
     assert.equal(note.json.item.thesis, editedThesis);
+    assert.deepEqual(note.json.item, savedViewpointNote);
   }, 10000);
 });
 
