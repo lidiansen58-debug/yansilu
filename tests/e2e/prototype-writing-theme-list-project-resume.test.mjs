@@ -97,7 +97,7 @@ test("prototype theme index list shows and uses a direct resume-project action w
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   const topicA = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme List Resume Index" });
-  await topicA.locator('button').click();
+  await topicA.locator('button.primary').click();
   await page.locator('#writingTitle:visible').waitFor();
   assert.equal(await page.locator('#writingTitle').inputValue(), "Theme List Resume Index");
   await page.locator('#btnWritingCreateScaffold').click();

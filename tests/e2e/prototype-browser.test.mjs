@@ -8555,7 +8555,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   await page.click('.rail-btn[data-module="writing"]');
   await page.locator('[data-writing-sidebar-action="topics"]').click();
-  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button').click();
+  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button.primary').click();
   await waitFor(async () => {
     const writingState = await page.evaluate(() => ({
       title: document.querySelector("#writingTitle")?.value || "",

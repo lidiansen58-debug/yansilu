@@ -35,7 +35,7 @@ test("a real completed demo import cannot navigate away from writing after its d
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator("#writingPanel:visible").waitFor();
   await page.locator('[data-writing-sidebar-action="topics"]').click();
-  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button').click();
+  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button.primary').click();
   await page.locator('[data-writing-tab="theme"]').click();
   await page.locator("#writingTitle").fill("这是用户正在写的新题目");
   const currentStatus = await page.locator("#statusText").textContent();

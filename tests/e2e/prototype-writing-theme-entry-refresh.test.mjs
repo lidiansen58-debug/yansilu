@@ -33,7 +33,7 @@ test("a late first writing entry cannot replace the themes of a second visible e
     await Promise.race([started, new Promise((_, reject) => setTimeout(() => reject(new Error("Scoped writing request was not reached")), 10000).unref())]);
     await page.locator('.rail-btn[data-module="today"]').click();
     await page.locator('.rail-btn[data-module="writing"]').click();
-    const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button');
+    const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button.primary');
     await resume.waitFor({ state: "visible", timeout: 10000 });
     await waitFor(async () => assert.equal(await resume.getAttribute("data-writing-project-id"), "WRITE-SMART-NOTES-DEMO"), 10000);
     release(); await done;

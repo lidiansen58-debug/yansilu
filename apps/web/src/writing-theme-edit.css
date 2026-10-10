@@ -1,0 +1,21 @@
+.writing-theme-edit-mask { padding: 16px; }
+.writing-theme-edit-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100dvh - 32px);
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  box-shadow: var(--ui-shadow-dialog);
+}
+.writing-theme-edit-form .modal-head { margin: 0; font-size: 18px; font-weight: 600; background: var(--ui-surface); }
+.writing-theme-edit-form .modal-body { overflow-y: auto; }
+.writing-theme-edit-form :is(input, textarea) { width: 100%; resize: vertical; }
+.writing-theme-edit-form textarea { min-height: 76px; height: 76px; }
+.writing-theme-edit-form .modal-body label { font-size: 14px; color: var(--ui-text); }
+.writing-theme-edit-form summary { min-height: 44px; align-content: center; cursor: pointer; color: var(--ui-text-muted); }
+.writing-theme-edit-advanced { display: grid; gap: 12px; padding-top: 8px; }
+.writing-theme-edit-advanced > div { display: grid; gap: 6px; }
+.writing-theme-edit-form [role="alert"] { margin: 0; color: var(--ui-danger); font-size: 14px; line-height: 1.6; }
+.writing-theme-edit-form .modal-foot { border-top: 1px solid var(--ui-border); background: var(--ui-surface); }
+#writingPanel .writing-theme-card-secondary { display: flex; justify-content: flex-end; margin-top: 8px; }

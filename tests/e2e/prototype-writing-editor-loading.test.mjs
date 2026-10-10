@@ -38,8 +38,9 @@ async function setup(t, { delayEditor = false, openSource = false, draftBody = "
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, source.id);
   }
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator(`#writingProjectsList [data-writing-project-id="${project.id}"]`).first().waitFor({ state: "attached" });
-  await page.locator(`[data-writing-index-card-id="${index.id}"] button`).click();
+  const resume = page.locator(`[data-writing-index-card-id="${index.id}"] button[data-writing-project-id="${project.id}"]`);
+  await resume.waitFor({ state: "visible" });
+  await resume.click();
   await page.waitForFunction(() => document.querySelector('#writingDraftTarget option[value="first"]'));
   await page.locator('[data-writing-tab="draft"]').click();
   await selectWritingChapter(page, "first");

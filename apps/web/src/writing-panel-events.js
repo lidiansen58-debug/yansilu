@@ -1,4 +1,5 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { createWritingThemeEditController } from "./writing-theme-edit-controller.js";
 import { installDisclosureMenus } from "./ui-disclosure-menu.js";
 import { installWritingDocumentEditor, syncWritingDocumentEditor } from "./writing-document-editor.js";
 import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
@@ -83,7 +84,8 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
 
 export function installWritingThemeIndexEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
-  const deps = () => depsProvider();
+  const editor = createWritingThemeEditController({ depsProvider });
+  const deps = () => ({ ...depsProvider(), editWritingTheme: (id, options) => editor.open(id, options) });
   const registrations = [];
   const add = (id, eventName, handler) => {
     const element = $(id);
@@ -1089,6 +1091,13 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
+  if (action === "edit") {
+    const resetButton = setButtonPending(button, true, "正在打开…");
+    try { await deps.editWritingTheme(indexId, { onOpened: resetButton, returnFocus: button }); }
+    catch (error) { setStatus(`打开主题失败：${String(error?.message || error)}`, "bad"); }
+    finally { resetButton(); }
+    return;
+  }
   const continuationRoute = writingThemeIndexContinuationRoute({ action, projectId });
   if (continuationRoute.kind === "continue-project") {
     const resetButton = setButtonPending(button, true, continuationRoute.openDraft ? "正在打开草稿..." : "正在打开...");

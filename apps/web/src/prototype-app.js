@@ -5872,6 +5872,9 @@ installWritingSidebarActionEvents({
 installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
+    state, getVaultPath: currentVaultPath,
+    upsertWritingThemeIndex, renderWritingPanel,
+    parseWritingBasketIds,
     writingState,
     loadWritingThemeIndexes,
     refreshWritableThemeDiscoverySuggestions,

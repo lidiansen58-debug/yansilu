@@ -36,6 +36,7 @@ export function renderWritingThemeIndexCardDom(deps = {}, indexCard) {
         <button class="mini-btn primary" type="button" ${actionAttrs}>${escapeHtml(actionLabel)}</button>
       </div>
       <div class="writing-start-topic-question">${escapeHtml(centralQuestion || "先用这组笔记生成提纲，再进入草稿。")}</div>
+      <div class="writing-theme-card-secondary"><button class="mini-btn is-ghost" type="button" aria-label="编辑主题" data-writing-index-action="edit" data-writing-index-id="${escapeHtml(indexCard.id)}">编辑</button></div>
     </article>
   `;
 }
