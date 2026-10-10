@@ -23,7 +23,7 @@ import { syncRailSelectionDom, todayRailHasTasks } from "./app-shell-rail.js";
 import { installAppRailEventBindings } from "./app-rail-event-bindings.js";
 import { installQuickActionEventBindings } from "./quick-action-event-bindings.js";
 import { installAppGlobalKeyboardEvents } from "./app-global-keyboard-events.js";
-import { dismissSafeOverlaysForEscape, dismissSafeOverlaysForNavigation } from "./app-overlay-dismissal-controller.js";
+import { createOverlayDismissalCallbacks } from "./app-overlay-dismissal-controller.js";
 import { installStartupAutoOpenEventBindings } from "./startup-auto-open-event-bindings.js";
 import { installDirtyTabsBeforeUnloadEventBindings } from "./dirty-tabs-beforeunload-event-bindings.js";
 import { installEditorShellEventBindings } from "./editor-shell-event-bindings.js";
@@ -6146,6 +6146,14 @@ installGraphWorkbenchClickFallbackEvents(document, {
   runGraphAiAnalysis,
   setStatus
 });
+const overlayDismissal = createOverlayDismissalCallbacks({
+  state, graphState, getVaultPath: currentVaultPath,
+  getPermanentRelationWorkspaceState: () => editor.permanentRelationWorkspaceState,
+  closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
+  closeSystemMessages, isSystemMessageModalOpen, renderGraphPanel, setStatus,
+  confirm: message => window.confirm(message)
+});
+
 bindGraphCanvasEvents($("graphPanel"), {
   appState: state,
   graphState,
@@ -6170,14 +6178,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   endGraphUtilityDrawerDrag,
   endGraphViewportDrag,
   renderGraphPanel,
-  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
-    graphState,
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForEscape: overlayDismissal.dismissSafeOverlaysForEscape,
   setStatus,
   moveGraphIsolatedWorkflowTab,
   activateGraphIsolatedWorkflowTab,
@@ -6267,16 +6268,7 @@ installAppRailEventBindings({
   refreshVaultSettings,
   openWritingModule,
   openDistillationModule,
-  dismissSafeOverlaysForNavigation: () => dismissSafeOverlaysForNavigation({
-    graphState,
-    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
-    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForNavigation: overlayDismissal.dismissSafeOverlaysForNavigation,
   setStatus
 });
 
@@ -6312,6 +6304,7 @@ installQuickActionEventBindings({
   windowRef: window,
   state,
   editor,
+  dismissSafeOverlaysForNavigation: overlayDismissal.dismissSafeOverlaysForNavigation,
   getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
   setGraphModuleActivationGuardUntil: (value) => { graphModuleActivationGuardUntil = value; },
   folderById,
@@ -6334,16 +6327,7 @@ installAppGlobalKeyboardEvents({
   editor,
   handleSystemMessageEscapeKey,
   systemMessageEventDeps,
-  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
-    graphState,
-    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
-    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForEscape: overlayDismissal.dismissSafeOverlaysForEscape,
   noteDeleteKeyRoute,
   syncExplorerContextToActiveTab,
   folderById,

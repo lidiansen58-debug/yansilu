@@ -17,10 +17,10 @@ export function installAppGlobalKeyboardEvents(deps = {}) {
     setStatus = () => {}
   } = deps;
 
-  documentRef?.addEventListener?.("keydown", (event) => {
+  documentRef?.addEventListener?.("keydown", async (event) => {
     if (handleSystemMessageEscapeKey(event, systemMessageEventDeps()).handled) return;
     if (event?.key === "Escape") {
-      const overlayResult = dismissSafeOverlaysForEscape(event);
+      const overlayResult = await dismissSafeOverlaysForEscape(event);
       if (overlayResult?.changed || overlayResult?.ok === false) return;
     }
 

@@ -9,12 +9,12 @@ import {
   installAppRailEventBindings
 } from "../../apps/web/src/app-rail-event-bindings.js";
 
-test("navigation closes system messages and safe graph overlays before switching modules", () => {
+test("navigation closes system messages and safe graph overlays before switching modules", async () => {
   const graphState = { selection: { kind: "node" }, workbenchPanelOpen: true };
   let closedSystemMessages = false;
   let rendered = false;
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     graphState,
     isSystemMessageModalOpen: () => true,
     closeSystemMessages: () => {
@@ -32,7 +32,7 @@ test("navigation closes system messages and safe graph overlays before switching
   assert.equal(rendered, true);
 });
 
-test("navigation keeps unsaved graph relation input unless the user confirms", () => {
+test("navigation keeps unsaved graph relation input unless the user confirms", async () => {
   const graphState = {
     selection: { kind: "isolated", noteId: "note-1" },
     isolatedRelationDraftByNoteId: {
@@ -41,7 +41,7 @@ test("navigation keeps unsaved graph relation input unless the user confirms", (
   };
   let status = "";
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     graphState,
     confirm: () => false,
     setStatus: (message) => {
@@ -52,14 +52,14 @@ test("navigation keeps unsaved graph relation input unless the user confirms", (
   assert.equal(result.ok, false);
   assert.equal(result.reason, "graph-unsaved-input");
   assert.deepEqual(graphState.selection, { kind: "isolated", noteId: "note-1" });
-  assert.match(status, /保留建联输入/);
+  assert.match(status, /保留关联输入/);
 });
 
-test("navigation closes empty permanent relation workspace", () => {
+test("navigation closes empty permanent relation workspace", async () => {
   const permanentRelationWorkspaceState = { open: true, rationale: "", insightQuestion: "", manualQuery: "" };
   let closed = false;
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     permanentRelationWorkspaceState,
     closePermanentRelationWorkspace: () => {
       closed = true;
@@ -72,7 +72,7 @@ test("navigation closes empty permanent relation workspace", () => {
   assert.equal(permanentRelationWorkspaceState.open, false);
 });
 
-test("navigation closes prefilled permanent relation suggestions before the user edits them", () => {
+test("navigation closes prefilled permanent relation suggestions before the user edits them", async () => {
   const permanentRelationWorkspaceState = {
     open: true,
     dirty: false,
@@ -83,7 +83,7 @@ test("navigation closes prefilled permanent relation suggestions before the user
   };
   let closed = false;
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     permanentRelationWorkspaceState,
     closePermanentRelationWorkspace: () => {
       closed = true;
@@ -99,7 +99,7 @@ test("navigation closes prefilled permanent relation suggestions before the user
   assert.equal(permanentRelationWorkspaceState.open, false);
 });
 
-test("navigation keeps unsaved permanent relation workspace input unless confirmed", () => {
+test("navigation keeps unsaved permanent relation workspace input unless confirmed", async () => {
   const permanentRelationWorkspaceState = {
     open: true,
     dirty: true,
@@ -112,7 +112,7 @@ test("navigation keeps unsaved permanent relation workspace input unless confirm
   let closed = false;
   let status = "";
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     permanentRelationWorkspaceState,
     closePermanentRelationWorkspace: () => {
       closed = true;
@@ -127,10 +127,10 @@ test("navigation keeps unsaved permanent relation workspace input unless confirm
   assert.equal(result.reason, "permanent-relation-unsaved-input");
   assert.equal(closed, false);
   assert.equal(permanentRelationWorkspaceState.open, true);
-  assert.match(status, /保留关系工作台输入/);
+  assert.match(status, /保留关联输入/);
 });
 
-test("navigation discards unsaved permanent relation input after explicit confirmation", () => {
+test("navigation discards unsaved permanent relation input after explicit confirmation", async () => {
   const permanentRelationWorkspaceState = {
     open: true,
     dirty: true,
@@ -143,7 +143,7 @@ test("navigation discards unsaved permanent relation input after explicit confir
   let closed = false;
   let prompt = "";
 
-  const result = dismissSafeOverlaysForNavigation({
+  const result = await dismissSafeOverlaysForNavigation({
     permanentRelationWorkspaceState,
     closePermanentRelationWorkspace: () => {
       closed = true;
@@ -162,7 +162,7 @@ test("navigation discards unsaved permanent relation input after explicit confir
   assert.equal(permanentRelationWorkspaceState.open, false);
   assert.equal(permanentRelationWorkspaceState.rationale, "");
   assert.doesNotMatch(prompt, /保留/);
-  assert.match(prompt, /放弃这些未保存输入/);
+  assert.match(prompt, /放弃这些输入/);
 });
 
 test("rail navigation does not activate a target module when overlay dismissal is blocked", async () => {
@@ -192,11 +192,11 @@ test("rail navigation does not activate a target module when overlay dismissal i
   assert.equal(activated, "");
 });
 
-test("escape uses the same overlay dismissal path", () => {
+test("escape uses the same overlay dismissal path", async () => {
   const event = { prevented: false, preventDefault() { this.prevented = true; } };
   const graphState = { selection: { kind: "node" } };
 
-  const result = dismissSafeOverlaysForEscape(event, {
+  const result = await dismissSafeOverlaysForEscape(event, {
     graphState,
     renderGraphPanel: () => {}
   });
