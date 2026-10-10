@@ -6273,7 +6273,7 @@ export class EditorPane {
     this.els.tabs.addEventListener("click", async (e) => {
       const closeBtn = e.target.closest("button[data-close-tab]");
       if (closeBtn) {
-        if (this.closeTab(closeBtn.dataset.closeTab)) {
+        if (await this.closeTab(closeBtn.dataset.closeTab)) {
           this.onStatus("已关闭标签页", "ok");
         }
         return;
@@ -6307,7 +6307,7 @@ export class EditorPane {
           return;
         }
         if (action === "close-all") {
-          if (this.closeAllTabs()) {
+          if (await this.closeAllTabs()) {
             this.onStatus("已关闭全部标签页", "ok");
           }
           return;

@@ -63,7 +63,7 @@ export function installSettingsEventBindings(deps = {}) {
     renderSettingsPanel,
     setStatus,
     openRestoredVault: async (vaultPath) => {
-      if (!editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+      if (!await editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
       try { await openVault(vaultPath); }
       catch (error) { setStatus(`打开笔记库失败：${String(error?.message || error)}`, "bad"); }
     }
@@ -262,7 +262,7 @@ export function installSettingsEventBindings(deps = {}) {
         nextPath = String(picked.path || "").trim();
         if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
       }
-      if (!editor.confirmDiscardDirtyTabs?.("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+      if (!await editor.confirmDiscardDirtyTabs?.("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
       await openVault(nextPath);
     } catch (error) {
       setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");

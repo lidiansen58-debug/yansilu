@@ -49,15 +49,19 @@ for (const automatic of [false, true]) test(`uncertain ${automatic ? "automatic"
   assert.equal(writes, 1);
 });
 
-test("restoring an ordinary draft retains its old baseline instead of accepting external changes", t => {
-  const { pane, tab, note } = createNormalizedSavePane();
+test("restoring an ordinary draft retains its old baseline instead of accepting external changes", async t => {
+  const { pane, tab, note, editor } = createNormalizedSavePane();
   const previous = globalThis.window;
   globalThis.window = { confirm: () => true };
   t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
   const draft = { body: "# My unsaved input", savedBody: "# OLD BASELINE", savedTitle: "Old title", savedFileRevision: "a".repeat(64) };
-  tab.dirty = false;
+  Object.assign(note, { title: "EXTERNAL BODY", body: "# EXTERNAL BODY", fileRevision: "b".repeat(64) });
+  Object.assign(tab, { title: note.title, body: note.body, savedTitle: note.title, savedBody: note.body, dirty: false });
+  editor.value = note.body;
+  pane.fillEditorFromTab = () => {};
+  pane.scheduleAutoSave = () => {};
   pane.readDraft = () => draft;
-  pane.maybeRestoreDraft(tab, { ...note, body: "# EXTERNAL BODY", fileRevision: "b".repeat(64) });
+  await pane.maybeRestoreDraft(tab, note);
   assert.equal(tab.body, draft.body);
   assert.equal(tab.savedBody, draft.savedBody);
   assert.equal(tab.savedFileRevision, draft.savedFileRevision);

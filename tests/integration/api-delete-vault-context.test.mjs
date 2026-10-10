@@ -32,6 +32,18 @@ function delayedDelete(base, route) {
   return { req, response };
 }
 
+async function waitForReady(base) {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const health = await request(base, "/health");
+    assert.equal(health.status, 200);
+    if (health.json.startupError) throw new Error(health.json.startupError);
+    if (health.json.ready === true && health.json.ok === true) return;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error("API did not finish initializing its catalog");
+}
+
 for (const kind of ["note", "directory", "relation"]) {
   test(`${kind} DELETE rejects stale, delayed and aborted requests across real cloned vaults, then only deletes the confirmed original`, async t => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-delete-scope-"));
@@ -72,7 +84,7 @@ for (const kind of ["note", "directory", "relation"]) {
       child.once("error", error => { clearTimeout(timer); reject(error); });
       child.stderr.on("data", chunk => { output += chunk; });
     });
-    assert.equal((await request(base, "/health")).status, 200);
+    await waitForReady(base);
     const route = kind === "note" ? `/api/v1/notes/${notes[0].id}`
       : kind === "directory" ? `/api/v1/directories/${directory.id}` : `/api/v1/relations/${relation.id}`;
     assert.equal((await request(base, "/api/v1/vault", "POST", { vaultPath: copied })).status, 200);
