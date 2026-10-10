@@ -108,6 +108,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PART_2: ${{ secrets.APPLE_CERTIFICATE_PART_2 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -119,7 +120,7 @@ jobs:
               exit 1
             fi
           done
-          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/apple-developer-id.p12"
+          node ./scripts/prepare-macos-signing-certificate.mjs
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -149,7 +150,7 @@ jobs:
 
       - name: Test macOS packaging regressions
         if: runner.os == 'macOS'
-        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs tests/unit/macos-signing-certificate.test.mjs
 
       - name: Test Linux packaging regressions
         if: runner.os == 'Linux'

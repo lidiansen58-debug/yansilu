@@ -70,6 +70,8 @@
 - 提纲笔记核对修复后的正式 core：4668 项，4259 通过、0 失败、409 项需另行启用，日志 `core-after-writing-note-readiness.log`。定向浏览器日志 `writing-note-readiness-visible.log`，71 项相关检查日志 `writing-note-readiness-integration.log`；不将这些结果替代完整浏览器最终回归。
 - 两个仍通过隐藏旧按钮和强制修改界面状态执行的浏览器用例改走当前可见操作，定向 2 项通过，日志 `writing-visible-continuation.log`。确认“新建主题”不提前创建文章，“生成提纲”自动创建且重复生成复用同一文章、保留原提纲版本和来源正文；保存草稿后重载，从主题的“继续草稿”恢复磁盘正文，并由更多菜单打开同一草稿笔记，不创建重复文章或改动已保存正文。
 - 用户第二次确认 GitHub Secrets 更新后，对 `38027415784` 执行仅失败任务重跑（attempt 2），保持源码 `4e21926b`，复用该次已通过的 Windows/Linux 作业。首次运行总结果失败、演练资产汇总未执行；不能把 Windows/Linux 作业成功记为三平台签名已完成。
+- `38027415784` attempt 2 仍在证书导入时报 Unknown format。用户提供原始 P12 路径后，本机识别为 PFX/PKCS#12，51517 字节；完整 Base64 为 68692 字符，超过 GitHub 单个 Secret 的 [48 KB 限制](https://docs.github.com/en/actions/reference/security/secrets)。用户明确授权直接更新后，已按原文件字节更新 `APPLE_CERTIFICATE` 与可选 `APPLE_CERTIFICATE_PART_2`（40000/28692 字符），原文件未修改，证书内容未写入仓库、附件或日志。密码仍使用既有 Secret。流水线支持原单段格式和新双段格式，导入前检查 Base64、完整 DER 长度和 PKCS#12 版本，临时文件拒绝覆盖且权限 0600。实际原文件拼回后严格逐字节一致。相关 Mac 回归 45 项中 43 通过、0 失败、2 项需 Mac 平台；格式与权限检查不能代替真实签名、公证验收。
+- `4e21926b` 的 Windows CI 安装包已下载核对：33856195 字节，SHA256 `45054a9258cf142c41184e2013dccf2b5101080e7dc660fd34bbbe51db093202`；实际上传仅两个最终安装/签名文件及清单，逐项大小和摘要一致，配置 updater 公钥验签通过、篡改一字节被拒绝。未进行 Authenticode 签名，也尚未安装此 CI 包；当前本机安装仍为 `42c8477d` 的本机产物。证据 `ci-windows-4e21926b-verification.json`。
 
 - 本轮日志及本机产物：`output/release-preflight-20261010/`（忽略目录）。
 - 旧未响应 dump：主工作区 `.tmp/windows-writing-fix-20261008/desktop-hang.dmp`；不上传 dump 或私人笔记库。
