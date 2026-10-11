@@ -43,6 +43,13 @@ export function renderModuleWorkspaceHeaderForRuntime({
     moduleTitle.textContent = settingsHeader?.title || "";
     moduleSummary.textContent = settingsHeader?.summary || "";
     const templateKind = String(settingsHeader?.templateKind || "").trim();
+    const templateActions = moduleHeaderActions.querySelector?.(".module-template-actions");
+    const saveButton = templateActions?.querySelector?.('[data-settings-template-action="save"]');
+    if (templateKind && templateActions?.dataset.settingsTemplateKind === templateKind && saveButton) {
+      saveButton.disabled = Boolean(settingsHeader.templateSaveDisabled);
+      saveButton.title = settingsHeader.templateSaveTitle || "";
+      return true;
+    }
     moduleHeaderActions.innerHTML = templateKind
       ? `
         <div class="module-template-actions" data-settings-template-kind="${escapeHtml(templateKind)}">
