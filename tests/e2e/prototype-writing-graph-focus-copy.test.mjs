@@ -41,6 +41,7 @@ test("a real graph theme carries only the three confirmed materials into writing
   await page.locator("#graphThemeQuestion").fill(question);
   await form.getByRole("button", { name: "确认主题并继续", exact: true }).click();
   await page.locator("#writingTitle:visible").waitFor();
+  assert.equal(await page.locator("#writingScopeHint:visible").innerText(), "候选材料：已确认主题材料 · 3 条");
   const themes = (await fetchJson(apiBase, "/api/v1/index-cards?limit=50")).json.items;
   assert.equal(themes.length, 1);
   const theme = (await fetchJson(apiBase, `/api/v1/index-cards/${themes[0].id}`)).json.item;

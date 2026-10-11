@@ -86,7 +86,7 @@ test("writing panel controller renders status strip from injected writing state"
   assert.doesNotMatch(html, /Strong ready/);
 });
 
-test("writing panel controller shows entry recommendation reason in the first screen hint", () => {
+test("writing panel controller shows the current candidate scope and count instead of entry commentary", () => {
   const nodes = new Map([
     ["writingCurrentNote", { textContent: "" }],
     ["writingScopeHint", { textContent: "" }]
@@ -96,7 +96,7 @@ test("writing panel controller shows entry recommendation reason in the first sc
     $: (id) => nodes.get(id) || null,
     state: { notes: [], selectedFileId: "", selectedFolderId: "dir" },
     writingState: {
-      entryContextReason: "当前图谱范围有 2 条可写永久笔记，已作为相关笔记带入。",
+      entryContextReason: "旧入口有 5 条可写永久笔记，已作为相关笔记带入。",
       entryContextSourceLabel: "图谱"
     },
     folderById: () => ({ name: "永久笔记" }),
@@ -112,7 +112,7 @@ test("writing panel controller shows entry recommendation reason in the first sc
         scopeLabel: "当前图谱范围",
         addActionLabel: "加入当前图谱范围"
       },
-      candidates: [],
+      candidates: [{ id: "n1" }, { id: "n2" }],
       relationCountsReady: false,
       relationCountsErrored: false,
       basketReadiness: {},
@@ -134,8 +134,8 @@ test("writing panel controller shows entry recommendation reason in the first sc
     escapeHtml
   });
 
-  assert.match(nodes.get("writingScopeHint").textContent, /图谱推荐理由/);
-  assert.match(nodes.get("writingScopeHint").textContent, /已作为相关笔记带入/);
+  assert.equal(nodes.get("writingScopeHint").hidden, false);
+  assert.equal(nodes.get("writingScopeHint").textContent, "候选材料：当前图谱范围 · 2 条");
 });
 
 test("writing panel controller keeps the choose-topic first screen until a theme is explicit", () => {
@@ -145,6 +145,7 @@ test("writing panel controller keeps the choose-topic first screen until a theme
   };
   const nodes = new Map([
     ["writingPanel", { querySelector: (selector) => selector === ".writing-shell" ? shell : null }],
+    ["writingScopeHint", { textContent: "旧范围说明", hidden: false }],
     ["writingCurrentNote", { textContent: "" }],
     ["writingScopeHint", { textContent: "" }],
     ["writingThemeIndexList", { innerHTML: "" }],
@@ -197,6 +198,8 @@ test("writing panel controller keeps the choose-topic first screen until a theme
   });
 
   assert.equal(shell.dataset.writingHasTopic, "false");
+  assert.equal(nodes.get("writingScopeHint").hidden, true);
+  assert.equal(nodes.get("writingScopeHint").textContent, "");
   assert.match(nodes.get("writingThemeIndexList").innerHTML, /Fallback theme/);
   assert.equal(nodes.get("writingThemeDetail").innerHTML, "");
 });
