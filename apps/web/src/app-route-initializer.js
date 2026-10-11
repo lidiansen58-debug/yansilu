@@ -1,7 +1,4 @@
-import {
-  desktopServiceStatusMessage,
-  readDesktopServiceStatus
-} from "./desktop-service-status.js";
+import { desktopServiceStatusMessage, readDesktopServiceStatus } from "./desktop-service-status.js";
 import { loadStartupVaultNotes } from "./startup-vault-notes.js";
 import { installDesktopDialogConfirmation } from "./desktop-dialog-confirmation.js";
 
