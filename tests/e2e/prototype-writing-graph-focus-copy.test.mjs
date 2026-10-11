@@ -54,11 +54,29 @@ test("a real graph theme carries only the three confirmed materials into writing
     await page.screenshot({ path: path.join(screenshotDir, "confirmed-scope-desktop.png"), fullPage: true });
   }
   const desktopViewport = page.viewportSize();
-  await page.setViewportSize({ width: 320, height: 844 });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
-  assert.deepEqual(await visibleWritingCandidateIds(page), wanted);
-  if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, "confirmed-scope-mobile.png"), fullPage: true });
+  for (const width of [320, 390, 768, desktopViewport.width]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+    assert.deepEqual(await visibleWritingCandidateIds(page), wanted);
+    const drawerVisibility = await page.locator("#writingRelatedNotesPanel").evaluate(panel => {
+      const bounds = panel.getBoundingClientRect();
+      const hit = document.elementFromPoint(bounds.left + 16, bounds.top + 28);
+      return { unobscured: panel.contains(hit), left: bounds.left, right: bounds.right, hit: hit?.className };
+    });
+    assert.equal(drawerVisibility.unobscured, true, `${width}px: ${JSON.stringify(drawerVisibility)}`);
+    assert.ok(drawerVisibility.left >= 0 && drawerVisibility.right <= width + 1);
+    const close = page.getByRole("button", { name: "关闭相关笔记", exact: true });
+    const bounds = await close.boundingBox();
+    assert.ok(bounds && bounds.width >= 44 && bounds.height >= 44 && bounds.x >= 0 && bounds.x + bounds.width <= width + 1, `${width}px: ${JSON.stringify(bounds)}`);
+    assert.equal(await page.locator("#writingRelatedOverlay").evaluate(overlay => overlay.contains(document.elementFromPoint(16, 120))), true);
+    if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, `confirmed-scope-${width}px.png`), fullPage: true });
+  }
   await page.setViewportSize(desktopViewport);
+  await page.getByRole("button", { name: "关闭相关笔记", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page.locator("#writingRelatedNotesPanel").waitFor({ state: "hidden" });
+  await openWritingScopeCandidates(page);
+  assert.deepEqual(await visibleWritingCandidateIds(page), wanted);
   assert.equal(await page.locator(`#writingCandidateList article[data-writing-note-id="${notes[3].id}"]`).count(), 0);
   assert.deepEqual((await page.locator("#writingBasketList article[data-writing-note-id]").evaluateAll(cards => cards.map(card => card.getAttribute("data-writing-note-id")))).sort(), wanted);
   assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
