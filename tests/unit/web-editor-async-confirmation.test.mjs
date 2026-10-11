@@ -142,6 +142,23 @@ for (const [label, change] of [
     assert.deepEqual(context.effects, []);
   });
 }
+for (const close of ["closeTab", "closeAllTabs"]) {
+  test(`declining draft restore then ${close} keeps the deferred draft recoverable`, async t => {
+    const { pane, tab, note, decision, drafts } = fixture(t);
+    tab.dirty = false;
+    const draft = drafts.get(note.id);
+    const pending = pane.maybeRestoreDraft(tab, note);
+    decision.resolve(false);
+    await pending;
+    assert.equal(await pane[close](tab.id), true);
+    assert.equal(drafts.get(note.id), draft);
+    window.confirm = () => true;
+    pane.openNoteTab(note.id);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(pane.activeTab().body, draft.body);
+    assert.equal(pane.activeTab().dirty, true);
+  });
+}
 test("opening another note cannot be undone by late draft recovery", async t => {
   const { pane, note, decision, drafts } = fixture(t);
   pane.state.tabs = []; pane.state.activeTabId = null;

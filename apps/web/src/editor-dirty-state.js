@@ -379,7 +379,7 @@ const editorPaneStateMethods = {
     const idx = this.state.tabs.indexOf(tab);
     const closingActiveTab = this.state.activeTabId === tabId;
     if (closingActiveTab) this.clearAutoSaveTimer();
-    this.clearDraft(tab.noteId);
+    if (tab.dirty) this.clearDraft(tab.noteId);
     this.state.tabs.splice(idx, 1);
     if (closingActiveTab) {
       this.state.activeTabId = this.state.tabs[idx]?.id || this.state.tabs[idx - 1]?.id || null;

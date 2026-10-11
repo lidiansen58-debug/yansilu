@@ -13,9 +13,10 @@ for (const approve of [true, false]) {
     await page.addInitScript((approve) => {
       window.confirm = async () => { throw new Error("Obsolete confirm command must not run"); };
       window.__nativeConfirmationRequests = [];
+      window.__nativeConfirmationDecision = approve;
       window.__TAURI_PLUGIN_DIALOG__ = { async confirm(message, options) {
         window.__nativeConfirmationRequests.push({ message, options });
-        return approve;
+        return window.__nativeConfirmationDecision;
       } };
     }, approve);
     const result = await postJson(apiBase, "/api/v1/notes", {
@@ -57,6 +58,17 @@ for (const approve of [true, false]) {
     } else {
       assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
       assert.equal(await page.evaluate(({ id, marker }) => localStorage.getItem(`yansilu:draft:${id}`)?.includes(marker), { id: note.id, marker }), true);
+      await page.locator("#btnModeToggle").click();
+      await page.locator("#btnModeToggle").click();
+      assert.equal(await page.evaluate(({ id, marker }) => localStorage.getItem(`yansilu:draft:${id}`)?.includes(marker), { id: note.id, marker }), true);
+      await page.locator(".tab.active .tab-close").click();
+      assert.equal(await page.evaluate(({ id, marker }) => localStorage.getItem(`yansilu:draft:${id}`)?.includes(marker), { id: note.id, marker }), true);
+      await page.evaluate(() => { window.__nativeConfirmationDecision = true; });
+      await open();
+      await waitFor(async () => assert.equal(await page.evaluate((marker) => window.__prototypeEditor.getEditorValue().includes(marker), marker), true));
+      await page.keyboard.press("Control+s");
+      await waitFor(async () => assert.match((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, new RegExp(marker)));
+      await page.waitForFunction((id) => !localStorage.getItem(`yansilu:draft:${id}`), note.id);
     }
   });
 }
