@@ -101,13 +101,37 @@ export async function runVisibleRelationCreateFlow(stack, { unloaded = false } =
   const searchUrl = new URL(searched.url());
   assert.equal(searchUrl.searchParams.get("rootDirectoryId"), "dir_original_default");
   assert.equal(searchUrl.searchParams.get("excludeNoteId"), source.id);
+  const rationale = unloaded ? "SQLite search can connect the current note to a target that was not loaded in the file list." : "This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.";
+  let releasePreview;
+  let previewStarted;
+  if (unloaded) {
+    let signalPreviewStarted;
+    previewStarted = new Promise(resolve => { signalPreviewStarted = resolve; });
+    const released = new Promise(resolve => { releasePreview = resolve; });
+    await page.route(`**/api/v1/notes/${target.id}`, async route => {
+      const result = await route.fetch();
+      signalPreviewStarted();
+      await released;
+      await route.fulfill({ response: result });
+    });
+  }
   await workspace.locator(`[data-permanent-relation-manual-target="${target.id}"]`).click();
   const type = unloaded ? "bridges" : "supports";
   if (unloaded) {
-    await workspace.locator(".permanent-relation-more-types > summary").click();
+    try {
+      await previewStarted;
+      await workspace.locator('[data-permanent-relation-field="rationale"]').fill(rationale);
+      await workspace.locator(".permanent-relation-more-types > summary").click();
+      assert.equal(await workspace.locator(".permanent-relation-more-types").evaluate(element => element.open), true);
+    } finally {
+      releasePreview();
+    }
+    await workspace.getByText("正在读取双方笔记...", { exact: true }).waitFor({ state: "detached" });
+    assert.equal(await workspace.locator(".permanent-relation-more-types").evaluate(element => element.open), true,
+      "Loading the selected note preview must preserve the user's expanded relation choices");
+    assert.equal(await workspace.locator('[data-permanent-relation-field="rationale"]').inputValue(), rationale);
     await workspace.locator('[data-permanent-relation-field="relationType"]:visible').selectOption(type);
   } else await workspace.locator('[data-permanent-relation-type-choice="supports"]').click();
-  const rationale = unloaded ? "SQLite search can connect the current note to a target that was not loaded in the file list." : "This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.";
   await workspace.locator('[data-permanent-relation-field="rationale"]').fill(rationale);
   await workspace.locator('button[type="submit"]').click();
   await workspace.locator(".permanent-relation-result").waitFor();

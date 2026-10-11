@@ -44,8 +44,17 @@ export class PermanentRelationComposerController {
 
   replaceOverlay(existing, html) {
     const focused = captureWorkspaceFocus(existing);
+    const moreTypes = existing.querySelector(".permanent-relation-more-types");
+    const previousType = moreTypes?.querySelector("select")?.value;
     existing.outerHTML = html;
-    restoreWorkspaceFocus(this.host.permanentRelationWorkspaceElement(), focused);
+    const replacement = this.host.permanentRelationWorkspaceElement();
+    const nextMoreTypes = replacement?.querySelector(".permanent-relation-more-types");
+    // Preview responses must not collapse the choices the user is using.
+    // A changed relation type still uses its own default disclosure state.
+    if (moreTypes && nextMoreTypes?.querySelector("select")?.value === previousType) {
+      nextMoreTypes.open = moreTypes.open;
+    }
+    restoreWorkspaceFocus(replacement, focused);
   }
 
   currentRelations() {
