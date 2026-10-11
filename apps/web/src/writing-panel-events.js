@@ -823,15 +823,25 @@ async function createWritingScaffold(deps = {}) {
       markdown: result.export?.markdown,
       versionNote: result.item?.version_note || ""
     });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    if (!isCurrent()) return;
     renderWritingPanel();
     applyWritingTab("outline");
     const message = "提纲已生成。现在可以编辑章节，或开始写草稿。";
     setWritingActionFeedback($, message, "ok");
     setStatus(message, "ok");
+    // The returned scaffold is authoritative. Metadata refresh must not delay
+    // showing it or turn a successful generation into a generation failure.
+    try {
+      await loadWritingProjectsList();
+      if (!isCurrent()) return;
+      await loadWritingScaffoldVersions();
+      if (!isCurrent()) return;
+      await loadWritingDraftVersions();
+    } catch {
+      if (!isCurrent()) return;
+      const refreshMessage = "提纲已生成，历史记录暂未刷新。";
+      setWritingActionFeedback($, refreshMessage, "warn");
+      setStatus(refreshMessage, "warn");
+    }
   } catch (error) {
     if (!isCurrent()) return;
     showWritingResult({
