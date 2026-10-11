@@ -2,6 +2,53 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
+test("late permanent save preserves the literature entry and its new-note type", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t); if (!pw) return;
+  const stack = await startPrototypeStack(t, pw); if (!stack) return;
+  const { page, apiBase, webBase } = stack;
+  const created = await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_original_default", body: "# Existing permanent note\n\nSaved text before the navigation." });
+  assert.equal(created.status, 201);
+  const id = created.json.item.id;
+  await page.goto(webBase + "/prototype", { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${id}"]`).click();
+  const content = page.locator("#editorHost .cm-content:visible");
+  if (!await content.isVisible()) await page.locator("#btnModeToggle").click();
+  await content.waitFor({ state: "visible" });
+  let release, signalStarted;
+  const released = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { signalStarted = resolve; });
+  await page.route(`**/api/v1/notes/${id}`, async route => {
+    if (route.request().method() !== "PUT") return route.continue();
+    const response = await route.fetch(); signalStarted(); await released;
+    await route.fulfill({ response });
+  });
+  try {
+    await content.click(); await page.keyboard.press("Control+a");
+    await page.keyboard.insertText("# Existing permanent note\n\nSaved text changed before the navigation.");
+    await page.keyboard.press("Control+s");
+    await started;
+    await page.locator('[data-action="quick-literature"]').click();
+    await page.waitForFunction(() => window.__prototypeState.browserRootId === "dir_literature_default" && document.querySelector("#btnNewNote")?.title.includes("文献"));
+    const returned = page.waitForResponse(response => new URL(response.url()).pathname === `/api/v1/notes/${id}` && response.request().method() === "PUT");
+    release(); await returned;
+    await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
+    const navigation = await page.evaluate(() => ({ root: window.__prototypeState.browserRootId, folder: window.__prototypeState.selectedFolderId, title: document.querySelector("#btnNewNote").title }));
+    assert.equal(navigation.root, "dir_literature_default", "An older save response must preserve the newer literature navigation");
+    assert.equal(navigation.folder, "dir_literature_default"); assert.match(navigation.title, /文献/);
+    const creation = page.waitForResponse(response => new URL(response.url()).pathname === "/api/v1/notes" && response.request().method() === "POST");
+    await page.locator("#btnNewNote").click();
+    const response = await creation; assert.equal(response.status(), 201);
+    const note = (await response.json()).item;
+    assert.equal(note.directoryId, "dir_literature_default"); assert.equal(note.noteType, "literature");
+    await waitFor(async () => assert.equal(await page.evaluate(() => window.__prototypeEditor.activeNote()?.id), note.id));
+    const saved = (await fetchJson(apiBase, `/api/v1/notes/${id}`)).json.item;
+    assert.match(saved.body, /Saved text changed before the navigation\./);
+    assert.equal(saved.directoryId, "dir_original_default");
+  } finally { release(); }
+});
+
 for (const outcome of ["success", "failure", "missing-result"]) {
   test(`editor save feedback waits for persistence: ${outcome}`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }

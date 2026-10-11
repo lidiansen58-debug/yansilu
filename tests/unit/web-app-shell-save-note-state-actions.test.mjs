@@ -15,6 +15,30 @@ function statusRecorder() {
   };
 }
 
+for (const change of ["directory", "selected-note", "module", "background-note"]) {
+  test(`late save persists its note without replacing newer explorer context: ${change}`, async () => {
+    const note = { id: "saved-note", folderId: "original", body: "saved text", status: "draft" };
+    const state = { notes: [note], tabs: [], module: "explorer", browserRootId: "original", selectedFolderId: "original", selectedFileId: note.id, activeTabId: "saved-tab" };
+    if (change === "background-note") { state.selectedFileId = "other-note"; state.activeTabId = "other-tab"; }
+    let release, writes = 0, syncs = 0;
+    const pending = new Promise(resolve => { release = resolve; });
+    const save = handleSaveNoteStateChange({ noteId: note.id, body: "saved text" }, {
+      state,
+      updateNote: async () => { writes++; await pending; return { ...note, updatedAt: "persisted" }; },
+      syncExplorerContextToNote: () => { syncs++; state.browserRootId = "original"; },
+      renderAll: () => {}
+    });
+    if (change === "directory") { state.browserRootId = "literature"; state.selectedFolderId = "literature"; state.selectedFileId = null; }
+    if (change === "selected-note") { state.selectedFileId = "other-note"; state.activeTabId = "other-tab"; }
+    if (change === "module") state.module = "writing";
+    const expected = { module: state.module, root: state.browserRootId, folder: state.selectedFolderId, selected: state.selectedFileId, active: state.activeTabId };
+    release();
+    const result = await save;
+    assert.equal(result.updatedAt, "persisted"); assert.equal(note.updatedAt, "persisted"); assert.equal(writes, 1); assert.equal(syncs, 0);
+    assert.deepEqual({ module: state.module, root: state.browserRootId, folder: state.selectedFolderId, selected: state.selectedFileId, active: state.activeTabId }, expected);
+  });
+}
+
 test("uncertain save keeps input and returns a warning instead of success", async () => {
   const body = "My unsaved edit";
   const state = { notes: [{ id: "n1", body }], tabs: [] };

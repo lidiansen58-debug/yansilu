@@ -58,6 +58,15 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
     renderAll = () => {}
   } = deps;
 
+  const explorerContext = ["module", "browserRootId", "selectedFolderId", "selectedFileId", "activeTabId"]
+    .map(field => [field, state[field]]);
+  const syncSavedNoteContext = note => {
+    if (note && explorerContext.every(([field, value]) => state[field] === value) &&
+      (!state.selectedFileId || state.selectedFileId === note.id) &&
+      (!note.folderId || !state.selectedFolderId || state.selectedFolderId === note.folderId)) {
+      syncExplorerContextToNote(note);
+    }
+  };
   const noteId = payload.noteId || (state.tabs || []).find((tab) => tab.id === state.activeTabId)?.noteId || null;
   if (state.noteMoveVaultSwitching || state.noteMoveVaultUncertain || state.unresolvedNoteMove?.noteId === noteId) {
     const message = state.noteMoveVaultSwitching || state.noteMoveVaultUncertain
@@ -116,7 +125,7 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
           });
           savedNote = updated;
         }
-        syncExplorerContextToNote(note);
+        syncSavedNoteContext(note);
         setStatus(updated.recoveredSave ? "已核查上次保存；当前输入不同的内容仍待同步。" : "已同步到 Markdown", updated.recoveredSave ? "warn" : "ok");
         const shouldSuppressSaveSuggestion = payload.suppressSaveAiSuggestion === true || updated.recoveredSave === true;
         if (shouldSuppressSaveSuggestion) clearSaveAiSuggestion();
@@ -142,7 +151,7 @@ export async function handleSaveNoteStateChange(payload = {}, deps = {}) {
       }
     }
   }
-  if (noteForExplorerSync) syncExplorerContextToNote(noteForExplorerSync);
+  if (noteForExplorerSync) syncSavedNoteContext(noteForExplorerSync);
   renderAll();
   return savedNote || true;
 }
