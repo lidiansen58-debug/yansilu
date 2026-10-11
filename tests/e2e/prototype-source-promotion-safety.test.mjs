@@ -17,6 +17,60 @@ async function append(page, text) {
 }
 
 for (const kind of ["fleeting", "literature"]) {
+  test(`${kind} originality rejection explains the next edit and retains the AI review for retry`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t); if (!pw) return;
+    const stack = await startPrototypeStack(t, pw); if (!stack) return;
+    const { page, apiBase } = stack;
+    const body = kind === "literature" ? composeLiteratureWorkspace({ title: "审阅检验材料",
+      originalText: "表达流畅不能说明方法能迁移。", paraphrase: "检查方法需要新场景。", supportsJudgment: "用新的判断检查解释。",
+      citation: { authors: "作者乙", year: "2025", sourceTitle: "判断方法", locator: "第 18 页" } }) : "# 审阅检验随笔\n\n表达流畅不能说明方法能迁移。";
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: `dir_${kind}_default`, body })).json.item;
+    await open(page, source.id);
+    await page.evaluate(() => {
+      const editor = window.__prototypeEditor;
+      editor.setInspectorVisible(true);
+      editor.setSourceDistillAiState({ actionId: "distill_material", noteId: editor.activeNote().id,
+        status: "awaiting_confirmation", sourceBodySnapshot: editor.getEditorValue(), error: "",
+        result: { kind: "draft", modelUsed: true, draft: { title: "用新场景检验方法", coreArgument: "检验解释要检查新的判断。", content: "材料提供了检查解释的线索。", questions: "哪些观察可以推翻结论？" } } });
+    });
+    let attempts = 0;
+    await page.route("**/api/v1/notes", route => {
+      if (route.request().method() !== "POST") return route.continue();
+      attempts++;
+      if (attempts === 1) return route.fulfill({ status: 400, json: { error: { code: "PERMANENT_ORIGINALITY_BLOCKED", message: "Permanent note save blocked: rewrite this note in your own words before saving." } } });
+      return route.continue();
+    });
+    const panel = page.locator("#relatedPanel");
+    const claim = panel.locator('[data-contextual-ai-field="coreArgument"]');
+    const content = panel.locator('[data-contextual-ai-field="content"]');
+    await claim.fill("人工审阅：检验说明能否指导一个新判断。");
+    const reviewedContent = await content.inputValue();
+    await panel.locator("[data-contextual-ai-adopt]").click();
+    await page.locator("#permanentNoteCreate").click();
+    await page.waitForFunction(() => !window.__prototypeEditor.sourceDistillAdopting);
+    await page.waitForFunction(() => document.body.innerText.includes("内容与已有材料过于相似。请改写核心观点和内容，再创建永久笔记。"));
+    assert.doesNotMatch(await page.locator("body").innerText(), /Permanent note save blocked/);
+    assert.equal(await claim.inputValue(), "人工审阅：检验说明能否指导一个新判断。");
+    assert.equal(await content.inputValue(), reviewedContent);
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
+    assert.equal((await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes")).json.items.length, 0);
+    await content.fill("我会先构造一个反例，再列出继续采用这个方法所需的观察证据。独立的检验步骤能让结论的边界被其他人核查。");
+    await panel.locator("[data-contextual-ai-adopt]").click();
+    await page.locator("#permanentNoteCreate").click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id !== id && !window.__prototypeEditor.savingPromise, source.id);
+    const permanentId = await page.evaluate(() => window.__prototypeEditor.activeNote().id);
+    const permanent = (await fetchJson(apiBase, `/api/v1/notes/${permanentId}`)).json.item;
+    assert.equal(attempts, 2);
+    assert.equal((await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes")).json.items.length, 1);
+    assert.match(permanent.body, /独立的检验步骤/);
+    assert(permanent.body.includes(`[[${source.id}|`));
+    assert.equal(permanent.authorship.ai_assisted, true);
+    assert.equal(permanent.authorship.user_confirmed, false);
+  });
+}
+
+for (const kind of ["fleeting", "literature"]) {
   test(`${kind} AI draft directory dialog stays above its inspector and retains review after cancel`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
     const pw = await optionalPlaywright(t); if (!pw) return;

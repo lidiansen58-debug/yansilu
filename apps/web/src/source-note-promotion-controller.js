@@ -177,7 +177,13 @@ async function recordOriginalFromNote(payload = {}, deps = {}) {
     else setStatus(`${opened ? "已生成并打开永久笔记" : "已生成永久笔记"}：${note.title || title}`, "ok");
     return note;
   } catch (error) {
-    setStatus(`记录永久笔记失败：${String(error?.message || error)}`, "bad");
+    const originalityBlocked = error?.code === "PERMANENT_ORIGINALITY_BLOCKED";
+    setStatus(
+      originalityBlocked
+        ? "内容与已有材料过于相似。请改写核心观点和内容，再创建永久笔记。"
+        : `记录永久笔记失败：${String(error?.message || error)}`,
+      originalityBlocked ? "warn" : "bad"
+    );
     return false;
   }
 }
