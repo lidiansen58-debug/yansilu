@@ -6,7 +6,16 @@ test("HTML paste strips executable markup while preserving Chinese, formatting a
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
   if (!pw) return;
-  const stack = await startPrototypeStack(t, pw);
+  let releaseEditor;
+  const editorReady = new Promise(resolve => { releaseEditor = resolve; });
+  t.after(() => releaseEditor());
+  const stack = await startPrototypeStack(t, pw, {
+    navigateWaitUntil: 'domcontentloaded',
+    beforeNavigate: page => page.route('**/vendor/toastui-editor.bundle.js', async route => {
+      await editorReady;
+      await route.continue();
+    }),
+  });
   if (!stack) return;
   const { page, apiBase } = stack;
   await page.addInitScript(() => { window.__editorPasteExecuted = 0; });
@@ -17,7 +26,10 @@ test("HTML paste strips executable markup while preserving Chinese, formatting a
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, note.id);
   };
   await openNote();
-  if (!(await page.locator('#wysiwygHost .ProseMirror:visible').isVisible())) await page.locator('#btnModeToggle').click();
+  assert.equal(await page.evaluate(() => !!window.__prototypeEditor.richEditor), false);
+  if (!(await page.evaluate(() => window.__prototypeEditor.isWysiwygMode()))) await page.locator('#btnModeToggle').click();
+  releaseEditor();
+  await page.waitForFunction(() => !!window.__prototypeEditor.richEditor && window.__prototypeEditor.isWysiwygMode());
   await page.evaluate(() => { window.__editorPasteExecuted = 0; });
   const editor = page.locator('#wysiwygHost .ProseMirror:visible');
   await editor.click();
