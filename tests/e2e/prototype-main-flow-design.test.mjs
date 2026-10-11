@@ -4,15 +4,20 @@ import { mkdir } from "node:fs/promises";
 import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function controlsFit(page, locator, width) {
-  const report = await locator.evaluate(el => {
-    const rect = el.getBoundingClientRect();
-    const style = getComputedStyle(el);
-    return { left: rect.left, right: rect.right, width: rect.width, height: rect.height, font: style.fontSize };
+  // A graph refresh can replace the control between resolving it and measuring it.
+  await waitFor(async () => {
+    const reports = await locator.evaluateAll(elements => elements.map(el => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return { left: rect.left, right: rect.right, width: rect.width, height: rect.height, font: style.fontSize };
+    }));
+    assert.equal(reports.length, 1);
+    const report = reports[0];
+    assert.ok(report.width > 0 && report.left >= 0 && report.right <= width + 1, JSON.stringify(report));
+    assert.ok(report.height >= (width <= 700 ? 44 : 40), JSON.stringify(report));
+    assert.equal(report.font, "14px");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   });
-  assert.ok(report.width > 0 && report.left >= 0 && report.right <= width + 1, JSON.stringify(report));
-  assert.ok(report.height >= (width <= 700 ? 44 : 40), JSON.stringify(report));
-  assert.equal(report.font, "14px");
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 }
 
 async function graphToolsFit(page, width) {
