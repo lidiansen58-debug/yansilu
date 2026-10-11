@@ -3,6 +3,7 @@ import {
   readDesktopServiceStatus
 } from "./desktop-service-status.js";
 import { loadStartupVaultNotes } from "./startup-vault-notes.js";
+import { installDesktopDialogConfirmation } from "./desktop-dialog-confirmation.js";
 
 export async function initializeAppRouteForRuntime(deps = {}) {
   const {
@@ -14,6 +15,7 @@ export async function initializeAppRouteForRuntime(deps = {}) {
     setUsingLocalFallbackData = () => {},
     windowRef = typeof window !== "undefined" ? window : undefined
   } = deps;
+  installDesktopDialogConfirmation(windowRef);
   try {
     await refreshVaultSettings();
     await syncDirectoriesFromApi();

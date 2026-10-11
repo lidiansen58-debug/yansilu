@@ -95,7 +95,7 @@ test("an autosave completing during confirmation does not block closing unchange
 });
 
 for (const accepted of [false, true]) {
-  test(`draft restoration waits for explicit ${accepted ? "acceptance and preserves its old baseline" : "decline before clearing the old draft"}`, async t => {
+  test(`draft restoration waits for explicit ${accepted ? "acceptance and preserves its old baseline" : "decline without clearing the old draft"}`, async t => {
     const { pane, tab, note, decision, drafts, effects } = fixture(t);
     tab.dirty = false;
     const draft = drafts.get(note.id);
@@ -112,7 +112,14 @@ for (const accepted of [false, true]) {
       assert.equal(tab.dirty, true);
       assert.ok(effects.some(item => item[0] === "fill"));
       assert.ok(effects.some(item => item[0] === "autosave"));
-    } else assert.equal(drafts.size, 0);
+    } else {
+      assert.equal(drafts.size, 1);
+      assert.equal(tab.dirty, false);
+      assert.ok(effects.some(item => item[0] === "status" && item[1].includes("草稿仍保留")));
+      window.confirm = () => true;
+      assert.equal(await pane.maybeRestoreDraft(tab, note), true);
+      assert.equal(tab.body, draft.body);
+    }
   });
 }
 for (const [label, change] of [

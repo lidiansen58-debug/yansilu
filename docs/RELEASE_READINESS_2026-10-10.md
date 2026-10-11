@@ -475,3 +475,11 @@
 - 在局部 permanent-section-roles 模块区分章节用途：有独立关联章节时，来源章节保留原标题、正文和顺序；旧笔记只有来源别名时仍接受原兼容映射。旧模板的“关联线索”同样支持。保留作者自定义章节和主动重复的关联章节，不推测或批量改写已经同名的历史章节。
 - 新增实际保存方法回归覆盖新旧模板、来源与关联章节的两种顺序、三个来源标题别名、旧来源单章节及自定义/重复章节。相关单元 91/91 通过、0 跳过（permanent-source-role-unit.log）。真实浏览器编辑区输入、Ctrl+S 保存、API 核对及刷新重新打开 1/1 通过、0 跳过（permanent-source-role-browser.log）。首次浏览器测试向备用输入框写入、未影响实际编辑区，改为操作真实 CodeMirror 后通过，保留首次日志，不将其报告为产品故障。
 - 编码基线无新增问题，差异检查通过。0676c83d 的签名构建、已安装 Windows 及仍在运行的固定源码完整浏览器不包含此修复；最终源码对齐及完整发布门槛继续执行，不能用此前候选验收替代本轮源码验收。
+
+## 安装版备份、异常退出与桌面确认修复
+
+- 0676c83d Windows 安装版在独立合成库实际 UI/API 完成备份恢复 8 项检查：密码不一致拒绝创建、加密备份及密码输入清空、错误密码不留下目标库、损坏密文清理解密中间产物、非空目标目录拒绝覆盖、失败不改动来源库、实际恢复并打开库、重开原合成库。恢复后 55 个笔记、55 个文件摘要、关联 DTO、5 个写作项目和 6 个主题一致（installed-backup-restore-0676c83d.json/log）。没有读取 AI 密钥文件，没有操作正式库，也不将输入路径操作计作原生文件选择器验收。
+- 实际创建随笔、编辑并验证本地草稿存在且尚未写入磁盘，然后强制结束经过路径及库归属核对的测试进程 132284；API 随父进程退出。重开后 57 个已保存笔记/文件与项目、主题、关联快照一致，但草稿恢复被拒绝：页面状态为 `Command plugin:dialog|confirm not allowed by ACL`。本地草稿仍存在，不能将此项记为异常退出恢复通过。首次准备脚本误假定创建 API 不补结尾换行，使用实际返回的规范正文后进入强制退出阶段；首次日志保留。
+- 实际安装版 window.confirm 与本机 tauri-plugin-dialog 2.7.0 的注入脚本均调用 `plugin:dialog|confirm`，但当前 commands/ACL 只提供 message，默认权限已允许 message。正式 SDK 的 confirm 使用 message：[官方接口说明](https://v2.tauri.app/reference/javascript/dialog/#confirm)、[官方 SDK 源码](https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/dialog/guest-js/index.ts)。新增局部 desktop-dialog-confirmation 模块，在启动加载笔记前绑定 nested/global SDK；只有 core 接口的壳层使用允许的 message 协议。未扩大桌面权限或绕过取消/错误/上下文保护。
+- 同时修复取消恢复悄悄删除草稿的行为：取消保留草稿，提示说明可稍后恢复，保存后的草稿清除行为保持。相关单元 229/229 通过、0 跳过（desktop-dialog-confirmation-unit.log），包含异步确认、取消重试、失败及迟到上下文变化。实际页面的批准恢复保存和取消保留流程 2/2 通过、0 跳过（desktop-draft-confirmation-browser.log），native SDK 边界为受控接口，不能替代新安装版原生确认验收。
+- 2ecf4217 的完整核心 5091 项中 4649 通过、0 失败、442 条件项需另行启用，552409.4189 ms（core-permanent-source-role.log），不包含本节桌面确认修复。其[签名构建 38106819118](https://github.com/lidiansen58-debug/yansilu/actions/runs/38106819118)三平台均成功，也不包含本节修复。确认修复后仍须重新对齐完整回归、签名构建与 Windows 异常退出验收。测试进程正常退出后，原选择按原字节恢复，正式库 44 文件摘要不变。

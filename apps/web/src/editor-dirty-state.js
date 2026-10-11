@@ -299,10 +299,10 @@ const editorPaneStateMethods = {
     }
     const updatedAt = draft.updatedAt ? `（${new Date(draft.updatedAt).toLocaleString()}）` : "";
     const shouldRestore = await confirmEditorDraftRestore(this, tab, note, draft,
-      `检测到“${note.title || "未命名笔记"}”有上次未完成的编辑内容${updatedAt}，是否恢复？`);
+      `检测到“${note.title || "未命名笔记"}”有上次未完成的编辑内容${updatedAt}，是否恢复？取消将保留草稿，稍后可再恢复。`);
     if (shouldRestore === null) return false;
     if (!shouldRestore) {
-      this.clearDraft(note.id);
+      this.onStatus("本次暂不恢复，草稿仍保留。", "warn");
       return;
     }
     tab.body = draft.body;
