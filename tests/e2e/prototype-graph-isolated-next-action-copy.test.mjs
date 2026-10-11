@@ -1,129 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createGraphGuidanceFixture, closeGraphRelationComposer } from "./prototype-graph-guidance-flow-helpers.mjs";
+import { fetchJson } from "./prototype-copy-test-helpers.mjs";
 
-async function createWritingReadyPermanentNote(baseUrl, directoryId, title, bodyText) {
-  const created = await postJson(baseUrl, "/api/v1/notes", {
-    directoryId,
-    title,
-    body: `# ${title}\n\n${bodyText}`,
-    thesis: `${title} participates in graph follow-up guidance.`,
-    threeLineSummary: [
-      `${title} participates in graph follow-up guidance.`,
-      "That matters because graph next-action quality should reflect whether the whole slice is really ready.",
-      "An isolated note should keep the user in graph cleanup before writing handoff."
-    ],
-    distillationStatus: "draft",
-    boundaryOrCounterpoint: "This only matters once the note has already become a permanent note."
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-  const noteId = created.json.item.id;
-  const updated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
-    title,
-    body: `# ${title}\n\n${bodyText}`,
-    status: "active",
-    thesis: `${title} participates in graph follow-up guidance.`,
-    threeLineSummary: [
-      `${title} participates in graph follow-up guidance.`,
-      "That matters because graph next-action quality should reflect whether the whole slice is really ready.",
-      "An isolated note should keep the user in graph cleanup before writing handoff."
-    ],
-    distillationStatus: "confirmed",
-    originalityStatus: "pass",
-    authorship: { user_confirmed: true, ai_assisted: false },
-    authorshipConfirmed: true,
-    authorshipAiAssisted: false,
-    boundaryOrCounterpoint: "This only matters once the note has already become a permanent note."
-  });
-  assert.equal(updated.status, 200, JSON.stringify(updated.json));
-  return updated;
-}
-
-test("prototype graph next-action keeps isolated notes in graph follow-up before writing handoff", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Graph Connected A", "This note explicitly supports Graph Connected B.");
-  const noteB = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Graph Connected B", "This note receives one explicit support relation.");
-  const isolated = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Graph Isolated Note", "This note is still outside the relation network.");
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "These two notes already form one explicit local structure.",
-    insightQuestion: "Which note is still outside the current graph structure?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.route("**/api/v1/graph?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        item: {
-          directoryTitle: "永久笔记盒",
-          nodes: [
-            { id: noteA.json.item.id, title: "Graph Connected A", noteType: "permanent" },
-            { id: noteB.json.item.id, title: "Graph Connected B", noteType: "permanent" },
-            { id: isolated.json.item.id, title: "Graph Isolated Note", noteType: "permanent" }
-          ],
-          edges: [
-            {
-              id: relation.json.item.id,
-              fromNoteId: noteA.json.item.id,
-              toNoteId: noteB.json.item.id,
-              fromTitle: "Graph Connected A",
-              toTitle: "Graph Connected B",
-              relationType: "supports",
-              rationale: "These two notes already form one explicit local structure.",
-              status: "confirmed",
-              createdBy: "user"
-            }
-          ],
-          insights: {
-            bridgeGaps: [],
-            untypedRelations: []
-          }
-        }
-      })
-    });
-  });
-  await page.route("**/api/v1/graph/conflicts?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ conflicts: [] })
-    });
-  });
-  await page.route("**/api/v1/relations/review-queue?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ items: [], total: 0 })
-    });
-  });
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.rail-btn[data-module="graph"]').click();
-
-  await waitFor(async () => {
-    const panelText = await page.locator("#graphPanel").textContent();
-    assert.match(String(panelText || ""), /处理孤立观点/);
-    assert.match(String(panelText || ""), /Graph Isolated Note/);
-    assert.doesNotMatch(String(panelText || ""), /带进写作中心/);
-  }, 10000);
-
-  const buttonText = await page.locator(".graph-next-card [data-graph-followup-action='relations']").textContent();
-  assert.match(String(buttonText || ""), /先补孤立观点/);
+test("an isolated graph note opens relation work and cancellation does not start writing or save a relation", async t => {
+  const f = await createGraphGuidanceFixture(t, "isolated");
+  if (!f) return;
+  const { page, notes, apiBase } = f;
+  await page.locator('[data-graph-task-view="relations"]').click();
+  const workbench = page.locator(".graph-workbench-panel:visible");
+  await workbench.waitFor();
+  assert.match(await workbench.innerText(), /暂未关联的判断/);
+  await workbench.locator(`[data-graph-isolated-note="${notes[2].id}"]`).first().click();
+  const composer = page.locator("[data-permanent-relation-workspace]:visible");
+  await composer.waitFor();
+  await composer.locator("[data-permanent-relation-target-search]").fill(notes[1].title);
+  await composer.locator(`[data-permanent-relation-manual-target="${notes[1].id}"]`).click();
+  assert.match(await composer.innerText(), /暂未关联的判断/);
+  assert.match(await composer.innerText(), /支持判断的材料/);
+  await composer.locator('[data-permanent-relation-type-choice="supports"]').click();
+  await composer.locator('textarea[name="rationale"]').fill("这条独立判断能够补充已有材料，但还需要用户确认。");
+  await closeGraphRelationComposer(composer);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/notes/${notes[2].id}/relations`)).json.item.outgoingLinks, []);
+  await f.assertSourcesUnchanged(); await f.assertNoWriting();
 });

@@ -1,52 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
-import { optionalPlaywright, postJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createGraphGuidanceFixture } from "./prototype-graph-guidance-flow-helpers.mjs";
+import { waitFor } from "./prototype-copy-test-helpers.mjs";
 
-test("prototype graph interpretation uses 写作中心 wording", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase, vaultPath } = stack;
-
-  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Graph Copy Scope",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "graph-copy-scope"),
-    maxNotes: 500
-  });
-  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
-  const graphDirectoryId = graphDirectory.json.item.id;
-
-  const targetNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Graph copy target\n\nThis note should be visible in the graph."
-  });
-  assert.equal(targetNote.status, 201);
-
-  const sourceNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Graph copy source\n\nThis note links to [[Graph copy target]] and should create one graph edge."
-  });
-  assert.equal(sourceNote.status, 201);
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
-  await page.locator('.rail-btn[data-module="graph"]').click();
-
-  await waitFor(async () => {
-    await page.waitForSelector("#graphCanvas .graph-node", { timeout: 500 });
-    const interpretationText = await page.locator(".graph-map-interpretation").textContent();
-    assert.match(String(interpretationText || ""), /进入写作中心/);
-    assert.doesNotMatch(String(interpretationText || ""), /进入写作。/);
-  }, 10000);
+test("a real body link is readable in graph and opens its source without starting writing", async t => {
+  const f = await createGraphGuidanceFixture(t, "body");
+  if (!f) return;
+  const { page, notes } = f;
+  const edge = page.locator(".graph-map-edge-group");
+  await edge.waitFor(); assert.equal(await edge.count(), 1);
+  await edge.focus(); await edge.press("Enter");
+  const panel = page.locator(".graph-selection-panel:visible");
+  await panel.waitFor();
+  assert.match(await panel.innerText(), /正文关联|来源笔记正文/);
+  assert.doesNotMatch(await panel.innerText(), /markdown_wikilink|graph_followup/);
+  await f.assertSourcesUnchanged(); await f.assertNoWriting();
+  await panel.locator(`[data-open-note="${notes[0].id}"]`).click();
+  await page.locator("#wysiwygHost:visible").waitFor();
+  await waitFor(async () => assert.match(await page.locator("#wysiwygHost").innerText(), /正文链接目标/));
+  await f.assertSourcesUnchanged(); await f.assertNoWriting();
 });

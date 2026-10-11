@@ -1,125 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createGraphGuidanceFixture, openGraphRelationComposer, closeGraphRelationComposer } from "./prototype-graph-guidance-flow-helpers.mjs";
+import { fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-async function createWritingReadyPermanentNote(baseUrl, directoryId, title, bodyText) {
-  const created = await postJson(baseUrl, "/api/v1/notes", {
-    directoryId,
-    title,
-    body: `# ${title}\n\n${bodyText}`,
-    thesis: `${title} participates in graph follow-up guidance.`,
-    threeLineSummary: [
-      `${title} participates in graph follow-up guidance.`,
-      "That matters because graph next-action quality should reflect whether relation reasons are strong enough.",
-      "A thin rationale should stay in graph cleanup before writing handoff."
-    ],
-    distillationStatus: "draft",
-    boundaryOrCounterpoint: "This only matters after the note is already mature enough for graph follow-up."
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-  const noteId = created.json.item.id;
-  const updated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
-    title,
-    body: `# ${title}\n\n${bodyText}`,
-    status: "active",
-    thesis: `${title} participates in graph follow-up guidance.`,
-    threeLineSummary: [
-      `${title} participates in graph follow-up guidance.`,
-      "That matters because graph next-action quality should reflect whether relation reasons are strong enough.",
-      "A thin rationale should stay in graph cleanup before writing handoff."
-    ],
-    distillationStatus: "confirmed",
-    originalityStatus: "pass",
-    authorship: { user_confirmed: true, ai_assisted: false },
-    authorshipConfirmed: true,
-    authorshipAiAssisted: false,
-    boundaryOrCounterpoint: "This only matters after the note is already mature enough for graph follow-up."
-  });
-  assert.equal(updated.status, 200, JSON.stringify(updated.json));
-  return updated;
-}
-
-test("prototype graph next-action keeps thin-rationale slices in relation-strengthening mode", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Thin Rationale A", "This note already has one explicit support edge, but the reason is still thin.");
-  const noteB = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Thin Rationale B", "This note is the connected partner in the thin-rationale slice.");
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "A short reason.",
-    insightQuestion: "",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.route("**/api/v1/graph?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        item: {
-          directoryTitle: "永久笔记盒",
-          nodes: [
-            { id: noteA.json.item.id, title: "Thin Rationale A", noteType: "permanent" },
-            { id: noteB.json.item.id, title: "Thin Rationale B", noteType: "permanent" }
-          ],
-          edges: [
-            {
-              id: relation.json.item.id,
-              fromNoteId: noteA.json.item.id,
-              toNoteId: noteB.json.item.id,
-              fromTitle: "Thin Rationale A",
-              toTitle: "Thin Rationale B",
-              relationType: "supports",
-              rationale: "A short reason.",
-              rationaleQualityLevel: "basic",
-              status: "confirmed",
-              createdBy: "user"
-            }
-          ],
-          insights: {
-            bridgeGaps: [],
-            untypedRelations: []
-          }
-        }
-      })
-    });
-  });
-  await page.route("**/api/v1/graph/conflicts?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ conflicts: [] })
-    });
-  });
-  await page.route("**/api/v1/relations/review-queue?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ items: [], total: 0 })
-    });
-  });
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.rail-btn[data-module="graph"]').click();
-
+test("a thin graph relation can be reviewed and its reason edited in place without duplicate relations or writing", async t => {
+  const f = await createGraphGuidanceFixture(t, "thin");
+  if (!f) return;
+  const { page, notes, relations, apiBase } = f;
+  const originalLink = (await fetchJson(apiBase, `/api/v1/notes/${notes[0].id}/relations`)).json.item.outgoingLinks.find(link => link.id === relations[0].id);
+  assert.ok(originalLink);
+  const edge = page.locator(`.graph-map-edge-group[data-edge-id="${relations[0].id}"]`);
+  await edge.focus(); await edge.press("Enter");
+  const panel = page.locator(".graph-selection-panel:visible");
+  await panel.waitFor();
+  assert.match(await panel.locator(".graph-selection-reason").first().innerText(), /相关。/);
+  let composer = await openGraphRelationComposer(page, panel);
+  assert.equal(await composer.locator('textarea[name="rationale"]').inputValue(), "相关。");
+  assert.equal(await composer.locator('input[name="insightQuestion"]').inputValue(), "");
+  await composer.locator('textarea[name="rationale"]').fill("暂未提交的说明。");
+  await closeGraphRelationComposer(composer);
+  await f.assertSourcesUnchanged(); await f.assertNoWriting();
+  await edge.focus(); await edge.press("Enter");
+  composer = await openGraphRelationComposer(page, panel);
+  assert.equal(await composer.locator('textarea[name="rationale"]').inputValue(), "相关。");
+  const rationale = "这条材料提供可核对的解释依据，支持当前判断；仍需回到原文检查适用条件。";
+  await composer.locator('textarea[name="rationale"]').fill(rationale);
+  await composer.locator('button[type="submit"]').click();
+  await composer.locator(".permanent-relation-result").waitFor();
   await waitFor(async () => {
-    const panelText = await page.locator("#graphPanel").textContent();
-    assert.match(String(panelText || ""), /先补关系理由/);
-    assert.match(String(panelText || ""), /正式关系/);
-    assert.doesNotMatch(String(panelText || ""), /带进写作中心/);
-  }, 10000);
+    const links = (await fetchJson(apiBase, `/api/v1/notes/${notes[0].id}/relations`)).json.item.outgoingLinks;
+    assert.equal(links.length, 1);
+    assert.equal(links[0].id, relations[0].id);
+    assert.equal(links[0].toNoteId, notes[1].id);
+    assert.equal(links[0].relationType, "supports");
+    assert.equal(links[0].rationale, rationale);
+    assert.equal(links[0].insightQuestion, originalLink.insightQuestion);
+  });
+  await f.assertNoteContentUnchanged(); await f.assertNoWriting();
 });

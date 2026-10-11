@@ -1,123 +1,41 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createGraphGuidanceFixture, selectGraphNode } from "./prototype-graph-guidance-flow-helpers.mjs";
+import { fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { openWritingScopeCandidates, visibleWritingCandidateIds } from "./prototype-writing-scope-flow-helpers.mjs";
 
-async function createWritingReadyPermanentNote(baseUrl, directoryId, title) {
-  const created = await postJson(baseUrl, "/api/v1/notes", {
-    directoryId,
-    title,
-    body: `# ${title}\n\nA mature permanent note for the graph writing handoff.`,
-    thesis: `${title} should participate in a graph handoff into the writing center.`,
-    threeLineSummary: [
-      `${title} should participate in a graph handoff into the writing center.`,
-      "That matters because the next-action note should describe continuing this graph slice, not re-picking notes from scratch.",
-      "It should stay aligned with the auto-prefill behavior already implemented."
-    ],
-    distillationStatus: "draft",
-    boundaryOrCounterpoint: "This only works once the graph already has explicit structure."
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-  const noteId = created.json.item.id;
-  const updated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
-    title,
-    body: `# ${title}\n\nA mature permanent note for the graph writing handoff.`,
-    status: "active",
-    thesis: `${title} should participate in a graph handoff into the writing center.`,
-    threeLineSummary: [
-      `${title} should participate in a graph handoff into the writing center.`,
-      "That matters because the next-action note should describe continuing this graph slice, not re-picking notes from scratch.",
-      "It should stay aligned with the auto-prefill behavior already implemented."
-    ],
-    distillationStatus: "confirmed",
-    originalityStatus: "pass",
-    authorship: { user_confirmed: true, ai_assisted: false },
-    authorshipConfirmed: true,
-    authorshipAiAssisted: false,
-    boundaryOrCounterpoint: "This only works once the graph already has explicit structure."
-  });
-  assert.equal(updated.status, 200, JSON.stringify(updated.json));
-  return updated;
-}
-
-test("prototype graph next-action note describes carrying the current slice into the writing center", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase, vaultPath } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Graph Next Action A");
-  const noteB = await createWritingReadyPermanentNote(apiBase, "dir_original_default", "Graph Next Action B");
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The second note gives the first enough explicit structure to justify entering the writing center.",
-    insightQuestion: "Which part of this graph slice should move forward into writing first?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.route("**/api/v1/graph?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        item: {
-          directoryTitle: "永久笔记盒",
-          nodes: [
-            { id: noteA.json.item.id, title: "Graph Next Action A", noteType: "permanent" },
-            { id: noteB.json.item.id, title: "Graph Next Action B", noteType: "permanent" }
-          ],
-          edges: [
-            {
-              id: relation.json.item.id,
-              fromNoteId: noteA.json.item.id,
-              toNoteId: noteB.json.item.id,
-              fromTitle: "Graph Next Action A",
-              toTitle: "Graph Next Action B",
-              relationType: "supports",
-              rationale: "The second note gives the first enough explicit structure to justify continuing in the writing center.",
-              status: "confirmed",
-              createdBy: "user"
-            }
-          ],
-          insights: {
-            bridgeGaps: [],
-            untypedRelations: []
-          }
-        }
-      })
-    });
-  });
-  await page.route("**/api/v1/graph/conflicts?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ conflicts: [] })
-    });
-  });
-  await page.route("**/api/v1/relations/review-queue?*", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ items: [], total: 0 })
-    });
-  });
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.rail-btn[data-module="graph"]').click();
-
-  await waitFor(async () => {
-    const panelText = await page.locator("#graphPanel").textContent();
-    assert.match(String(panelText || ""), /带进写作中心/);
-    assert.doesNotMatch(String(panelText || ""), /去写作中心挑选/);
-  }, 10000);
+test("a structured graph carries confirmed materials into writing only after the user saves the theme", async t => {
+  const f = await createGraphGuidanceFixture(t, "ready");
+  if (!f) return;
+  const { page, notes, apiBase } = f;
+  const wanted = notes.map(note => note.id).sort();
+  const panel = await selectGraphNode(page, notes[0].id);
+  const create = panel.locator("[data-graph-create-theme-index]");
+  assert.equal(await create.isEnabled(), true);
+  assert.deepEqual((await create.getAttribute("data-graph-theme-note-ids")).split(",").sort(), wanted);
+  await f.assertNoWriting();
+  await create.click();
+  const form = page.locator("[data-graph-theme-confirmation-form]");
+  await form.waitFor({ state: "visible" });
+  assert.deepEqual((await form.locator('input[name="noteId"]').evaluateAll(inputs => inputs.map(input => input.value))).sort(), wanted);
+  await form.locator("[data-graph-theme-confirmation-cancel]").click();
+  await form.waitFor({ state: "hidden" });
+  await f.assertSourcesUnchanged(); await f.assertNoWriting();
+  await create.click(); await form.waitFor({ state: "visible" });
+  const question = "这些关联怎样支持或限定当前判断？";
+  await page.locator("#graphThemeQuestion").fill(question);
+  const request = page.waitForRequest(req => req.method() === "POST" && new URL(req.url()).pathname === "/api/v1/index-cards");
+  await form.getByRole("button", { name: "确认主题并继续", exact: true }).click();
+  assert.equal((await request).postDataJSON().expectedVaultPath, f.vaultPath);
+  await page.locator("#writingTitle:visible").waitFor();
+  const themes = (await fetchJson(apiBase, "/api/v1/index-cards?limit=50")).json.items;
+  assert.equal(themes.length, 1);
+  const theme = (await fetchJson(apiBase, `/api/v1/index-cards/${themes[0].id}`)).json.item;
+  assert.equal(theme.central_question, question);
+  assert.deepEqual(theme.items.map(item => item.note_id).sort(), wanted);
+  await openWritingScopeCandidates(page);
+  await waitFor(async () => assert.deepEqual(await visibleWritingCandidateIds(page), wanted));
+  assert.deepEqual((await page.locator("#writingBasketList article[data-writing-note-id]").evaluateAll(cards => cards.map(card => card.getAttribute("data-writing-note-id")))).sort(), wanted);
+  assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
+  await f.assertSourcesUnchanged(); f.assertNoAi();
 });
