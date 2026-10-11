@@ -80,36 +80,45 @@ test("actual typed draft reload waits for async decline or acceptance and restor
   const baseline = await fs.readFile(path.join(vaultPath, note.markdownPath));
   await page.addInitScript(nativeConfirmShape);
   await page.clock.install();
-  for (const accepted of [false, true]) {
-    await openNote(page, note.id);
-    await appendInput(page, `需要确认恢复的真实输入 ${accepted} café 🌿。`);
-    const rawDraft = await page.evaluate(key => localStorage.getItem(key), key);
-    const expectedBody = JSON.parse(rawDraft).body;
-    await page.reload({ waitUntil: 'networkidle' });
-    await openNote(page, note.id);
-    await page.waitForFunction(() => window.__editorConfirmTest.pending.length === 1);
-    assert.equal(await page.locator('#editorBody').inputValue(), note.body);
-    assert.equal(await page.evaluate(key => localStorage.getItem(key), key), rawDraft);
-    await page.clock.fastForward(15001);
-    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
-    assert.deepEqual(await fs.readFile(path.join(vaultPath, note.markdownPath)), baseline);
-    await page.evaluate(accepted => window.__editorConfirmTest.pending.shift()(accepted), accepted);
-    if (!accepted) {
-      await waitFor(async () => { assert.equal(await page.evaluate(key => localStorage.getItem(key), key), null); });
-      assert.equal(await page.locator('#editorBody').inputValue(), note.body);
-    } else {
-      await waitFor(async () => { assert.equal(await page.locator('#editorBody').inputValue(), expectedBody); });
-      if (!await page.locator('#editorHost .cm-content:visible').isVisible()) await page.locator('#btnModeToggle').click();
-      await page.locator('#editorHost .cm-content:visible').click();
-      await page.keyboard.press('Control+s');
-      await waitFor(async () => {
-        assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.trimEnd(), expectedBody.trimEnd());
-      });
-      await page.reload({ waitUntil: 'networkidle' });
-      await openNote(page, note.id);
-      await waitFor(async () => { assert.equal((await page.locator('#editorBody').inputValue()).trimEnd(), expectedBody.trimEnd()); });
-      assert.equal(await page.evaluate(() => window.__editorConfirmTest.messages.length), 0);
-    }
-  }
+  await openNote(page, note.id);
+  await appendInput(page, '需要确认恢复的真实输入 café 🌿。');
+  const rawDraft = await page.evaluate(key => localStorage.getItem(key), key);
+  const expectedBody = JSON.parse(rawDraft).body;
+  await page.reload({ waitUntil: 'networkidle' });
+  await openNote(page, note.id);
+  await page.waitForFunction(() => window.__editorConfirmTest.pending.length === 1);
+  assert.equal(await page.locator('#editorBody').inputValue(), note.body);
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), rawDraft);
+  await page.clock.fastForward(15001);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
+  assert.deepEqual(await fs.readFile(path.join(vaultPath, note.markdownPath)), baseline);
+  await page.evaluate(() => window.__editorConfirmTest.pending.shift()(false));
+  await waitFor(async () => { assert.match(String(await page.locator('#statusText').textContent()), /草稿仍保留/); });
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), rawDraft);
+  assert.equal(await page.locator('#editorBody').inputValue(), note.body);
+  await page.locator('.tab.active .tab-close').click();
+  await waitFor(async () => { assert.equal(await page.locator(`.tab[data-tab="tab_${note.id}"]`).count(), 0); });
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), rawDraft);
+  await page.clock.fastForward(15001);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
+  assert.deepEqual(await fs.readFile(path.join(vaultPath, note.markdownPath)), baseline);
+  await openNote(page, note.id);
+  await page.waitForFunction(() => window.__editorConfirmTest.pending.length === 1);
+  assert.equal(await page.evaluate(() => window.__editorConfirmTest.messages.length), 2);
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), rawDraft);
+  assert.equal(await page.locator('#editorBody').inputValue(), note.body);
+  await page.evaluate(() => window.__editorConfirmTest.pending.shift()(true));
+  await waitFor(async () => { assert.equal(await page.locator('#editorBody').inputValue(), expectedBody); });
+  if (!await page.locator('#editorHost .cm-content:visible').isVisible()) await page.locator('#btnModeToggle').click();
+  await page.locator('#editorHost .cm-content:visible').click();
+  await page.keyboard.press('Control+s');
+  await waitFor(async () => {
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body.trimEnd(), expectedBody.trimEnd());
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), key), null);
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await openNote(page, note.id);
+  await waitFor(async () => { assert.equal((await page.locator('#editorBody').inputValue()).trimEnd(), expectedBody.trimEnd()); });
+  assert.equal(await page.evaluate(() => window.__editorConfirmTest.messages.length), 0);
   await page.clock.resume();
 });
