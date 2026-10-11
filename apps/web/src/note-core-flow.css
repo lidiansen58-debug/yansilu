@@ -188,6 +188,7 @@ body:has(#relatedPanel:not(.hidden)) .app { pointer-events: none; }
 .permanent-relation-panel .permanent-relation-type-card { min-height: 44px; box-shadow: none; }
 .permanent-relation-panel .permanent-relation-type-card:not(.is-active) { align-content: center; }
 .permanent-relation-type-card strong { font-size: 14px; }
+#permanentNoteModal { z-index: 4500; }
 #permanentNoteModal .modal { width: min(520px, calc(100vw - 24px)); background: #fff; }
 #permanentNoteModal :is(button, select) { min-height: 44px; }
 #permanentNoteModal .permanent-note-source-card { border: 0; border-left: 3px solid #0f766e; border-radius: 0; box-shadow: none; background: #f5f8f7; }

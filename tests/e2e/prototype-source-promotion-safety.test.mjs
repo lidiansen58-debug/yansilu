@@ -17,6 +17,51 @@ async function append(page, text) {
 }
 
 for (const kind of ["fleeting", "literature"]) {
+  test(`${kind} AI draft directory dialog stays above its inspector and retains review after cancel`, async t => {
+    if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+    const pw = await optionalPlaywright(t); if (!pw) return;
+    const stack = await startPrototypeStack(t, pw); if (!stack) return;
+    const { page, apiBase } = stack;
+    const body = kind === "literature" ? composeLiteratureWorkspace({ title: "AI 审阅材料",
+      originalText: "复述有助于检查理解。", paraphrase: "解释材料可以发现理解缺口。", supportsJudgment: "检验理解需要复述和核对依据。",
+      citation: { authors: "作者甲", year: "2024", sourceTitle: "学习方法", locator: "第 12 页" } }) : "# AI 审阅随笔\n\n复述材料后还需要核对依据。";
+    const source = (await postJson(apiBase, "/api/v1/notes", { directoryId: `dir_${kind}_default`, body })).json.item;
+    await open(page, source.id);
+    // Seed a reviewed result only; directory selection and persistence use the real UI/API.
+    await page.evaluate(() => {
+      const editor = window.__prototypeEditor;
+      editor.setInspectorVisible(true);
+      editor.setSourceDistillAiState({ actionId: "distill_material", noteId: editor.activeNote().id,
+        status: "awaiting_confirmation", sourceBodySnapshot: editor.getEditorValue(), error: "",
+        result: { kind: "draft", modelUsed: true, draft: { title: "理解需要核对依据", coreArgument: "复述只是起点。", content: "需要回到材料核对依据。", questions: "适用边界是什么？" } } });
+    });
+    const panel = page.locator("#relatedPanel");
+    const claim = panel.locator('[data-contextual-ai-field="coreArgument"]');
+    await claim.fill("人工审阅：复述与证据核对共同检验理解。");
+    await panel.locator("[data-contextual-ai-adopt]").click();
+    await page.locator("#permanentNoteModal:visible").waitFor();
+    assert.equal(await page.locator("#permanentNoteCancel").evaluate(button => {
+      const r = button.getBoundingClientRect();
+      return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    }), true, "The inspector must not cover directory-dialog controls");
+    await page.locator("#permanentNoteCancel").click();
+    await page.locator("#permanentNoteModal").waitFor({ state: "hidden" });
+    await page.waitForFunction(() => !window.__prototypeEditor.sourceDistillAdopting);
+    assert.equal(await claim.inputValue(), "人工审阅：复述与证据核对共同检验理解。");
+    assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body, source.body);
+    await panel.locator("[data-contextual-ai-adopt]").click();
+    await page.locator("#permanentNoteCreate").click();
+    await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id !== id && !window.__prototypeEditor.savingPromise, source.id);
+    const permanentId = await page.evaluate(() => window.__prototypeEditor.activeNote().id);
+    const permanent = (await fetchJson(apiBase, `/api/v1/notes/${permanentId}`)).json.item;
+    assert.match(permanent.body, /人工审阅：复述与证据核对共同检验理解/);
+    assert.ok(permanent.body.includes(`[[${source.id}|`));
+    const savedSource = (await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item;
+    assert.ok(savedSource.body.includes(kind === "fleeting" ? "复述材料后还需要核对依据。" : "解释材料可以发现理解缺口。"));
+  });
+}
+
+for (const kind of ["fleeting", "literature"]) {
   for (const scenario of ["switch-note", "external-conflict"]) {
     test(`${kind} promotion respects current navigation and external edits: ${scenario}`, async t => {
       if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
