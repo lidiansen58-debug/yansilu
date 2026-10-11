@@ -29,6 +29,11 @@ test("graph canvas help hint shows once for a graph with nodes and then auto-dis
   const graphState = {};
   const window = fakeWindow();
   const renders = [];
+  const removed = [];
+  window.document = { querySelectorAll: selector => {
+    assert.equal(selector, "#graphCanvas .graph-canvas-help-hint");
+    return [{ remove: () => removed.push("help-hint") }];
+  } };
   const deps = {
     graphState,
     window,
@@ -44,7 +49,8 @@ test("graph canvas help hint shows once for a graph with nodes and then auto-dis
 
   assert.equal(graphState.canvasHelpHintDismissed, true);
   assert.equal(window.store.get(GRAPH_CANVAS_HELP_HINT_KEY), "1");
-  assert.deepEqual(renders, ["render"]);
+  assert.deepEqual(renders, []);
+  assert.deepEqual(removed, ["help-hint"]);
   now += 9000;
   assert.equal(shouldShowGraphCanvasHelpHintForRuntime({ hasNodes: true }, deps), false);
 });

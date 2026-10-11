@@ -2032,6 +2032,7 @@ test("graph density hint is temporary and does not stay on the map", () => {
   let timeoutDelay = 0;
   let clearedTimer = null;
   let renderCount = 0;
+  let hintRemoved = 0;
   const graphState = {
     lastLoadedDirectoryId: "dir-a",
     lastLoadedAt: "loaded-1"
@@ -2040,6 +2041,10 @@ test("graph density hint is temporary and does not stay on the map", () => {
     graphState,
     now: () => currentTime,
     window: {
+      document: { querySelectorAll: selector => {
+        assert.equal(selector, "#graphCanvas .graph-density-hint");
+        return [{ remove: () => { hintRemoved += 1; } }];
+      } },
       setTimeout: (callback, delay) => {
         timeoutCallback = callback;
         timeoutDelay = delay;
@@ -2069,7 +2074,8 @@ test("graph density hint is temporary and does not stay on the map", () => {
   timeoutCallback();
   assert.equal(graphState.densityHintVisibleUntil, 0);
   assert.equal(graphState.densityHintTimer, 0);
-  assert.equal(renderCount, 1);
+  assert.equal(renderCount, 0);
+  assert.equal(hintRemoved, 1);
 
   graphState.densityHintTimer = 77;
   assert.equal(shouldShowGraphDensityHintForRuntime({ dense: false, filterActive: false }, deps), false);

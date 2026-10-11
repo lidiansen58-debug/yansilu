@@ -36,7 +36,7 @@ export function clearGraphCanvasHelpHintTimerForRuntime(deps = {}) {
 
 export function scheduleGraphCanvasHelpHintDismissForRuntime(deps = {}) {
   const runtime = graphCanvasHelpHintDeps(deps);
-  const { graphState, window, now, isGraphModule, renderGraphPanel } = runtime;
+  const { graphState, window, now, isGraphModule } = runtime;
   clearGraphCanvasHelpHintTimerForRuntime(runtime);
   const remaining = Number(graphState.canvasHelpHintVisibleUntil || 0) - now();
   if (remaining <= 0) {
@@ -48,7 +48,7 @@ export function scheduleGraphCanvasHelpHintDismissForRuntime(deps = {}) {
     graphState.canvasHelpHintVisibleUntil = 0;
     graphState.canvasHelpHintDismissed = true;
     storeHintDismissed(window);
-    if (isGraphModule()) renderGraphPanel();
+    if (isGraphModule()) window?.document?.querySelectorAll?.("#graphCanvas .graph-canvas-help-hint")?.forEach(hint => hint.remove());
   }, remaining) || 0;
   return Boolean(graphState.canvasHelpHintTimer);
 }
