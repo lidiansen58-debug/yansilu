@@ -404,9 +404,12 @@ export async function persistWritingProjectForm(deps = {}) {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) return null;
   try {
-    const project = await syncWritingProjectForm(deps, { force: true });
-    renderWritingPanel();
-    setStatus("主题已保存", "ok");
+    const previous = writingState.project;
+    const project = await syncWritingProjectForm(deps);
+    if (project !== previous) {
+      renderWritingPanel();
+      setStatus("主题已保存", "ok");
+    }
     return project;
   } catch (error) {
     if (error?.code === "WRITING_CONTEXT_CHANGED") return null;

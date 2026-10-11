@@ -95,6 +95,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     writingState.loadingRelationCounts = basketIds.length > 0;
     renderWritingPanel();
     if (activeTab) applyWritingTab(activeTab);
+    const projectAtRequest = writingState.project;
     try {
       const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
         listWritingProjects({
@@ -116,7 +117,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
       if (themeRequest.isCurrent() && Array.isArray(themeIndexes)) writingState.themeIndexes = themeIndexes;
-      if (project) writingState.project = project;
+      if (project && writingState.project === projectAtRequest) writingState.project = project;
       writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
       writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
       if (relationPayload && typeof relationPayload === "object") {
@@ -132,7 +133,6 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       writingState.loadingDraftVersions = false;
       writingState.loadingRelationCounts = false;
       renderWritingPanel();
-      if (activeTab) applyWritingTab(activeTab);
       syncWritingResultFromCurrentState();
     }
     if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });

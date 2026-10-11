@@ -218,7 +218,9 @@ test(`graph directory scope saves the selected network as a theme${writingReady 
     const versions = await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}/scaffolds?limit=100`);
     assert.equal(versions.status, 200);
     assert.equal(versions.json.items.length, 1);
-    assert.equal(await page.locator('#btnWritingCreateScaffold').isDisabled(), false);
+    // The outline appears before history refresh completes; await the end of
+    // that guarded operation before starting the next generation below.
+    await waitFor(async () => assert.equal(await page.locator('#btnWritingCreateScaffold').isDisabled(), false));
     await page.locator('[data-writing-tab="theme"]').click();
     const otherVault = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-scaffold-context-'));
     let releaseLate, held;

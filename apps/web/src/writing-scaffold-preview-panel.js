@@ -5,6 +5,7 @@ import {
 import { observeWritingOutlineSize, resizeWritingOutlineHeading } from "./writing-outline-layout.js";
 import { renderWritingOutlineSourceNotices } from "./writing-outline-source-notices.js";
 export { resizeWritingOutlineHeading };
+const renderedOutlines = new WeakMap();
 
 export function renderWritingScaffoldPreviewDom(deps = {}) {
   const {
@@ -17,12 +18,25 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
   observeWritingOutlineSize(el);
 
   if (!writingState.scaffold) {
+    renderedOutlines.delete(el);
     el.innerHTML = `<div class="writing-empty">先回到主题页生成提纲。</div>`;
     return;
   }
 
   const sections = normalizeWritingOutlineSections(writingState.scaffold);
-  el.innerHTML = renderWritingOutlineSourceNotices(writingState, escapeHtml) + (sections.length
+  const notices = renderWritingOutlineSourceNotices(writingState, escapeHtml);
+  const key = JSON.stringify([writingState.project?.id, writingState.scaffold.id, sections.length, notices]);
+  const fields = [...(el.querySelectorAll?.('[data-writing-outline-field]') || [])];
+  if (renderedOutlines.get(el) === key && fields.length === sections.length * 2) {
+    for (const field of fields) {
+      if (field === el.ownerDocument?.activeElement) continue;
+      const value = sections[Number(field.dataset.writingOutlineIndex)]?.[field.dataset.writingOutlineField] || "";
+      if (field.value !== value) field.value = value;
+      resizeWritingOutlineHeading(field);
+    }
+    return;
+  }
+  el.innerHTML = notices + (sections.length
     ? `<div class="writing-outline-section-list">${sections
         .map((section, index) => `
           <article class="writing-outline-section" data-writing-outline-index="${escapeHtml(index)}">
@@ -41,6 +55,7 @@ export function renderWritingScaffoldPreviewDom(deps = {}) {
         `)
         .join("")}</div>`
     : `<div class="writing-empty">还没有章节。</div><button class="mini-btn" type="button" data-writing-outline-action="add" data-writing-outline-index="0">添加第一节</button>`);
+  renderedOutlines.set(el, key);
   el.ownerDocument?.defaultView?.requestAnimationFrame(() => {
     el.querySelectorAll('.writing-outline-heading').forEach(resizeWritingOutlineHeading);
   });
