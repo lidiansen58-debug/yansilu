@@ -113,17 +113,21 @@ async function updateFixture(run) {
   const previousWindow = globalThis.window;
   const decision = deferred(), relaunchDone = deferred(), relaunchStarted = deferred();
   const state = { module: "settings", noteMoveVaultScope: {} }, settingsState = {
-    update: createUpdateState({ status: "downloaded", latestVersion: "next", installReadyForRestart: true })
+    update: createUpdateState({ status: "update-available", latestVersion: "next", installable: true })
   };
-  let prompts = 0, relaunches = 0, dirty = 0, workflows = [];
+  let prompts = 0, relaunches = 0, installs = 0, dirty = 0, workflows = [];
   const messages = [];
   globalThis.window = { confirm: () => { prompts++; return decision.promise; }, __TAURI__: {
+    updater: { check: async () => ({ version: "next", async download() {}, async install() { installs++; }, async close() {} }) },
     process: { relaunch: async () => { relaunches++; relaunchStarted.resolve(); await relaunchDone.promise; } }
   } };
   const controller = createPrototypeUpdateController({ state, settingsState, getDirtyTabCount: () => dirty,
     getRestartBlockers: () => workflows, setStatus: (...args) => messages.push(args) });
+  assert.equal(await controller.installUpdateFromDesktopUpdater(), true);
+  assert.equal(installs, 0);
+  messages.length = 0;
   try { await run({ controller, state, settingsState, decision, relaunchDone, relaunchStarted, messages,
-    prompts: () => prompts, relaunches: () => relaunches, dirty: () => { dirty++; }, workflow: () => { workflows = ["正在保存文章"]; } }); }
+    prompts: () => prompts, relaunches: () => relaunches, installs: () => installs, dirty: () => { dirty++; }, workflow: () => { workflows = ["正在保存文章"]; } }); }
   finally { relaunchDone.resolve(); if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
 }
 for (const change of ["cancel", "dirty", "workflow", "scope", "module", "candidate", "readiness", "error", "approve"]) {
@@ -146,6 +150,7 @@ for (const change of ["cancel", "dirty", "workflow", "scope", "module", "candida
     }
     assert.equal(await pending, change === "approve");
     assert.equal(h.relaunches(), change === "approve" ? 1 : 0);
+    assert.equal(h.installs(), change === "approve" ? 1 : 0);
     if (["dirty", "workflow"].includes(change)) assert.match(h.messages[0][0], /当前不重启/);
   }));
 }

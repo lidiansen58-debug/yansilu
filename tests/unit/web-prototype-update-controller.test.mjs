@@ -260,12 +260,13 @@ test("prototype update controller starts installable desktop updates in the back
             currentVersion: "0.1.1",
             version: "0.1.2",
             body: "Small fix",
-            async downloadAndInstall(onEvent) {
+            async download(onEvent) {
               onEvent({ event: "Started", data: { contentLength: 100 } });
               onEvent({ event: "Progress", data: { chunkLength: 25 } });
               progressEvents.push("download");
               onEvent({ event: "Finished" });
-            }
+            },
+            async install() { throw new Error("Background download must not install"); }
           };
         }
       }

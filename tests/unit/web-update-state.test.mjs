@@ -183,3 +183,20 @@ test("web update state preserves same downloaded version after a later check", (
   assert.equal(state.installProgress.percent, 100);
   assert.equal(state.checkedAt, "2026-06-20T04:00:00.000Z");
 });
+
+test("checking again preserves the completed native download of the same version", () => {
+  const downloaded = updateStateDownloaded(createUpdateState({ latestVersion: "0.1.2" }));
+  const checked = updateStateFromCheckResult(updateStateChecking(downloaded), { status: "update-available", latestVersion: "0.1.2", installable: true });
+  assert.equal(checked.status, "downloaded");
+  assert.equal(checked.installReadyForRestart, true);
+  assert.equal(checked.installPhase, "downloaded");
+});
+
+test("a different announced version cannot retain the previous version's ready flag or progress", () => {
+  const downloaded = updateStateDownloaded(createUpdateState({ latestVersion: "0.1.2" }));
+  const checked = updateStateFromCheckResult(updateStateChecking(downloaded), { status: "update-available", latestVersion: "0.1.3", installable: true });
+  assert.equal(checked.status, "update-available");
+  assert.equal(checked.installReadyForRestart, false);
+  assert.equal(checked.installProgress, null);
+  assert.equal(checked.installPhase, "");
+});
