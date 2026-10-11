@@ -120,7 +120,7 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
     close: closeNoteTemplatePreview
   });
 
-  function openNoteTemplatePreview(kind = "") {
+  function openNoteTemplatePreview(kind = "", invoker = null) {
     const cleanKind = cleanTemplateKind(kind);
     const stateEntry = settingsState.noteTemplates?.[cleanKind];
     if (!stateEntry) return;
@@ -143,7 +143,7 @@ export function createSettingsNoteTemplateRuntime(deps = {}) {
       : `<div class="markdown-preview-empty">模板当前不能保存：${escapeHtml(validation.message)}</div>`;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
-    previewFocus.open();
+    previewFocus.open(invoker);
   }
 
   function closeNoteTemplatePreview() {

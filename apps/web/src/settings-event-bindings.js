@@ -78,7 +78,7 @@ export function installSettingsEventBindings(deps = {}) {
       const kind = button.closest?.("[data-settings-template-kind]")?.dataset?.settingsTemplateKind || "permanent";
       const action = button.dataset.settingsTemplateAction;
       if (action === "preview") {
-        openNoteTemplatePreview(kind);
+        openNoteTemplatePreview(kind, button);
       } else if (action === "save") {
         saveNoteTemplateFromEditor(kind);
       } else if (action === "reset") {
