@@ -102,13 +102,17 @@ test("home, graph, theme suggestions and settings keep clear actions and usable 
       assert.equal(await page.locator('.graph-pan-hint').count(), 0);
       assert.equal(await page.locator('.graph-map-star, .graph-map-nebula').count(), 0);
       assert.equal(await page.locator('.graph-map-backdrop').evaluate(el => getComputedStyle(el).fill), "rgb(245, 247, 248)");
-      const hintStyles = await page.locator('.graph-canvas-help-hint').evaluateAll(hints => hints.map(hint => ({
-        animation: getComputedStyle(hint).animationName, color: getComputedStyle(hint).color
-      })));
-      for (const hint of hintStyles) {
-        assert.equal(hint.animation, 'none');
-        assert.equal(hint.color, 'rgb(82, 97, 116)');
-      }
+      await waitFor(async () => {
+        // A task refresh can retire locator elements before their styles are read.
+        const hintStyles = await page.evaluate(() => [...document.querySelectorAll('.graph-canvas-help-hint')].map(hint => ({
+          connected: hint.isConnected, animation: getComputedStyle(hint).animationName, color: getComputedStyle(hint).color
+        })));
+        for (const hint of hintStyles) {
+          assert.equal(hint.connected, true);
+          assert.equal(hint.animation, 'none');
+          assert.equal(hint.color, 'rgb(82, 97, 116)');
+        }
+      });
       await page.screenshot({ path: `output/main-flow-design-system/graph-${view}-${width}.png` });
     }
 
