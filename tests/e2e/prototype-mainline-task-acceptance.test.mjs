@@ -24,12 +24,17 @@ async function writeMarkdown(page, text) {
   await page.keyboard.press("Control+a");
   await page.keyboard.insertText(text);
   await page.keyboard.press("Control+s");
+  await page.waitForFunction(() => {
+    const editor = window.__prototypeEditor;
+    return !editor.savingPromise && !editor.activeTab()?.dirty;
+  });
 }
 
 async function openNote(page, id, query) {
   await page.locator("#btnToggleSearch").click();
   await page.locator("#globalNoteSearchInput").fill(query);
   await page.locator(`[data-search-note="${id}"]`).click();
+  await page.locator("#noteSearchDialog").waitFor({ state: "hidden" });
   await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, id);
 }
 
@@ -74,7 +79,8 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
       await page.waitForFunction(() => {
         const editor = window.__prototypeEditor;
         const range = editor?.editorSelection();
-        return range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
+        return !window.__prototypeState.pendingNoteCreation
+          && range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
       });
       const materialId = await page.evaluate(() => window.__prototypeEditor.activeNote().id);
       await writeMarkdown(page, `# ${scenario.title}\n\n${scenario.body}`);
@@ -134,7 +140,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     const revised = await readNote(notes[0].id);
     assert.ok(revised.viewpointHistory.some(item => item.previousThesis === scenarios[0].claim && item.thesis === revisedClaim && item.reason === reason));
     await panel.getByRole("tab", { name: "形成过程", exact: true }).click();
-    assert.match(await panel.textContent(), new RegExp(reason));
+    await waitFor(async () => assert.match(await panel.textContent(), new RegExp(reason)));
     assert.match(await panel.textContent(), new RegExp(scenarios[0].question));
     await checkpoint("02-judgment-history");
     await panel.locator("#btnHideRelated").click();
@@ -266,6 +272,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     assert.doesNotMatch((await readNote(project.draft_note_id)).body, /当前修改也要进入/);
     await page.locator("#btnWritingSaveDraft").click();
     await waitFor(async () => assert.match((await readNote(project.draft_note_id)).body, /当前修改也要进入/));
+    await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /草稿已保存/));
     await checkpoint("05-article-and-export");
     await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
     await page.locator('.rail-btn[data-module="writing"]').click();

@@ -3941,6 +3941,7 @@ test("prototype editor can insert image and attachment", async (t) => {
 
   await page.locator("#btnNewNote").click();
   await ensurePlaceholderTitleSelection(page);
+  await page.waitForFunction(() => !window.__prototypeState.pendingNoteCreation);
   await page.keyboard.type("Asset Insert Note");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Body");
