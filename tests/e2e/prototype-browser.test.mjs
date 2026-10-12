@@ -3946,11 +3946,35 @@ test("prototype editor can insert image and attachment", async (t) => {
   await page.keyboard.press("Enter");
   await page.keyboard.type("Body");
 
+  const assetResponses = [];
+  page.on("response", response => {
+    if (response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/assets")) {
+      assetResponses.push({ status: response.status(), timing: response.request().timing() });
+    }
+  });
+  await page.evaluate(() => {
+    const editor = window.__prototypeEditor;
+    window.__assetInsertionObservation = { tab: editor.activeTab(), scope: window.__prototypeState.noteMoveVaultScope,
+      id: editor.activeNote()?.id, path: editor.activeNote()?.markdownPath, folder: editor.activeNote()?.folderId, body: editor.getEditorValue() };
+  });
   await page.setInputFiles("#assetImageInput", pngPath);
-  await waitFor(async () => {
-    const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /tiny\.png/);
-  }, 10000);
+  try {
+    await waitFor(async () => {
+      const value = await page.locator("#editorBody").inputValue();
+      assert.match(value, /tiny\.png/);
+    }, 10000);
+  } catch (error) {
+    const observation = await page.evaluate(() => {
+      const editor = window.__prototypeEditor, before = window.__assetInsertionObservation;
+      return { before: { id: before.id, path: before.path, folder: before.folder, body: before.body },
+        after: { id: editor.activeNote()?.id, path: editor.activeNote()?.markdownPath, folder: editor.activeNote()?.folderId, body: editor.getEditorValue() },
+        sameTab: editor.activeTab() === before.tab, sameScope: window.__prototypeState.noteMoveVaultScope === before.scope,
+        uploadPending: editor.assetUploadPending, saving: Boolean(editor.savingPromise), mirror: document.querySelector("#editorBody")?.value,
+        status: document.querySelector("#statusText")?.textContent };
+    });
+    error.message += `\nAsset insertion observation: ${JSON.stringify({ observation, assetResponses })}`;
+    throw error;
+  }
 
   await page.setInputFiles("#assetFileInput", txtPath);
   await waitFor(async () => {

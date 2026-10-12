@@ -21,7 +21,8 @@ for (const width of [1366, 390, 320]) {
     await page.waitForFunction(() => {
       const editor = window.__prototypeEditor;
       const range = editor?.editorSelection();
-      return range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
+      return !window.__prototypeState.pendingNoteCreation
+        && range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
     });
     const id = await page.evaluate(() => window.__prototypeEditor.activeNote().id);
     const editor = page.locator("#editorHost .cm-content:visible");
@@ -35,7 +36,9 @@ for (const width of [1366, 390, 320]) {
       note = (await fetchJson(apiBase, `/api/v1/notes/${id}`)).json.item;
       assert.match(note.body, /白鹭书房/);
     });
-    await page.waitForFunction(() => !window.__prototypeEditor.savingPromise);
+    await page.waitForFunction(() => !window.__prototypeEditor.savingPromise && !window.__prototypeEditor.activeTab()?.dirty);
+    note = (await fetchJson(apiBase, `/api/v1/notes/${id}`)).json.item;
+    assert.match(note.body, /白鹭书房/);
     const file = path.join(vaultPath, note.markdownPath);
     const bytes = await fs.readFile(file);
     const otherVault = await fs.mkdtemp(path.join(os.tmpdir(), "yansilu-existing-vault-other-"));
