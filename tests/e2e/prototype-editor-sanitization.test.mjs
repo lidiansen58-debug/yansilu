@@ -23,6 +23,7 @@ test("HTML paste strips executable markup while preserving Chinese, formatting a
   const openNote = async () => {
     await page.locator('#btnToggleSearch').click();
     await page.locator(`[data-search-note="${note.id}"]`).click();
+    await page.locator('#noteSearchDialog').waitFor({ state: 'hidden' });
     await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, note.id);
   };
   await openNote();
@@ -32,19 +33,52 @@ test("HTML paste strips executable markup while preserving Chinese, formatting a
   await page.waitForFunction(() => !!window.__prototypeEditor.richEditor && window.__prototypeEditor.isWysiwygMode());
   await page.evaluate(() => { window.__editorPasteExecuted = 0; });
   const editor = page.locator('#wysiwygHost .ProseMirror:visible');
-  await editor.click();
+  await page.waitForFunction(body => window.__prototypeEditor.richEditor.getValue().trim() === body.trim(), note.body);
+  await editor.locator('p').filter({ hasText: '接着记录。' }).click();
   await page.keyboard.press('Control+End');
   await page.keyboard.press('Enter');
+  await page.waitForFunction(() => {
+    const view = window.__prototypeEditor.richEditor.editor.wwEditor.view;
+    return view.hasFocus() && view.state.selection.$from.parent.type.name === 'paragraph';
+  });
   await editor.evaluate(element => {
     const clipboard = new DataTransfer();
     clipboard.setData('text/html', '<p>粘贴后的 <strong>中文加粗</strong>、café 🙂 和 <a href="https://example.com/notes">安全链接</a>。</p><img src="/__editor_synthetic_missing_image__" onerror="window.__editorPasteExecuted++"><svg onload="window.__editorPasteExecuted++"><script>window.__editorPasteExecuted++</script></svg><a href="javascript:window.__editorPasteExecuted++">危险链接文字</a>');
     clipboard.setData('text/plain', '粘贴后的 中文加粗、café 🙂 和 安全链接。危险链接文字');
     element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: clipboard, bubbles: true, cancelable: true }));
   });
-  await waitFor(async () => assert.match(await editor.innerText(), /粘贴后的/));
-  assert.equal(await page.evaluate(() => window.__editorPasteExecuted), 0);
-  assert.equal(await editor.locator('script,[onerror],[onload],a[href^="javascript:"]').count(), 0);
-  assert.equal(await editor.locator('a[href="https://example.com/notes"]').count(), 1);
+  const pastedState = () => editor.evaluate(element => {
+    const host = window.__prototypeEditor;
+    const view = host.richEditor.editor.wwEditor.view;
+    return {
+      connected: element.isConnected,
+      text: element.innerText,
+      executed: window.__editorPasteExecuted,
+      executableNodes: element.querySelectorAll('script,[onerror],[onload],a[href^="javascript:"]').length,
+      safeLinks: element.querySelectorAll('a[href="https://example.com/notes"]').length,
+      markdown: host.richEditor.getValue(),
+      parent: view.state.selection.$from.parent.type.name,
+      shiftKey: view.input?.shiftKey,
+      html: element.innerHTML
+    };
+  });
+  try {
+    await waitFor(async () => {
+      const pasted = await pastedState();
+      assert.equal(pasted.connected, true);
+      assert.match(pasted.text, /粘贴后的/);
+      assert.equal(pasted.executed, 0);
+      assert.equal(pasted.executableNodes, 0);
+      assert.equal(pasted.safeLinks, 1);
+    });
+  } catch (error) {
+    try {
+      t.diagnostic(JSON.stringify({ stage: 'synthetic-html-paste-failure', state: await pastedState() }));
+    } catch {
+      t.diagnostic('Synthetic HTML paste snapshot unavailable; original failure retained.');
+    }
+    throw error;
+  }
   await page.keyboard.press('Control+s');
   await waitFor(async () => {
     const body = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body;
