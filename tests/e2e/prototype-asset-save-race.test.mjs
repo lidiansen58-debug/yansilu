@@ -43,6 +43,7 @@ test("a title save during image upload keeps the image link and saved bytes", { 
     return !window.__prototypeState.pendingNoteCreation && range
       && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
   });
+  holdNextSave = true;
   await page.keyboard.insertText("Upload title save");
   await page.keyboard.press("Enter");
   await page.keyboard.insertText("Keep the body while the title save completes.");
@@ -50,7 +51,6 @@ test("a title save during image upload keeps the image link and saved bytes", { 
     const editor = window.__prototypeEditor;
     return { id: editor.activeNote().id, path: editor.activeNote().markdownPath, body: editor.getEditorValue() };
   });
-  holdNextSave = true;
   await page.keyboard.press("Control+s");
   const saved = await saveCaptured;
   assert.notEqual(saved.markdownPath, before.path);
