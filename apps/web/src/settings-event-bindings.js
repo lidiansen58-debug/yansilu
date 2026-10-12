@@ -2,6 +2,7 @@ import { installVaultBackupPanelEvents } from "./settings-vault-backup-panel.js"
 import { createSettingsVaultSwitcher } from "./settings-vault-switch.js";
 import { runSettingsDemoImport } from "./settings-demo-import-action.js";
 import { syncScheduledTaskScheduleFields } from "./scheduled-tasks-panel.js";
+import { installOfflineHelpDialog } from "./offline-help-dialog.js";
 export { describeSettingsDemoImportError } from "./settings-demo-import-action.js";
 
 export function installSettingsEventBindings(deps = {}) {
@@ -52,6 +53,7 @@ export function installSettingsEventBindings(deps = {}) {
     applyScheduledTaskTemplateToForm = () => {}
   } = deps;
 
+  installOfflineHelpDialog({ $ });
   const openVault = createSettingsVaultSwitcher({ state, settingsState, desktopCommands,
     loadNoteTemplateSettingsFromStorage, fetchDirectories, fetchDirectoryNotes, mapDirectoryItem, mapNoteItem, renderAll, setStatus });
   installVaultBackupPanelEvents({
