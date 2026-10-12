@@ -49,7 +49,7 @@ export function installQuickActionEventBindings(deps = {}) {
       }
       state.module = "explorer";
       state.selectedFileId = null;
-      await syncNotesForDirectoryTree(state.browserRootId);
+      await syncNotesForDirectoryTree(state.browserRootId, { isCurrent: isCurrentNavigation });
       if (!isCurrentNavigation() || state.module !== "explorer") return;
       syncRailSelectionState();
       setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");

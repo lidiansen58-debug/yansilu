@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installAppRailEventBindings } from '../../apps/web/src/app-rail-event-bindings.js';
 import { installQuickActionEventBindings } from '../../apps/web/src/quick-action-event-bindings.js';
+import { syncDirectoryTreeNotes } from '../../apps/web/src/directory-tree-note-sync.js';
 
 function deferred() {
   let resolve;
@@ -79,6 +80,28 @@ test('a pending quick entry cannot overwrite later module feedback or render', a
   assert.deepEqual(app.messages, []);
   assert.deepEqual(app.renders, []);
   assert.deepEqual(app.selections, []);
+});
+
+test('a superseded quick entry cannot commit its directory response before its final navigation check', async () => {
+  const read = deferred(), started = deferred();
+  const app = navigationHarness({ quick: {
+    syncNotesForDirectoryTree: (root, options) => syncDirectoryTreeNotes(root, {
+      state: app.state, descendantDirectoryIds: () => [root], folderById: () => ({}),
+      fetchDirectoryNotes: () => { started.resolve(); return read.promise; },
+      mapNoteItem: note => ({...note, folderId: root}),
+      upsertNotesForDirectory: (_root, notes) => { app.state.notes = notes; }, ...options
+    })
+  } });
+  app.state.notes = [{id: 'kept', folderId: 'dir_fleeting_default', body: '当前仍在使用的正文'}];
+  const before = structuredClone(app.state.notes);
+  const pending = app.click('quick-fleeting');
+  await started.promise;
+  await app.click('writing');
+  read.resolve([{id: 'stale'}]);
+  await pending;
+  assert.equal(app.state.module, 'writing');
+  assert.deepEqual(app.state.notes, before);
+  assert.deepEqual(app.renders, []);
 });
 
 test('a newer quick entry owns completion even while both entries use explorer', async () => {

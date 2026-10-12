@@ -60,3 +60,43 @@ test('subtree hydration honors the caller context after a late response', async 
   assert.equal(await work, false);
   assert.deepEqual(applied, []);
 });
+
+for (const change of ['created', 'deleted', 'moved-in', 'moved-out']) {
+  test(`a late directory snapshot cannot undo a note ${change} while reading`, async () => {
+    const { state, deps } = context();
+    state.notes = [{ id: 'saved', folderId: 'root', body: '保存的正文' }, { id: 'outside', folderId: 'other', body: '其他目录的正文' }];
+    let finish;
+    const work = syncDirectoryTreeNotes('root', { ...deps,
+      fetchDirectoryNotes: () => new Promise(resolve => { finish = resolve; }),
+      upsertNotesForDirectory: (id, notes) => { state.notes = [...state.notes.filter(note => note.folderId !== id), ...notes]; }
+    });
+    if (change === 'created') state.notes.push({ id: 'new', folderId: 'root', body: '刚创建的中文 café 🙂' });
+    if (change === 'deleted') state.notes = state.notes.filter(note => note.id !== 'saved');
+    if (change === 'moved-in') state.notes.find(note => note.id === 'outside').folderId = 'root';
+    if (change === 'moved-out') state.notes.find(note => note.id === 'saved').folderId = 'other';
+    const kept = structuredClone(state.notes);
+    finish([{ id: 'saved', directoryId: 'root', body: '旧快照正文' }]);
+    assert.equal(await work, false);
+    assert.deepEqual(state.notes, kept);
+  });
+}
+
+test('a fresh directory response still applies remote deletion when local membership did not change', async () => {
+  const { state, deps } = context();
+  state.notes = [{ id: 'removed-remotely', folderId: 'root' }];
+  assert.equal(await syncDirectoryTreeNotes('root', { ...deps, fetchDirectoryNotes: async () => [],
+    upsertNotesForDirectory: (id, notes) => { state.notes = [...state.notes.filter(note => note.folderId !== id), ...notes]; }
+  }), true);
+  assert.deepEqual(state.notes, []);
+});
+
+test('new notes outside the requested subtree do not prevent an ordinary directory refresh', async () => {
+  const { state, deps, applied } = context();
+  state.notes = [];
+  let finish;
+  const work = syncDirectoryTreeNotes('root', { ...deps, fetchDirectoryNotes: () => new Promise(resolve => { finish = resolve; }) });
+  state.notes.push({ id: 'unrelated', folderId: 'other' });
+  finish([{ id: 'saved', directoryId: 'root' }]);
+  assert.equal(await work, true);
+  assert.deepEqual(applied, [['root', ['saved']], ['child', []], ['empty', []]]);
+});
