@@ -3,6 +3,7 @@ import "@toast-ui/editor/dist/i18n/zh-cn";
 import { toastuiMarkdownSelection, toastuiWysiwygSelection } from "./toastui-markdown-selection.js";
 import { wikilinkLabelFromRaw, looksLikeStableNoteId } from "./editor-link-picker.js";
 import { toastuiMetadataPlugin } from "./toastui-metadata-plugin.js";
+import { syncToastuiKeyboardSelection } from "./toastui-keyboard-selection.js";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -126,6 +127,7 @@ export function createWysiwygMarkdownEditor({
         onChange(editor.getMarkdown());
       },
       keydown(_, event) {
+        syncToastuiKeyboardSelection(editor, event);
         onKeydown(event);
       },
       keyup(_, event) {
