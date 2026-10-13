@@ -15,6 +15,12 @@ function positionState(host) {
       root.addEventListener(event, invalidate, true);
     }
   }
+  // A creation flow may change pages after opening its note. Only subsequent
+  // user navigation cancels positioning; that handoff must keep title selection.
+  for (const document of new Set(roots.map(root => root?.ownerDocument).filter(Boolean))) {
+    document.addEventListener("pointerdown", invalidate, true);
+    document.addEventListener("keydown", invalidate, true);
+  }
   return state;
 }
 
@@ -32,8 +38,7 @@ export function beginEditorInitialPosition(host, kind) {
   const noteId = tab?.noteId;
   const vault = host.vaultScope?.();
   const mode = host.state?.previewMode;
-  const module = host.state?.module;
   return () => Boolean(tab) && state.revision === revision && state.requests.get(kind) === request &&
     host.activeTab?.() === tab && tab.noteId === noteId && host.vaultScope?.() === vault &&
-    host.state?.previewMode === mode && host.state?.module === module;
+    host.state?.previewMode === mode;
 }

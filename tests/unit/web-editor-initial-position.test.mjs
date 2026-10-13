@@ -6,8 +6,10 @@ import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 function fixture() {
   const tab = { id: "tab", noteId: "note" };
   const root = new EventTarget();
+  const document = new EventTarget();
+  root.ownerDocument = document;
   let active = tab, vault = "vault";
-  return { root, tab, host: { els: { editorWrap: root }, state: { previewMode: "wysiwyg" },
+  return { root, document, tab, host: { els: { editorWrap: root }, state: { previewMode: "wysiwyg" },
     activeTab: () => active, vaultScope: () => vault },
     setTab: next => { active = next; }, setVault: next => { vault = next; } };
 }
@@ -35,10 +37,9 @@ test("a new focus request replaces old focus without cancelling its viewport req
   assert.equal(newFocus(), false);
 });
 
-test("tab identity, note identity, vault, editing mode and page each reject old positioning", () => {
+test("tab identity, note identity, vault and editing mode each reject old positioning", () => {
   for (const change of [f => f.setTab({ ...f.tab }), f => { f.tab.noteId = "other"; },
-    f => f.setVault("other"), f => { f.host.state.previewMode = "source"; },
-    f => { f.host.state.module = "graph"; }]) {
+    f => f.setVault("other"), f => { f.host.state.previewMode = "source"; }]) {
     const f = fixture();
     const current = beginEditorInitialPosition(f.host, "focus");
     change(f);
@@ -140,4 +141,26 @@ test("a clicked source position survives delayed viewport resets", () => withSch
   flush();
   assert.deepEqual(scroll, { scrollTop: 100, scrollLeft: 5 });
   assert.equal(cursorMoves, 0);
+}));
+
+test("creating a note can hand off from today to explorer without losing initial title selection", () => withScheduler(({ flush }) => {
+  const f = paneFixture();
+  f.pane.state.module = "today";
+  f.pane.applyPendingEditorFocus();
+  f.pane.state.module = "explorer";
+  flush();
+  assert.equal(f.selections.length, 3);
+  assert.equal(f.focusCount(), 3);
+}));
+
+test("user navigation outside the editor cancels delayed focus even when the tab remains open", () => withScheduler(({ next, flush }) => {
+  for (const event of ["pointerdown", "keydown"]) {
+    const f = paneFixture();
+    f.pane.applyPendingEditorFocus();
+    next();
+    f.document.dispatchEvent(new Event(event));
+    flush();
+    assert.equal(f.selections.length, 1);
+    assert.equal(f.focusCount(), 1);
+  }
 }));
