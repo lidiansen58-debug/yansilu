@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { beginEditorInitialPosition } from "./editor-initial-position.js";
 import { syncRichEditorValue } from "./editor-rich-render-sync.js";
 import { createNoteSaveShortcutHandler } from "./editor-save-shortcuts.js";
 import { aiErrorMessage } from "./ai-error-message.js";
@@ -987,7 +988,9 @@ export class EditorPane {
   }
 
   resetEditorViewportToStart() {
+    const isCurrent = beginEditorInitialPosition(this, "viewport");
     const reset = () => {
+      if (!isCurrent()) return;
       this.editorScrollNodes().forEach((node) => {
         if (!node) return;
         node.scrollTop = 0;
@@ -2188,6 +2191,7 @@ export class EditorPane {
     const mode = this.pendingEditorFocus;
     this.pendingEditorFocus = null;
     if (!mode) return;
+    const isCurrent = beginEditorInitialPosition(this, "focus");
     if (this.isLiteratureWorkspaceActive()) {
       if (mode === "select-placeholder-title") {
         const titleInput = this.els.literatureTitle;
@@ -2199,6 +2203,7 @@ export class EditorPane {
       return;
     }
     const applyPlaceholderSelection = () => {
+      if (!isCurrent()) return false;
       const markdownRange = this.placeholderTitleSelectionRange();
       if (!markdownRange) return false;
       if (this.isWysiwygMode()) {
@@ -2212,26 +2217,11 @@ export class EditorPane {
       this.setEditorSelectionRange(markdownRange.from, markdownRange.to);
       return true;
     };
-    const apply = () => {
-      if (mode === "select-placeholder-title") {
-        if (applyPlaceholderSelection()) {
-          if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
-            window.setTimeout(() => {
-              applyPlaceholderSelection();
-            }, 32);
-            window.setTimeout(() => {
-              applyPlaceholderSelection();
-            }, 96);
-          }
-          return;
-        }
-      }
-      this.focusEditor();
-    };
     const scheduleApply = (attempt = 0) => {
       const run = () => {
+        if (!isCurrent()) return;
         if (mode !== "select-placeholder-title") {
-          apply();
+          this.focusEditor();
           return;
         }
         if (applyPlaceholderSelection()) {

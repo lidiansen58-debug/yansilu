@@ -1,4 +1,5 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { cancelEditorInitialPosition } from "./editor-initial-position.js";
 import { syncNoteMoveReadOnly } from "./note-move-recovery.js";
 import { captureEditorConfirmationGuard, confirmEditorDiscard, confirmEditorDraftRestore } from "./editor-confirmation-context.js";
 import { typeFromFolder } from "./prototype-store.js";
@@ -488,6 +489,7 @@ const editorPaneStateMethods = {
   },
 
   fillEditorFromTab() {
+    cancelEditorInitialPosition(this);
     syncNoteMoveReadOnly(this.state);
     const t = this.activeTab();
     if (!t) {

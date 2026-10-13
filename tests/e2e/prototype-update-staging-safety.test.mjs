@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { optionalPlaywright, startPrototypeStack, postJson, fetchJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-async function fixture(t, { controlledVersionFailure = false } = {}) {
+async function fixture(t, { controlledVersionFailure = false, autoCheck = true } = {}) {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return null; }
   const pw = await optionalPlaywright(t); if (!pw) return null;
   // Controlled native SDK boundary, not an actual installer or update download.
@@ -12,7 +12,7 @@ async function fixture(t, { controlledVersionFailure = false } = {}) {
   const versionGate = new Promise(resolve => { releaseVersionFailure = resolve; });
   t.after(() => releaseVersionFailure());
   const stack = await startPrototypeStack(t, pw, { beforeNavigate: async page => {
-    if (controlledVersionFailure) await page.addInitScript(() => {
+    if (controlledVersionFailure || !autoCheck) await page.addInitScript(() => {
       localStorage.setItem('yansilu:update:settings:v1', JSON.stringify({autoCheckEnabled:false}));
     });
     await page.addInitScript(() => {
@@ -106,7 +106,9 @@ test("visible background update stages only; cancel leaves notes intact and expl
   const h = await fixture(t); if (!h) return;
   const { page } = h;
   await openUpdates(page);
-  if (await page.evaluate(() => window.__updateStageTest.downloads === 0)) await page.locator("#settingsCheckUpdate").click();
+  // Startup checks prepare the download before the SDK counter increments.
+  // Wait for that automatic path rather than clicking a now-hidden check button.
+  await page.waitForFunction(() => window.__updateStageTest.downloads === 1);
   await waitFor(async () => assert.match(await page.locator("#settingsUpdateInstallProgress").innerText(), /25%/));
   assert.equal(await page.evaluate(() => window.__updateStageTest.installs), 0);
   await finishDownload(page); await h.preserve();
@@ -172,10 +174,10 @@ test('a late failed version query keeps the staged update visible after cancella
 });
 
 test("page reload clears a stored update-ready flag and requires a fresh checked download", async t => {
-  const h = await fixture(t); if (!h) return;
+  const h = await fixture(t, { autoCheck: false }); if (!h) return;
   const { page } = h;
   await openUpdates(page);
-  if (await page.evaluate(() => window.__updateStageTest.downloads === 0)) await page.locator("#settingsCheckUpdate").click();
+  await page.locator("#settingsCheckUpdate").click();
   await finishDownload(page);
   await page.reload({ waitUntil: "networkidle" }); await openUpdates(page);
   assert.equal(await page.locator("#settingsRelaunchUpdate:visible").count(), 0);

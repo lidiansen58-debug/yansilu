@@ -1386,6 +1386,78 @@ test("prototype editor inserts Chinese text at the clicked permanent-note field 
   }, 7000);
 });
 
+test("delayed initial positioning preserves the clicked permanent-note paragraph during Chinese typing", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.evaluate(() => {
+    const set = window.setTimeout.bind(window), clear = window.clearTimeout.bind(window);
+    let next = -1;
+    window.__delayedPositionCallbacks = new Map();
+    window.setTimeout = (callback, delay, ...args) => {
+      if (typeof callback === "function" && [32, 96].includes(Number(delay))) {
+        const id = next--;
+        window.__delayedPositionCallbacks.set(id, () => callback(...args));
+        return id;
+      }
+      return set(callback, delay, ...args);
+    };
+    window.clearTimeout = id => window.__delayedPositionCallbacks.delete(id) || clear(id);
+  });
+  await page.locator("#btnNewNote").click();
+  await ensureNoteMode(page);
+  await waitForActiveNoteBodyLoaded(page);
+  await waitForEditableNoteSurface(page);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.doesNotMatch(editorValue, /^> 写成一句/m);
+    assert.doesNotMatch(editorValue, /^- 来自哪条文献/m);
+  }, 7000);
+
+  const coreClaimParagraph = page.locator(
+    "#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p",
+    { hasText: "写成一句可被反驳、可被引用、值得保留的判断。" }
+  );
+  await waitFor(async () => {
+    assert.equal(await coreClaimParagraph.count(), 1);
+  }, 7000);
+
+  await coreClaimParagraph.click();
+  const initialTitle = (await page.locator("#editorBody").inputValue()).split("\n")[0];
+  await page.keyboard.type("中文观点不会跑到");
+  const queued = await page.evaluate(() => {
+    const callbacks = [...window.__delayedPositionCallbacks.values()];
+    window.__delayedPositionCallbacks.clear();
+    callbacks.forEach(callback => callback());
+    return callbacks.length;
+  });
+  assert.ok(queued >= 2, "Initial positioning callbacks must actually be delayed");
+  await page.keyboard.type("末尾");
+  assert.equal((await page.locator("#editorBody").inputValue()).split("\n")[0], initialTitle);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const insertedAt = editorValue.indexOf("中文观点不会跑到末尾");
+    const whyTrueAt = editorValue.indexOf("## 为什么成立");
+    const boundaryAt = editorValue.indexOf("## 边界 / 反例");
+    assert.ok(insertedAt > editorValue.indexOf("## 核心观点"), editorValue);
+    assert.ok(insertedAt > 0 && insertedAt < whyTrueAt, editorValue);
+    assert.ok(boundaryAt > insertedAt, editorValue);
+    assert.doesNotMatch(editorValue.slice(boundaryAt), /中文观点不会跑到末尾/);
+  }, 7000);
+});
+
 test("prototype note browser stays minimal and creates literature notes in the literature root", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
