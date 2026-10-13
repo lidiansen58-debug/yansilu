@@ -154,6 +154,19 @@ export function createPrototypeUpdateController(deps = {}) {
     };
   }
 
+  function applyUpdateMetadataFailure(error) {
+    const previous = settingsState.update;
+    const retained = previous?.installReadyForRestart === true && updateSession.has(previous.latestVersion);
+    const failed = updateStateFailed(previous, error);
+    settingsState.update = retained ? {
+      ...failed,
+      status: UPDATE_STATUS.DOWNLOADED,
+      installPhase: previous.installPhase,
+      installProgress: previous.installProgress,
+      installReadyForRestart: true
+    } : failed;
+  }
+
   async function refreshAppVersionInfo() {
     try {
       const info = await fetchAppVersion();
@@ -164,7 +177,7 @@ export function createPrototypeUpdateController(deps = {}) {
       return info;
     } catch (error) {
       settingsState.update.currentVersion = settingsState.update.currentVersion || APP_VERSION;
-      settingsState.update = updateStateFailed(settingsState.update, error);
+      applyUpdateMetadataFailure(error);
       persistUpdateLastResultToStorage();
       renderSettingsPanel();
       return null;
@@ -214,7 +227,7 @@ export function createPrototypeUpdateController(deps = {}) {
       return settingsState.update;
     } catch (error) {
       if (requestToken !== settingsState.update.requestToken) return settingsState.update;
-      settingsState.update = updateStateFailed(settingsState.update, error);
+      applyUpdateMetadataFailure(error);
       persistUpdateLastResultToStorage();
       if (options.manual === true) setStatus(`检查更新失败：${String(error?.message || error)}`, "bad");
       renderSettingsPanel();
