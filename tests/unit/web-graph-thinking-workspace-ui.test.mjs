@@ -2273,7 +2273,7 @@ test("note box and graph tree sync all notes under the selected root", async () 
   assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
   assert.match(settingsEventSource, /createSettingsVaultSwitcher/);
   assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-vault-switch.js"), "utf8"), /await fetchDirectories\(true, \{ signal \}\);[\s\S]*Promise\.all\(rootIds\.map\(async id => \{[\s\S]*await fetchDirectoryNotes\(id, \{ signal, includeDescendants: true \}\);/);
-  assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
+  assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId, \{ isCurrent: isCurrentNavigation \}\);[\s\S]*syncRailSelectionState\(\);/);
   await refreshDirectoryGraphForRuntime({
     graphScopeDirectoryId: () => "selected-dir",
     graphOriginalScopeDirectoryId: "original-root",
