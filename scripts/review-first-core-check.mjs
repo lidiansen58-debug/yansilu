@@ -67,7 +67,7 @@ function runBrowser() {
   for (const testName of BROWSER_TEST_NAMES) {
     console.log(`== ${testName} ==`);
     runNode(
-      ["--test", "--test-isolation=none", "--test-name-pattern", exactTestPattern(testName), BROWSER_FILE],
+      ["--test", "--experimental-test-isolation=none", "--test-name-pattern", exactTestPattern(testName), BROWSER_FILE],
       { RUN_BROWSER_E2E: "1" }
     );
   }

@@ -25,7 +25,7 @@ for (const testName of testNames) {
   console.log(`\n== ${testName} ==`);
   const result = spawnSync(
     process.execPath,
-    ["--test", "--test-isolation=none", "--test-name-pattern", exactTestPattern(testName), testFile],
+    ["--test", "--experimental-test-isolation=none", "--test-name-pattern", exactTestPattern(testName), testFile],
     {
       cwd: process.cwd(),
       env: {

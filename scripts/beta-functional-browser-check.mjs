@@ -73,8 +73,8 @@ if (process.argv.includes("--list")) {
   await browser.close();
   const pattern = mainTests.map(name => "^" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$").join("|");
   for (const args of [
-    ["--test", "--test-isolation=none", "--test-name-pattern", pattern, mainFile],
-    ["--test", "--test-isolation=none", ...files]
+    ["--test", "--experimental-test-isolation=none", "--test-name-pattern", pattern, mainFile],
+    ["--test", "--experimental-test-isolation=none", ...files]
   ]) {
     const result = spawnSync(process.execPath, args, {
       cwd: process.cwd(), env: { ...process.env, RUN_BROWSER_E2E: "1" },
