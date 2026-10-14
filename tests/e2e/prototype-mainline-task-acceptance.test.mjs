@@ -278,7 +278,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     await page.locator('.rail-btn[data-module="writing"]').click();
     const theme = page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: themeTitle });
     await theme.getByRole("button", { name: "继续草稿", exact: true }).click();
-    await page.locator('.rail-btn[data-module="writing"]').click();
+    await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "draft");
     await useWritingMarkdown(page);
     assert.match(await page.locator("#writingDraftEditor").inputValue(), /当前修改也要进入/);
     assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.length, 1, "Continue must reuse the saved project");

@@ -50,7 +50,7 @@ async function historyWorkspace(t, width, options = {}) {
     await page.reload({ waitUntil: "networkidle" });
     await page.locator('.rail-btn[data-module="writing"]').click();
     await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title }).getByRole("button", { name: "继续提纲", exact: true }).click();
-    await page.locator('.rail-btn[data-module="writing"]').click();
+    await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "outline");
     await page.locator('.writing-outline-heading:visible').first().waitFor();
   };
   await reopen();
