@@ -2,6 +2,8 @@
 
 Monorepo scaffold for Yansilu (Thinking in Notes).
 
+Current Windows beta: [0.1.1-beta.3 release status](docs/V0_1_1_BETA_3_RELEASE_STATUS.md) · [Download](https://yansilu.ai/download/).
+
 ## Structure
 - apps/: web, desktop, api, worker
 - packages/: core domain and engines
