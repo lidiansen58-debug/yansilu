@@ -48,6 +48,12 @@ export function enrichAiSuggestionsWithNoteTitles(items = [], notes = []) {
 
 export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], renderPanel = renderAiSuggestionsPanel } = {}) {
   if (!mount) return false;
+  if (state?.suggestionDetailLoading) {
+    const drafts = captureAiSuggestionEditorDrafts(mount, state.suggestionDetachedEditorDrafts || new Map());
+    // A grouped review can have edits in a peer field rather than its selected field.
+    const scopedDrafts = new Map([...drafts].filter(([, draft]) => draft.scope));
+    if (scopedDrafts.size) state.suggestionDetachedEditorDrafts = scopedDrafts;
+  }
   const visibleFilters = normalizeVisibleSuggestionFilters(state?.suggestionFilters || {});
   if (state) state.suggestionFilters = visibleFilters;
   renderWithAiSuggestionEditorDrafts(mount, renderPanel({

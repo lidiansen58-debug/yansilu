@@ -24,6 +24,31 @@ function targetFor(matches = {}) {
   };
 }
 
+for (const [returnedScope, editedId] of [['owned-vault', 'a'], ['another-vault', 'a'], ['owned-vault', 'peer'], ['another-vault', 'peer']]) {
+  test('background detail loading preserves unsaved review only in its original vault: ' + returnedScope + '/' + editedId, () => {
+    let nodes = [];
+    const mount = {
+      querySelectorAll: () => nodes,
+      set innerHTML(value) {
+        nodes = value === 'loading' ? [] : ['a', 'peer'].map(id => ({ defaultValue: 'Original', value: 'Original', getAttribute: () => id }));
+      }
+    };
+    const state = { suggestions: [], selectedSuggestionId: 'a', suggestionDetailLoading: false,
+      suggestionDetail: { writeBase: { vaultPath: 'owned-vault' } } };
+    const renderPanel = () => state.suggestionDetailLoading ? 'loading' : 'detail';
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    nodes.find(node => node.getAttribute() === editedId).value = 'Human text not submitted';
+    state.suggestionDetail = null;
+    state.suggestionDetailLoading = true;
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    assert.equal(nodes.length, 0);
+    state.suggestionDetailLoading = false;
+    state.suggestionDetail = { writeBase: { vaultPath: returnedScope } };
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    assert.equal(nodes.find(node => node.getAttribute() === editedId).value, returnedScope === 'owned-vault' ? 'Human text not submitted' : 'Original');
+  });
+}
+
 test("AI suggestions workspace keeps only visible suggestion filters", () => {
   assert.deepEqual(normalizeVisibleSuggestionFilters({
     status: "edited",
