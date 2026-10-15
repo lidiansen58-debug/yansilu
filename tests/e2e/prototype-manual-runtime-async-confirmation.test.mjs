@@ -48,6 +48,7 @@ test("visible help Demo import waits for async confirmation, cancels safely and 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator("#writingPanel:visible").waitFor();
   await page.waitForLoadState("networkidle");
+  await page.waitForFunction(() => document.querySelector("#statusText")?.textContent === "已打开写作，可先选择主题并生成提纲");
   const latestStatus = await page.locator("#statusText").textContent();
   await decide(page, true);
   await waitFor(async () => assert.equal(await button.isEnabled(), true));
