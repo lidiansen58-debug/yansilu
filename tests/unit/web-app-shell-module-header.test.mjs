@@ -31,6 +31,39 @@ function headerElements() {
   };
 }
 
+test("template header refresh keeps the invoking control and updates save validation in place", () => {
+  const elements = headerElements(), actions = elements.moduleHeaderActions;
+  let markup = "", mounts = 0, active = null, preview = null, save = null, group = null;
+  Object.defineProperty(actions, "innerHTML", {
+    get: () => markup,
+    set(value) {
+      markup = value; mounts++; active = null;
+      const kind = value.match(/data-settings-template-kind="([^"]+)"/)?.[1];
+      preview = { id: "preview", kind };
+      save = { disabled: false, title: "" };
+      group = { dataset: { settingsTemplateKind: kind }, querySelector: () => save };
+    }
+  });
+  actions.querySelector = selector => selector === ".module-template-actions" ? group : null;
+  const deps = { state: { module: "settings" }, elements, settingsHeader: { templateKind: "permanent" } };
+  renderModuleWorkspaceHeaderForRuntime(deps);
+  const invoker = preview;
+  active = invoker; // Focus has just returned after closing the preview.
+  renderModuleWorkspaceHeaderForRuntime(deps);
+  assert.equal(active, invoker);
+  assert.equal(mounts, 1);
+  deps.settingsHeader.templateSaveDisabled = true;
+  deps.settingsHeader.templateSaveTitle = "Invalid template";
+  renderModuleWorkspaceHeaderForRuntime(deps);
+  assert.equal(active, invoker);
+  assert.equal(save.disabled, true);
+  assert.equal(save.title, "Invalid template");
+  deps.settingsHeader.templateKind = "literature";
+  renderModuleWorkspaceHeaderForRuntime(deps);
+  assert.equal(mounts, 2);
+  assert.notEqual(preview, invoker);
+});
+
 test("template header keeps an invalid template save unavailable with its reason", () => {
   const elements = headerElements();
   renderModuleWorkspaceHeaderForRuntime({ state: { module: "settings" }, elements,

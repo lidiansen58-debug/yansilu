@@ -118,7 +118,9 @@ test("permanent-note async workflows guard UI refreshes by active note id", asyn
   const deleteEnd = semanticRelationsController.indexOf("\n}", deleteStart);
   assert.ok(deleteStart >= 0 && deleteEnd > deleteStart, "expected deleteRelation() to exist");
   const deleteSource = semanticRelationsController.slice(deleteStart, deleteEnd);
-  assert.match(deleteSource, /if \(!host\.isActiveNoteId\(activeNoteId\)\) return/);
+  assert.match(deleteSource, /const isCurrent = \(\) => host\.isActiveNoteId\(activeNoteId\)/);
+  assert.match(deleteSource, /host\.state\?\.noteMoveVaultScope === vaultScope/);
+  assert.match(deleteSource, /await deleteNoteRelation\(id, \{ expectedVaultPath: vaultPath \}\);\s*if \(!isCurrent\(\)\) return/);
   assert.match(deleteSource, /host\.closePermanentRelationWorkspace\?\.\(\)/);
 
   assert.match(relationComposerController, /const sourceIsActive = host\.isActiveNoteId\?\.\(sourceNote\.id\) === true/);
@@ -198,6 +200,7 @@ test("relation workspace separates body links and external relations with user-f
   assert.match(html, /目标笔记支持当前判断。/);
   assert.match(html, /来源笔记限定当前判断。/);
   assert.match(html, />打开<\/button>/);
+  assert.doesNotMatch(html, /markdown_wikilink/);
   assert.doesNotMatch(html, /正文链接可以补充为关联|补充为关联/);
   assert.doesNotMatch(html, /正式关系|正式关联|升级为正式|删除/);
   assert.doesNotMatch(html, /正文链接<\/span>\s*<span class="related-item-badge">相关<\/span>/);
@@ -261,6 +264,6 @@ test("relation button count matches relation workspace tab counts", () => {
   assert.equal(summary.externalRelationCount, 2);
   assert.equal(summary.bodyRelationCount, 2);
   assert.equal(summary.totalRelationCount, 4);
-  assert.match(html, /外部关联[\s\S]*?<small>2<\/small>/);
-  assert.match(html, /正文链接[\s\S]*?<small>2<\/small>/);
+  assert.match(html, /data-relation-tab="external"\s*>\s*<span>外部关联<\/span>\s*<small>2<\/small>/);
+  assert.match(html, /data-relation-tab="body"\s*>\s*<span>正文链接<\/span>\s*<small>2<\/small>/);
 });

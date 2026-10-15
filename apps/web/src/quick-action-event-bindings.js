@@ -1,4 +1,4 @@
-import { beginAppNavigation } from "./app-navigation-intent.js";
+import { prepareAppNavigation } from "./app-navigation-intent.js";
 
 export function installQuickActionEventBindings(deps = {}) {
   const {
@@ -6,6 +6,7 @@ export function installQuickActionEventBindings(deps = {}) {
     windowRef = globalThis.window,
     state = {},
     editor = {},
+    dismissSafeOverlaysForNavigation = () => ({ ok: true }),
     getGraphModuleActivationGuardUntil = () => 0,
     setGraphModuleActivationGuardUntil = () => {},
     folderById = () => null,
@@ -26,12 +27,13 @@ export function installQuickActionEventBindings(deps = {}) {
         setStatus("已停留在关系图谱", "ok");
         return;
       }
+      const isCurrentNavigation = await prepareAppNavigation(state, dismissSafeOverlaysForNavigation, { targetModule: "explorer" });
+      if (!isCurrentNavigation) return;
       const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
       if (activeTab?.dirty) {
         editor.updateActiveTabFromEditor?.();
         void editor.autoSaveTabById?.(activeTab.id, "switch-root");
       }
-      const isCurrentNavigation = beginAppNavigation(state);
       setGraphModuleActivationGuardUntil(0);
       if (action === "quick-fleeting") {
         state.browserRootId = "dir_fleeting_default";
@@ -47,7 +49,7 @@ export function installQuickActionEventBindings(deps = {}) {
       }
       state.module = "explorer";
       state.selectedFileId = null;
-      await syncNotesForDirectoryTree(state.browserRootId);
+      await syncNotesForDirectoryTree(state.browserRootId, { isCurrent: isCurrentNavigation });
       if (!isCurrentNavigation() || state.module !== "explorer") return;
       syncRailSelectionState();
       setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");

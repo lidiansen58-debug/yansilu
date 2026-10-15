@@ -121,13 +121,43 @@ test("asset insertion remains valid with an unchanged editor", () => {
   assert.equal(context.isCurrent(), true);
 });
 
+test("a title save can rename the file in the same directory during upload", async t => {
+  const f = uploadFixture();
+  let requests = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    requests++;
+    f.note({ id: "note-a", markdownPath: "notes/renamed.md" });
+    return new Response(JSON.stringify({ item: { assetKind: "file", fileName: "a.txt", markdownLinkPath: "assets/a.txt" } }));
+  });
+  await f.host.insertAssetFiles(f.files.slice(0, 1));
+  assert.equal(requests, 1);
+  assert.equal(f.replacements.length, 1);
+  assert.match(f.replacements[0][2], /\[a.txt\]\(assets\/a.txt\)/);
+  assert.equal(f.host.getEditorValue(), "original");
+});
+
+test("a same-directory rename accepts Windows path separators", () => {
+  const f = fixture();
+  f.note({ id: "note-a", markdownPath: "notes\\renamed.md" });
+  assert.equal(f.context.isCurrent(), true);
+});
+
+test("a missing note location cannot be treated as the vault root", () => {
+  const f = fixture();
+  f.note({ id: "note-a" });
+  const context = captureAssetInsertionContext(f.host, f.host.getEditorValue());
+  f.note({ id: "note-a", markdownPath: "renamed.md" });
+  assert.equal(context.isCurrent(), false);
+});
+
 for (const [name, change] of [
   ["another note", f => f.note({ id: "note-b", markdownPath: "notes/a.md" })],
   ["closed and reopened tab", f => f.tab({ id: "tab-a" })],
   ["another vault with matching IDs", f => f.vault("vault-b")],
   ["vault switched away and back", f => { f.host.state.noteMoveVaultScope++; }],
   ["editing the body", f => f.value("new input")],
-  ["renaming or moving the note", f => f.note({ id: "note-a", markdownPath: "notes/new/a.md" })],
+  ["moving the note to another directory", f => f.note({ id: "note-a", markdownPath: "notes/new/a.md" })],
+  ["moving the note to another logical folder", f => f.note({ id: "note-a", markdownPath: "notes/a.md", folderId: "other" })],
   ["switch in progress", f => { f.host.state.noteMoveVaultSwitching = true; }],
   ["uncertain vault", f => { f.host.state.noteMoveVaultUncertain = true; }],
   ["unresolved move", f => { f.host.state.unresolvedNoteMove = { noteId: "note-a" }; }],

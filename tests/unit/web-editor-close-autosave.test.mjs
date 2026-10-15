@@ -13,6 +13,7 @@ function setup(t, { activeDirty = true, otherDirty = false } = {}) {
   const pane = Object.assign(new Pane(), {
     state: { tabs: [first, second], activeTabId: first.id },
     activeTab() { return this.state.tabs.find(tab => tab.id === this.state.activeTabId); },
+    updateActiveTabFromEditor() { return this.activeTab(); },
     confirmDiscardTab: () => true,
     confirmDiscardDirtyTabs: () => true,
     clearDraft: id => discarded.push(id),
@@ -29,11 +30,11 @@ function setup(t, { activeDirty = true, otherDirty = false } = {}) {
 }
 
 for (const operation of ["closeTab", "closeAllTabs"]) {
-  test(`cancelling ${operation} preserves the pending autosave deadline`, t => {
+  test(`cancelling ${operation} preserves the pending autosave deadline`, async t => {
     const { pane, first, writes, discarded } = setup(t);
     pane.confirmDiscardTab = pane.confirmDiscardDirtyTabs = () => false;
     t.mock.timers.tick(AUTO_SAVE_IDLE_MS - 1000);
-    assert.equal(pane[operation](first.id), false);
+    assert.equal(await pane[operation](first.id), false);
     t.mock.timers.tick(1000);
     assert.deepEqual(writes, [{ noteId: first.noteId, body: first.body }]);
     assert.equal(pane.state.tabs.length, 2);
@@ -41,26 +42,26 @@ for (const operation of ["closeTab", "closeAllTabs"]) {
   });
 }
 
-test("closing an inactive tab preserves the active note's autosave deadline", t => {
+test("closing an inactive tab preserves the active note's autosave deadline", async t => {
   const { pane, first, second, writes } = setup(t);
   t.mock.timers.tick(AUTO_SAVE_IDLE_MS - 1000);
-  assert.equal(pane.closeTab(second.id), true);
+  assert.equal(await pane.closeTab(second.id), true);
   t.mock.timers.tick(1000);
   assert.deepEqual(writes, [{ noteId: first.noteId, body: first.body }]);
   assert.equal(pane.state.activeTabId, first.id);
 });
 
-test("closing the active tab schedules autosave for the remaining dirty note", t => {
+test("closing the active tab schedules autosave for the remaining dirty note", async t => {
   const { pane, first, second, writes } = setup(t, { activeDirty: false, otherDirty: true });
-  assert.equal(pane.closeTab(first.id), true);
+  assert.equal(await pane.closeTab(first.id), true);
   t.mock.timers.tick(AUTO_SAVE_IDLE_MS);
   assert.deepEqual(writes, [{ noteId: second.noteId, body: second.body }]);
   assert.equal(pane.state.activeTabId, second.id);
 });
 
-test("confirmed close-all cancels pending writes and removes discarded drafts", t => {
+test("confirmed close-all cancels pending writes and removes discarded drafts", async t => {
   const { pane, first, writes, discarded } = setup(t);
-  assert.equal(pane.closeAllTabs(), true);
+  assert.equal(await pane.closeAllTabs(), true);
   t.mock.timers.tick(AUTO_SAVE_IDLE_MS * 2);
   assert.deepEqual(writes, []);
   assert.deepEqual(discarded, [first.noteId]);

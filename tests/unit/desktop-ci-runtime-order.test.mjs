@@ -42,9 +42,13 @@ for (const workflow of ["desktop-bundles.yml", "release-readiness.yml", "desktop
     assert.match(source, /YANSILU_DESKTOP_TARGET: \$\{\{ matrix\.desktop_target \}\}/);
     assert.match(source, /rustup target add aarch64-apple-darwin x86_64-apple-darwin/);
     assert.ok(source.indexOf("rustup target add") < source.indexOf("- name: Build desktop bundles"));
-    assert.match(source, /apps\/desktop\/src-tauri\/target\/\*\*\/release\/bundle\/\*\*/);
+    assert.match(source, /path: output\/desktop-release-assets\//);
+    assert.doesNotMatch(source, /path:[\s\S]*?target\/\*\*\/release\/bundle\/\*\*/);
+    const stage = source.indexOf("- name: Stage final desktop assets");
+    assert.match(source, /run: node \.\/scripts\/stage-desktop-bundles\.mjs/);
     const regression = source.indexOf("- name: Test macOS packaging regressions");
     const build = source.indexOf("- name: Build desktop bundles");
+    assert.ok(stage > build && stage < source.indexOf("- name: Upload desktop bundles"));
     assert.ok(regression >= 0 && regression < build);
     assert.match(source, /node --test tests\/unit\/macos-bundle-copy\.test\.mjs tests\/unit\/macos-dmg-command\.test\.mjs/);
   });
@@ -52,7 +56,7 @@ for (const workflow of ["desktop-bundles.yml", "release-readiness.yml", "desktop
 
 test("changes to macOS packaging scripts trigger full PR bundles", () => {
   const source = fs.readFileSync(new URL("../../.github/workflows/desktop-bundles.yml", import.meta.url), "utf8");
-  for (const file of ["scripts/macos-*.mjs", "scripts/package-macos-dmg.mjs", "scripts/prepare-universal-desktop-api-runtime.mjs"]) {
+  for (const file of ["scripts/macos-*.mjs", "scripts/package-macos-dmg.mjs", "scripts/prepare-universal-desktop-api-runtime.mjs", "scripts/stage-desktop-bundles.mjs", "scripts/lib/desktop-release-assets.mjs"]) {
     assert.ok(source.includes(`- '${file}'`));
   }
 });

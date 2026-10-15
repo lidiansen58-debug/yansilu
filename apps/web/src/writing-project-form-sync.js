@@ -21,11 +21,14 @@ export async function syncWritingProjectForm(deps = {}, { force = false } = {}) 
     while (true) {
       context.assertCurrent();
       const project = writingState.project, form = formPayload(formSnapshot(deps, project));
+      const basketNoteIds = deps.parseWritingBasketIds?.() || project.basket_note_ids || [];
+      const savedBasket = project.basket_note_ids ?? project.basketNoteIds ?? basketNoteIds;
       if (!form.title) throw new Error("请填写文章题目，当前输入已保留。");
-      if (!force && Object.entries(form).every(([key, value]) => value === String(project[key] || ""))) return project;
+      if (!force && Object.entries(form).every(([key, value]) => value === String(project[key] || ""))
+        && JSON.stringify(basketNoteIds) === JSON.stringify(savedBasket)) return project;
       force = false;
       const saved = await deps.syncWritingProject(project.id, context.bindPayload({ ...form,
-        basketNoteIds: deps.parseWritingBasketIds?.() || project.basket_note_ids || [] }));
+        basketNoteIds }));
       context.assertCurrent();
       if (!saved?.id || saved.id !== project.id) throw new Error("未能确认题目和问题已保存，请重试；当前输入已保留。");
       writingState.project = saved;
@@ -42,7 +45,8 @@ export async function createWritingProjectKeepingForm(deps, context, payload) {
   const before = formSnapshot(deps);
   writingState.projectCreationPending = token;
   try {
-    const project = await deps.createWritingProject(context.bindPayload(payload));
+    // Check persisted sources on the API, including changes made after opening a theme.
+    const project = await deps.createWritingProject(context.bindPayload({ ...payload, requireEligibleSources: true }));
     context.assertCurrent();
     writingState.project = project;
     context.acceptLocalChanges();

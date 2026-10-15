@@ -35,9 +35,8 @@ test('graph hover details stay below the toolbar as controls wrap and the graph 
     for (const expanded of [false, true]) {
       if (expanded) await page.locator('[data-graph-toggle-expanded="on"]').click();
       const node = page.locator('.graph-map-node').first();
+      await node.locator('.graph-map-node-core').hover();
       const title = await node.getAttribute('data-node-title');
-      const dot = await node.locator('.graph-map-node-core').boundingBox();
-      await page.mouse.move(dot.x + dot.width / 2, dot.y + dot.height / 2);
       await waitFor(async () => {
         const report = await page.locator('#graphHoverCard').evaluate(card => {
           const bounds = el => { const r = el.getBoundingClientRect(); return { left:r.left, right:r.right, top:r.top, bottom:r.bottom }; };

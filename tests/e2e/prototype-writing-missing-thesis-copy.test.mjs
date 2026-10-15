@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, postJson, putJson, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { addWritingSupportNotes, createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
 
 async function createPermanentNote(baseUrl, payload = {}) {
   const created = await postJson(baseUrl, "/api/v1/notes", {
@@ -51,32 +52,28 @@ test("prototype missing-thesis readiness message uses Chinese copy", async (t) =
     distillationStatus: "confirmed"
   });
 
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, note.json.item);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.click("#btnWritingUseCurrent");
-  await page.fill("#writingTitle", "Missing Thesis Project");
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateProject");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create project button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /项目已创建：wp_/);
-  }, 10000);
+  const notes = await addWritingSupportNotes(apiBase, note.json.item);
+  await createManualWritingTheme(stack, notes, { title: "Missing Thesis Project" });
 
   await page.click("#btnWritingCreateScaffold");
   await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /1 条写作篮笔记还需要补一句话判断。/);
+    const resultText = await page.locator("#writingPanel").innerText();
+    assert.match(String(resultText || ""), /1 条.*笔记.*补.*一句话判断/);
     assert.doesNotMatch(String(resultText || ""), /1 basket note\(s\) still need a thesis\./);
   }, 10000);
+  const project = await findWritingProject(stack, notes, "Missing Thesis Project");
+  const scaffold = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;
+  assert.deepEqual(scaffold.preflight.checks.find(check => check.id === "basket_notes_missing_thesis").targetNoteIds, [note.json.item.id]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const source = page.locator(`#writingScaffoldPreview [data-writing-outline-source-note="${note.json.item.id}"]`);
+  assert.equal(await source.isVisible(), true);
+  await source.scrollIntoViewIfNeeded();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await page.screenshot({ path: "output/note-editor-validation/outline-note-readiness-390.png" });
+  await source.focus();
+  await source.press("Enter");
+  await page.waitForFunction(id => window.__prototypeState.module === "explorer" && window.__prototypeState.selectedFileId === id, note.json.item.id);
+  const fresh = (await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item;
+  assert.equal(fresh.body, note.json.item.body);
+  assert.equal(fresh.thesis, "");
 });

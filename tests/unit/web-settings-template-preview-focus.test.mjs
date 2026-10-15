@@ -49,3 +49,13 @@ test("template preview leaves composition and handled or modified keyboard event
   }
   assert.equal(h.closed(), 0);
 });
+
+test("template preview returns to its invoking control even when activation did not focus that control", () => {
+  const h = harness();
+  h.replacement.dataset = {};
+  h.doc.activeElement = h.replacement;
+  h.focus.open(h.preview);
+  assert.equal(h.doc.activeElement, h.close);
+  h.focus.close();
+  assert.equal(h.doc.activeElement, h.preview);
+});

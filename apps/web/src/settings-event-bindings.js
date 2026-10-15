@@ -2,6 +2,7 @@ import { installVaultBackupPanelEvents } from "./settings-vault-backup-panel.js"
 import { createSettingsVaultSwitcher } from "./settings-vault-switch.js";
 import { runSettingsDemoImport } from "./settings-demo-import-action.js";
 import { syncScheduledTaskScheduleFields } from "./scheduled-tasks-panel.js";
+import { installOfflineHelpDialog } from "./offline-help-dialog.js";
 export { describeSettingsDemoImportError } from "./settings-demo-import-action.js";
 
 export function installSettingsEventBindings(deps = {}) {
@@ -52,6 +53,7 @@ export function installSettingsEventBindings(deps = {}) {
     applyScheduledTaskTemplateToForm = () => {}
   } = deps;
 
+  installOfflineHelpDialog({ $ });
   const openVault = createSettingsVaultSwitcher({ state, settingsState, desktopCommands,
     loadNoteTemplateSettingsFromStorage, fetchDirectories, fetchDirectoryNotes, mapDirectoryItem, mapNoteItem, renderAll, setStatus });
   installVaultBackupPanelEvents({
@@ -63,7 +65,7 @@ export function installSettingsEventBindings(deps = {}) {
     renderSettingsPanel,
     setStatus,
     openRestoredVault: async (vaultPath) => {
-      if (!editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+      if (!await editor.confirmDiscardDirtyTabs?.("打开恢复后的笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
       try { await openVault(vaultPath); }
       catch (error) { setStatus(`打开笔记库失败：${String(error?.message || error)}`, "bad"); }
     }
@@ -78,7 +80,7 @@ export function installSettingsEventBindings(deps = {}) {
       const kind = button.closest?.("[data-settings-template-kind]")?.dataset?.settingsTemplateKind || "permanent";
       const action = button.dataset.settingsTemplateAction;
       if (action === "preview") {
-        openNoteTemplatePreview(kind);
+        openNoteTemplatePreview(kind, button);
       } else if (action === "save") {
         saveNoteTemplateFromEditor(kind);
       } else if (action === "reset") {
@@ -139,7 +141,8 @@ export function installSettingsEventBindings(deps = {}) {
     event.preventDefault();
     const action = String(button.getAttribute("data-settings-help-action") || "").trim();
     if (action === "import-demo") {
-      await runSettingsDemoImport(button, { $, handleStateChange, setStatus });
+      await runSettingsDemoImport(button, { $, handleStateChange, setStatus, state,
+        getVaultPath: deps.getVaultPath || (() => settingsState.vault?.vaultPath) });
       return;
     }
     if (action === "open-home") {
@@ -262,7 +265,7 @@ export function installSettingsEventBindings(deps = {}) {
         nextPath = String(picked.path || "").trim();
         if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
       }
-      if (!editor.confirmDiscardDirtyTabs?.("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+      if (!await editor.confirmDiscardDirtyTabs?.("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
       await openVault(nextPath);
     } catch (error) {
       setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");

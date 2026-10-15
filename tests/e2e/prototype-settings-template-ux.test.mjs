@@ -73,6 +73,28 @@ for (const width of [1366, 390, 320]) {
     await page.keyboard.press("Escape");
     assert.equal(await page.locator("#settingsTemplatePreviewModal").isVisible(), false);
     assert.equal(await preview.evaluate(node => node === document.activeElement), true);
+    // Reproduce a background header refresh just after Escape restores focus,
+    // including a save-validation change, using the actual production renderer.
+    const headerRefresh = await page.evaluate(async () => {
+      const moduleUrl = new URL('app-shell-module-header.js', document.querySelector('script[src$="prototype-app.js"]').src);
+      const { renderModuleWorkspaceHeaderForRuntime } = await import(moduleUrl.href);
+      const invoker = document.activeElement;
+      const actions = document.querySelector('#moduleHeaderActions');
+      const save = actions.querySelector('[data-settings-template-action="save"]');
+      const original = { disabled: save.disabled, title: save.title };
+      const deps = { state: window.__prototypeState, elements: {
+        moduleTitle: document.querySelector('#moduleTitle'), moduleSummary: document.querySelector('#moduleSummary'), moduleHeaderActions: actions
+      }, settingsHeader: { title: document.querySelector('#moduleTitle').textContent,
+        summary: document.querySelector('#moduleSummary').textContent, templateKind: 'permanent',
+        templateSaveDisabled: true, templateSaveTitle: '等待后台验证' } };
+      renderModuleWorkspaceHeaderForRuntime(deps);
+      const validationUpdated = save.disabled && save.title === '等待后台验证';
+      Object.assign(deps.settingsHeader, { templateSaveDisabled: original.disabled, templateSaveTitle: original.title });
+      renderModuleWorkspaceHeaderForRuntime(deps);
+      return { focusKept: invoker.isConnected && document.activeElement === invoker,
+        saveKept: actions.querySelector('[data-settings-template-action="save"]') === save, validationUpdated };
+    });
+    assert.deepEqual(headerRefresh, { focusKept: true, saveKept: true, validationUpdated: true });
     const layout = await page.evaluate(() => {
       const stage = document.querySelector("#moduleWorkspace .module-stage");
       return { scroll: stage.scrollWidth, width: stage.clientWidth, duplicateHead: !!document.querySelector(".settings-template-editor-head"), primary: [...document.querySelectorAll('#moduleWorkspace .primary')].filter(node => node.getClientRects().length).length };

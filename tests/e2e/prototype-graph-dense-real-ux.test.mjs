@@ -30,6 +30,15 @@ for (const width of [1366, 390, 320]) {
     await fs.mkdir(output, { recursive: true });
     const errors = [];
     const writingResponses = [];
+    const requestStarts = new WeakMap(), requestTimings = [];
+    page.on('request', request => requestStarts.set(request, Date.now()));
+    page.on('response', response => {
+      if (!response.url().includes('/api/v1/')) return;
+      const request = response.request();
+      requestTimings.push({ path: new URL(response.url()).pathname, method: request.method(),
+        status: response.status(), startedAt: requestStarts.get(request), elapsedMs: Date.now() - requestStarts.get(request) });
+    });
+    t.after(() => fs.writeFile(path.join(output, 'request-timings.json'), JSON.stringify(requestTimings, null, 2), 'utf8'));
     page.on("pageerror", error => errors.push(error.message));
     page.on("response", async response => {
       if (!/\/api\/v1\/(writing-projects|draft-scaffolds)/.test(response.url())) return;
@@ -87,6 +96,14 @@ for (const width of [1366, 390, 320]) {
         .map(item => ({ id: item.closest('[data-node-id]').dataset.nodeId, text: item.textContent })));
     assert.deepEqual(labelledMembers.map(item => item.id).sort(), [...members].sort(), "Every enlarged group member needs a rendered title");
     for (const item of labelledMembers) assert.ok(nodes.get(item.id).title.startsWith(item.text.replace(/…$/, '')));
+    const overlaps = await page.locator('.graph-map-node.is-theme-selected .graph-map-node-label').evaluateAll(items => {
+      const labels = items.map(item => ({ id: item.closest('[data-node-id]').dataset.nodeId,
+        rect: item.getBoundingClientRect() }));
+      return labels.flatMap((a, index) => labels.slice(index + 1).filter(b =>
+        a.rect.left < b.rect.right + 3 && a.rect.right + 3 > b.rect.left &&
+        a.rect.top < b.rect.bottom + 3 && a.rect.bottom + 3 > b.rect.top).map(b => [a.id, b.id]));
+    });
+    assert.equal(overlaps.length, 0, `Detail titles must not overlap: ${JSON.stringify(overlaps.slice(0, 5))}`);
     const internalEdges = graph.edges.filter(edge => members.includes(edge.fromNoteId) && members.includes(edge.toNoteId));
     const highlightedEdges = await page.locator('.graph-map-edge-group.is-theme-selected').evaluateAll(items => items.map(item => ({
       from: item.dataset.edgeFrom, to: item.dataset.edgeTo, type: item.dataset.edgeRelationType,
@@ -152,6 +169,13 @@ for (const width of [1366, 390, 320]) {
     await page.locator('.graph-selection-panel.is-edge').waitFor();
     const relation = graph.edges.find(edge => edge.fromNoteId === endpoints[0] && edge.toNoteId === endpoints[1] && edge.relationType === 'supports');
     assert.ok((await page.locator('.graph-selection-panel.is-edge').textContent()).includes(relation.rationale));
+    const closeHit = await page.locator('.graph-selection-panel.is-edge [data-graph-selection-close]').evaluate(button => {
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { reachable: hit === button || button.contains(hit), x: rect.x, y: rect.y, hit: hit?.outerHTML?.slice(0, 240) };
+    });
+    await page.screenshot({ path: path.join(output, '02-edge-details.png'), fullPage: true });
+    assert.ok(closeHit.reachable, `Relation close button must remain reachable: ${JSON.stringify(closeHit)}`);
     await page.locator('.graph-selection-panel.is-edge [data-graph-selection-close]').click();
     await page.locator('#graphRelationTypeFilter').selectOption('all');
     await page.locator('[data-graph-select-cluster]').first().focus();

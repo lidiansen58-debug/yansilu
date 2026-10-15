@@ -31,7 +31,7 @@ test("imported manual continues through writing UI, saves, reopens and exports a
   assert.equal(await page.evaluate(() => window.__prototypeState.module), 'today');
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('[data-writing-sidebar-action="topics"]').click();
-  const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button');
+  const resume = page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button.primary');
   await waitFor(async () => assert.equal(await resume.getAttribute('data-writing-project-id'), 'WRITE-SMART-NOTES-DEMO'));
   await resume.click();
   await useWritingMarkdown(page);

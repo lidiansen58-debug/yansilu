@@ -1,4 +1,4 @@
-import { beginAppNavigation } from "./app-navigation-intent.js";
+import { prepareAppNavigation } from "./app-navigation-intent.js";
 
 export function installAppRailEventBindings(deps = {}) {
   const {
@@ -25,9 +25,8 @@ export function installAppRailEventBindings(deps = {}) {
       event.preventDefault();
       event.stopPropagation();
       const targetModule = btn.dataset.module;
-      const overlayResult = dismissSafeOverlaysForNavigation({ targetModule });
-      if (overlayResult && overlayResult.ok === false) return;
-      const isCurrentNavigation = beginAppNavigation(state);
+      const isCurrentNavigation = await prepareAppNavigation(state, dismissSafeOverlaysForNavigation, { targetModule });
+      if (!isCurrentNavigation) return;
       if (targetModule === "graph") setGraphModuleActivationGuardUntil(now() + 1800);
       else setGraphModuleActivationGuardUntil(0);
       activateModule(targetModule);

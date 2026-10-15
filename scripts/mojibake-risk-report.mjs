@@ -40,7 +40,10 @@ function normalizePath(value = "") {
 }
 
 function shouldSkipPath(filePath = "") {
-  return normalizePath(filePath)
+  const normalized = normalizePath(filePath);
+  // This generated bundle duplicates the audited API, packages and scripts.
+  if (normalized === "apps/desktop/src-tauri/desktop-api-runtime") return true;
+  return normalized
     .split("/")
     .some((part) => EXCLUDED_PARTS.has(part));
 }

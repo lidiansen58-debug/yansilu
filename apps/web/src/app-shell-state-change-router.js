@@ -55,6 +55,8 @@ export async function routeAppShellStateChange(reason, payload = {}, deps = {}) 
 
   if (reason === "seed-smart-notes-demo") {
     return runConfirmedSmartNotesDemoImport(payload, {
+      state: deps.state,
+      getVaultPath: deps.getVaultPath,
       confirm: deps.confirm,
       importSmartNotesDemo: deps.importSmartNotesDemo,
       setStatus: deps.setStatus

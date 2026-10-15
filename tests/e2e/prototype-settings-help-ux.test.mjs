@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import { optionalPlaywright, startPrototypeStack, waitFor, fetchJson } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, waitFor, fetchJson, postJson } from "./prototype-copy-test-helpers.mjs";
 
 async function settingsStack(t) {
   if (process.env.RUN_BROWSER_E2E !== "1") {
@@ -36,6 +36,64 @@ async function assertNoOverflow(page) {
   assert.ok(sizes.scrollWidth <= sizes.pageWidth + 1, JSON.stringify(sizes));
   assert.ok(sizes.stageScroll <= sizes.stageWidth + 1, JSON.stringify(sizes));
 }
+
+test("offline guide stays inside the workspace, closes from its iframe and preserves editor state", async t => {
+  const stack = await settingsStack(t);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  const created = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default", body: "# 指南返回验收\n\n保留这段正文。\n"
+  });
+  assert.equal(created.status, 201);
+  const note = created.json.item;
+  await page.locator("#btnToggleSearch").click();
+  await page.locator("#globalNoteSearchInput").fill(note.title);
+  await page.locator(`[data-search-note="${note.id}"]`).click();
+  await page.waitForFunction(id => window.__prototypeEditor.activeNote()?.id === id, note.id);
+  await openHelp(page);
+  // An open editor buffer must survive opening help even when it has not been saved.
+  await page.evaluate(() => window.__prototypeEditor.setEditorValue("# 指南返回验收\n\n尚未保存的正文。"));
+  const editorState = () => page.evaluate(() => ({
+    id: window.__prototypeEditor.activeNote()?.id,
+    body: window.__prototypeEditor.getEditorValue(),
+    dirty: window.__prototypeEditor.activeTab()?.dirty
+  }));
+  const before = await editorState();
+  const mainUrl = page.url();
+  const pageCount = page.context().pages().length;
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const guide = page.frameLocator("#offlineHelpFrame");
+  await fs.mkdir("output/playwright/offline-help", { recursive: true });
+  for (const width of [1366, 390, 320]) {
+    await page.setViewportSize({ width, height: 768 });
+    await page.locator("#settingsOpenOfflineHelp").click();
+    await page.locator("#offlineHelpDialog[open]").waitFor();
+    await guide.getByRole("heading", { name: "研思录使用指南", exact: true }).waitFor();
+    assert.equal(await guide.locator("details").count(), 12);
+    const sizes = await page.locator("#offlineHelpDialog").evaluate(dialog => ({
+      left: dialog.getBoundingClientRect().left,
+      right: dialog.getBoundingClientRect().right,
+      viewport: innerWidth
+    }));
+    assert(sizes.left >= 0 && sizes.right <= sizes.viewport);
+    const contentSizes = await guide.locator("html").evaluate(el => ({ width: el.clientWidth, scroll: el.scrollWidth }));
+    assert(contentSizes.scroll <= contentSizes.width + 1);
+    await page.screenshot({ path: `output/playwright/offline-help/guide-${width}.png` });
+    if (width === 1366) {
+      await guide.getByText("怎样组织一本书", { exact: true }).press("Escape");
+    } else {
+      await page.locator("#offlineHelpClose").click();
+    }
+    await page.waitForFunction(() => !document.querySelector("#offlineHelpDialog").open);
+    assert.equal(await page.evaluate(() => document.activeElement.id), "settingsOpenOfflineHelp");
+    assert.equal(page.url(), mainUrl);
+    assert.equal(page.context().pages().length, pageCount);
+    assert.deepEqual(await editorState(), before);
+  }
+  assert.deepEqual(errors, []);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
+});
 
 test("settings prioritizes the vault, keeps all sections reachable and adapts without horizontal scrolling", async t => {
   const stack = await settingsStack(t);
@@ -131,13 +189,10 @@ test("help actions open the actual task and keep local troubleshooting out of fe
   assert.equal(await page.locator("#settingsLocalRulesCard").isVisible(), false);
   assert.equal(await page.locator("#settingsCheckUpdate").isVisible(), true);
   await page.locator('[data-settings-item="desktop-help"]').click();
-  const guide = page.locator('#settingsDesktopHelpCard a[href="./help/quick-start.html"]');
-  const popupPromise = page.waitForEvent("popup");
-  await guide.click();
-  const popup = await popupPromise;
-  await popup.waitForLoadState();
-  assert.match(await popup.locator("h1").innerText(), /研思录使用指南/);
-  await popup.close();
+  await page.locator("#settingsOpenOfflineHelp").click();
+  await page.locator("#offlineHelpDialog[open]").waitFor();
+  assert.match(await page.frameLocator("#offlineHelpFrame").locator("h1").innerText(), /研思录使用指南/);
+  await page.locator("#offlineHelpClose").click();
 });
 
 test("collapsed example help preserves confirmation, cancellation and ordinary-content import", async t => {

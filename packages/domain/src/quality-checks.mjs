@@ -123,22 +123,22 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
   const notesWithoutThesis = notes.filter((note) => !cleanText(note.thesis));
   if (notesWithoutThesis.length) {
     checks.push(
-      check(
+      { ...check(
         "basket_notes_missing_thesis",
         "basket_note_ids",
         `${notesWithoutThesis.length} 条相关笔记还需要补一句话判断。`
-      )
+      ), targetNoteIds: notesWithoutThesis.map(note => note.id) }
     );
   }
 
   const notesWithoutSummary = notes.filter((note) => stringItems(note.threeLineSummary || note.three_line_summary).length !== 3);
   if (notesWithoutSummary.length) {
     checks.push(
-      check(
+      { ...check(
         "basket_notes_missing_three_line_summary",
         "basket_note_ids",
         `${notesWithoutSummary.length} 条相关笔记还需要补齐三句话提纯。`
-      )
+      ), targetNoteIds: notesWithoutSummary.map(note => note.id) }
     );
   }
 

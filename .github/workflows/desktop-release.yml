@@ -1,6 +1,7 @@
 name: desktop-release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -22,7 +23,14 @@ jobs:
           cache: npm
 
       - name: Validate release tag
-        run: node ./scripts/release-validate-tag.mjs "${GITHUB_REF_NAME}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$(node -p "require('./package.json').version")"
+          fi
+          node ./scripts/release-validate-tag.mjs "$tag"
 
   build:
     needs: validate
@@ -100,6 +108,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PART_2: ${{ secrets.APPLE_CERTIFICATE_PART_2 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -111,7 +120,7 @@ jobs:
               exit 1
             fi
           done
-          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/apple-developer-id.p12"
+          node ./scripts/prepare-macos-signing-certificate.mjs
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -141,7 +150,7 @@ jobs:
 
       - name: Test macOS packaging regressions
         if: runner.os == 'macOS'
-        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs
+        run: node --test tests/unit/macos-bundle-copy.test.mjs tests/unit/macos-dmg-command.test.mjs tests/unit/macos-notarization.test.mjs tests/unit/macos-node-runtime-signing.test.mjs tests/unit/macos-packaging-layout.test.mjs tests/unit/macos-signing-certificate.test.mjs tests/unit/desktop-bundle-manifest.test.mjs
 
       - name: Test Linux packaging regressions
         if: runner.os == 'Linux'
@@ -166,13 +175,14 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: bash ./scripts/build-mac-release.sh
 
+      - name: Stage final desktop assets
+        run: node ./scripts/stage-desktop-bundles.mjs
+
       - name: Upload desktop bundles
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            apps/desktop/src-tauri/target/**/release/bundle/**
-            !apps/desktop/src-tauri/target/**/release/bundle/**/*.dSYM/**
+          path: output/desktop-release-assets/
           if-no-files-found: error
 
       - name: Remove temporary signing keychain
@@ -207,6 +217,9 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$(node -p "require('./package.json').version")"
+          fi
           node ./scripts/collect-release-assets.mjs --dist dist --out release-assets
           npm run release:update-manifest -- \
             --bundle-manifest release-assets/bundle-manifest.json \
@@ -218,7 +231,16 @@ jobs:
           test -f release-assets/update-manifest.json
           test -f release-assets/latest.json
 
+      - name: Upload signed release rehearsal assets
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: yansilu-signed-release-rehearsal-assets
+          path: release-assets/**
+          if-no-files-found: error
+
       - name: Create or update draft GitHub release
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail

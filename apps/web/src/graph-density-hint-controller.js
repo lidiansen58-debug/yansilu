@@ -6,7 +6,6 @@ function graphDensityHintDeps(deps = {}) {
     window: deps.window || globalThis.window,
     now: deps.now || (() => Date.now()),
     isGraphModule: deps.isGraphModule || (() => false),
-    renderGraphPanel: deps.renderGraphPanel || (() => {}),
     timeoutMs: Number(deps.timeoutMs || GRAPH_DENSITY_HINT_TIMEOUT_MS)
   };
 }
@@ -21,7 +20,7 @@ export function clearGraphDensityHintTimerForRuntime(deps = {}) {
 
 export function scheduleGraphDensityHintDismissForRuntime(deps = {}) {
   const runtime = graphDensityHintDeps(deps);
-  const { graphState, window, now, isGraphModule, renderGraphPanel } = runtime;
+  const { graphState, window, now, isGraphModule } = runtime;
   clearGraphDensityHintTimerForRuntime(runtime);
   const remaining = Number(graphState.densityHintVisibleUntil || 0) - now();
   if (remaining <= 0) {
@@ -31,7 +30,7 @@ export function scheduleGraphDensityHintDismissForRuntime(deps = {}) {
   graphState.densityHintTimer = window?.setTimeout?.(() => {
     graphState.densityHintTimer = 0;
     graphState.densityHintVisibleUntil = 0;
-    if (isGraphModule()) renderGraphPanel();
+    if (isGraphModule()) window?.document?.querySelectorAll?.("#graphCanvas .graph-density-hint")?.forEach(hint => hint.remove());
   }, remaining) || 0;
   return Boolean(graphState.densityHintTimer);
 }

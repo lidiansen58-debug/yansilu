@@ -3,6 +3,12 @@
 #writingPanel .writing-workbench-head { align-items: center; padding: 0; }
 #writingPanel .writing-page-title { font-size: 22px; font-weight: 650; }
 #writingPanel .writing-head-actions { gap: var(--ui-space-2); }
+/* The related-notes sheet must cover the 1601 navigation layer. */
+#writingPanel .writing-related-overlay { z-index: 1800; }
+#writingPanel .writing-related-panel [data-writing-related-close] {
+  min-width: 44px;
+  min-height: 44px;
+}
 #writingPanel .writing-tabs {
   display: flex;
   width: 100%;

@@ -120,7 +120,7 @@ test("desktop update adapter normalizes download progress events", () => {
   assert.equal(started.totalBytes, 200);
   assert.equal(progress.downloadedBytes, 50);
   assert.equal(progress.percent, 25);
-  assert.equal(finished.phase, "installing");
+  assert.equal(finished.phase, "downloaded");
 });
 
 test("desktop update adapter relaunches through process plugin", async () => {

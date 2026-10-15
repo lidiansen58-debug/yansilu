@@ -2,6 +2,7 @@ import {
   runConfirmedSmartNotesDemoImport
 } from "./smart-notes-demo-import-flow.js";
 import { openExplicitStartupNoteRoute } from "./startup-explicit-note-route.js";
+import { captureActionConfirmationContext } from "./action-confirmation-context.js";
 export async function openInitialStartupRouteForRuntime(deps = {}) {
   const {
     windowRef = typeof window !== "undefined" ? window : undefined,
@@ -20,6 +21,9 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     setStatus = () => {}
   } = deps;
   const startupParams = new URLSearchParams(windowRef?.location?.search || "");
+  const isCurrent = captureActionConfirmationContext(() => deps, () => JSON.stringify([
+    state.selectedFolderId, state.selectedFileId, state.activeTabId
+  ]));
   const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
   const explicitNoteId = startupParams.get("note") || "";
   const shouldSkipAutoOpen = () => getStartupAutoOpenSuppressed() === true || Boolean(state.activeTabId || state.selectedFileId);
@@ -27,6 +31,8 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
       ? await runConfirmedSmartNotesDemoImport({ startup: true }, {
           confirm,
+          state,
+          getVaultPath: deps.getVaultPath,
           importSmartNotesDemo: importSmartNotesProductThinkingDemo,
           setStatus
         })
@@ -35,6 +41,7 @@ export async function openInitialStartupRouteForRuntime(deps = {}) {
     renderAll();
     return { route: "demo", startupDemo };
   }
+  if (!isCurrent()) return { route: "skipped" };
   const explicitRoute = await openExplicitStartupNoteRoute(explicitNoteId, deps);
   if (explicitRoute) return explicitRoute;
   if (usingLocalFallbackData) {

@@ -153,7 +153,7 @@ sign_app() {
 
   local node_entitlements
   node_entitlements=$(mktemp)
-  if ! codesign -d --entitlements "$node_entitlements" "$node_bin" >/dev/null 2>&1; then
+  if ! codesign -d --entitlements - --xml "$node_bin" >"$node_entitlements" 2>/dev/null; then
     rm -f "$node_entitlements"
     err "Could not read embedded Node.js entitlements"
     exit 1

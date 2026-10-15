@@ -33,9 +33,115 @@ function assertRestoredSourceNotice(scaffold, project, checkId, noteId) {
     assert.ok(preview.innerHTML.includes(`data-writing-outline-source-note="${escapeHtml(noteId)}"`));
   } else {
     assert.match(preview.innerHTML, /来源文件缺失/);
-    assert.doesNotMatch(preview.innerHTML, /data-writing-outline-source-note/);
+    assert.equal(preview.innerHTML.includes(`data-writing-outline-source-note="${escapeHtml(noteId)}"`), false, "Missing sources must never offer an open action");
   }
 }
+
+async function indexCardSafetyFixture(t) {
+  const vaultPath = await makeTempDir("yansilu-index-card-safety-");
+  const baseUrl = `http://127.0.0.1:${await findFreePort()}`, child = startApi(Number(new URL(baseUrl).port), vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const notes = [];
+  for (const title of ["主题依据一", "主题依据二"]) {
+    const result = await postJson(baseUrl, "/api/v1/notes", { directoryId: "dir_original_default", body: `# ${title}\n\n保留中文正文和 [[正文链接]]。` });
+    assert.equal(result.status, 201, JSON.stringify(result.json)); notes.push(result.json.item);
+  }
+  const created = await postJson(baseUrl, "/api/v1/index-cards", { directoryId: "dir_original_default", indexType: "topic",
+    title: "可编辑主题", centralQuestion: "原来的问题？", noteIds: notes.map(note => note.id) });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  return { vaultPath, baseUrl, notes, card: created.json.item, route: `/api/v1/index-cards/${created.json.item.id}` };
+}
+
+test("index card metadata rejects stale revisions and keeps members and note bytes intact", async t => {
+  const f = await indexCardSafetyFixture(t);
+  const bytes = await Promise.all(f.notes.map(note => fs.readFile(path.join(f.vaultPath, note.markdownPath))));
+  const saved = await patchJson(f.baseUrl, f.route, { centralQuestion: "后来保存的问题？", expectedUpdatedAt: f.card.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.notEqual(saved.json.item.updated_at, f.card.updated_at);
+  const stale = await patchJson(f.baseUrl, f.route, { centralQuestion: "不能覆盖后来问题", expectedUpdatedAt: f.card.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(stale.status, 409, JSON.stringify(stale.json));
+  assert.equal(stale.json.error.code, "INDEX_CARD_CONFLICT");
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, saved.json.item);
+  assert.deepEqual(saved.json.item.items, f.card.items);
+  const cleared = await patchJson(f.baseUrl, f.route, { centralQuestion: "", expectedUpdatedAt: saved.json.item.updated_at, expectedVaultPath: f.vaultPath });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.json));
+  assert.equal(cleared.json.item.central_question, "");
+  for (const [i, note] of f.notes.entries()) assert.deepEqual(await fs.readFile(path.join(f.vaultPath, note.markdownPath)), bytes[i]);
+});
+
+test("incomplete index card updates cannot follow a vault switch into cloned IDs", async t => {
+  const f = await indexCardSafetyFixture(t), copiedVault = await makeTempDir("yansilu-index-card-clone-");
+  await fs.cp(f.vaultPath, copiedVault, { recursive: true });
+  let pending;
+  const response = new Promise((resolve, reject) => {
+    pending = http.request(f.baseUrl + f.route, { method: "PATCH", headers: { "Content-Type": "application/json" } }, res => {
+      let body = ""; res.on("data", chunk => { body += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, json: JSON.parse(body) }));
+    });
+    pending.on("error", reject); pending.write("{");
+  });
+  t.after(() => pending.destroy());
+  await new Promise(resolve => setTimeout(resolve, 150));
+  assert.equal((await postJson(f.baseUrl, "/api/v1/vault", { vaultPath: copiedVault })).status, 200);
+  pending.end(JSON.stringify({ centralQuestion: "跨库错误写入", expectedVaultPath: copiedVault }).slice(1));
+  const rejected = await response;
+  assert.equal(rejected.status, 409, JSON.stringify(rejected.json));
+  assert.equal(rejected.json.error.code, "VAULT_CHANGED");
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, f.card);
+  assert.equal((await patchJson(f.baseUrl, f.route, { centralQuestion: "旧库请求", expectedVaultPath: f.vaultPath })).status, 409);
+  const saved = await patchJson(f.baseUrl, f.route, { centralQuestion: "新库正常保存", expectedVaultPath: copiedVault, expectedUpdatedAt: f.card.updated_at });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  assert.equal(saved.json.item.central_question, "新库正常保存");
+  await postJson(f.baseUrl, "/api/v1/vault", { vaultPath: f.vaultPath });
+  assert.deepEqual((await getJson(f.baseUrl, f.route)).json.item, f.card);
+});
+
+test("outline note-gap warnings follow repaired source metadata on readback and historical restore", async t => {
+  const vaultPath = await makeTempDir("yansilu-outline-note-gaps-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const body = "# 待完善依据\n\n保留作者的中文正文与 [[内部链接]]。";
+  const note = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body, thesis: " ", threeLineSummary: ["第一句", " ", "第三句"]
+  })).json.item;
+  const noteFile = path.join(vaultPath, note.markdownPath), originalBytes = await fs.readFile(noteFile);
+  const projectId = (await postJson(baseUrl, "/api/v1/writing-projects", { title: "检查笔记依据", basketNoteIds: [note.id] })).json.item.id;
+  const source = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const codes = ["basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"];
+  const assertGaps = (scaffold, expected) => {
+    const gaps = scaffold.preflight.checks.filter(check => codes.includes(check.id));
+    assert.deepEqual(gaps.map(check => check.id), expected);
+    for (const gap of gaps) {
+      assert.deepEqual(gap.targetNoteIds, [note.id]);
+      assert.equal(gap.status, "warning");
+      assert.ok(gap.label);
+    }
+  };
+  assertGaps(source, codes);
+  assert.doesNotMatch(source.markdown, /提醒 undefined/);
+  assertGaps((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item, codes);
+  assert.deepEqual(await fs.readFile(noteFile), originalBytes, "Generating and reading reminders must not rewrite source notes");
+  const repair = await fetch(`${baseUrl}/api/v1/notes/${note.id}`, { method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body, thesis: "解释需要联系材料中的依据。", threeLineSummary: ["写出判断。", "核对材料。", "说明适用边界。"] }) });
+  assert.equal(repair.status, 200);
+  const repairedBytes = await fs.readFile(noteFile);
+  assertGaps((await getJson(baseUrl, `/api/v1/draft-scaffolds/${source.id}`)).json.item, []);
+  const current = (await postJson(baseUrl, "/api/v1/draft-scaffolds", { writingProjectId: projectId })).json.item;
+  const project = (await getJson(baseUrl, `/api/v1/writing-projects/${projectId}`)).json.item;
+  const restored = await postJson(baseUrl, `/api/v1/writing-projects/${projectId}/scaffold-restore`, {
+    sourceScaffoldId: source.id, restorationId: `ds_${randomUUID()}`, expectedScaffoldId: current.id,
+    expectedScaffoldUpdatedAt: current.updated_at, expectedProjectUpdatedAt: project.updated_at,
+    expectedSourceUpdatedAt: source.updated_at, expectedVaultPath: vaultPath
+  });
+  assert.equal(restored.status, 201, JSON.stringify(restored.json));
+  assertGaps(restored.json.item, []);
+  assert.deepEqual(restored.json.item.sections, source.sections);
+  assert.deepEqual(await fs.readFile(noteFile), repairedBytes, "Restoring an outline must preserve repaired note metadata and text");
+  assert.equal((await getJson(baseUrl, `/api/v1/notes/${note.id}`)).json.item.body, note.body);
+});
 
 test("historical restore preserves the outline when an evidence file is missing", async t => {
   const vaultPath = await makeTempDir("yansilu-history-missing-evidence-");
@@ -1785,4 +1891,43 @@ test("existing writing work stays readable when an old source note file is missi
   });
   assert.equal(replacementScaffold.status, 400, JSON.stringify(replacementScaffold.json));
   assert.equal(replacementScaffold.json.error.code, "DRAFT_SCAFFOLD_INVALID");
+});
+
+for (const requirement of ["authorship", "originality"]) test(`new article source validation rejects ${requirement} before any project write and preserves existing articles`, async t => {
+  const vaultPath = await makeTempDir("yansilu-writing-source-gate-");
+  const port = await findFreePort(), baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+  t.after(async () => { if (child.exitCode === null) { const exited = once(child, "exit"); child.kill(); await exited; } });
+  await waitForHealth(baseUrl);
+  const source = (await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: `# 来源确认-${requirement}\n\n解释后需要核对材料。`
+  })).json.item;
+  const update = async (id, payload) => {
+    const response = await fetch(`${baseUrl}/api/v1/notes/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const json = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(json));
+    return json.item;
+  };
+  const changed = await update(source.id, { status: "draft", authorshipConfirmed: requirement !== "authorship" });
+  assert.equal(changed.status, "draft");
+  assert.equal(changed.authorship.user_confirmed, requirement !== "authorship");
+  const file = path.join(vaultPath, changed.markdownPath), bytes = await fs.readFile(file);
+  const payload = { title: "新文章来源确认", basketNoteIds: [source.id], requireEligibleSources: true };
+  const rejected = await postJson(baseUrl, "/api/v1/writing-projects", payload);
+  assert.equal(rejected.status, 400, JSON.stringify(rejected.json));
+  assert.match(rejected.json.error.message, requirement === "authorship" ? /还没完成作者确认/ : /还未通过原创性检查/);
+  assert.match(rejected.json.error.message, new RegExp(source.title));
+  assert.deepEqual((await getJson(baseUrl, "/api/v1/writing-projects?limit=50")).json.items, []);
+  assert.deepEqual(await fs.readFile(file), bytes);
+  const ready = await update(source.id, { status: "active", authorshipConfirmed: true, originalityStatus: "pass" });
+  assert.equal(ready.status, "active");
+  const created = await postJson(baseUrl, "/api/v1/writing-projects", payload);
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  await update(source.id, { status: "draft", authorshipConfirmed: false });
+  const existing = await getJson(baseUrl, `/api/v1/writing-projects/${created.json.item.id}`);
+  assert.equal(existing.status, 200);
+  assert.deepEqual(existing.json.item.basket_note_ids, [source.id]);
+  const edited = await patchJson(baseUrl, `/api/v1/writing-projects/${created.json.item.id}`, { title: "保留历史文章并修改题目" });
+  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  assert.equal(edited.json.item.title, "保留历史文章并修改题目");
 });

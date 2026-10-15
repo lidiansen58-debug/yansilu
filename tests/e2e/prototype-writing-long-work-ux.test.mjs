@@ -37,7 +37,7 @@ for (const width of [1366, 320]) {
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title })
         .getByRole("button", { name: "继续提纲", exact: true }).click();
-      await page.locator('.rail-btn[data-module="writing"]').click();
+      await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "outline");
       await page.locator('.writing-outline-heading:visible').first().waitFor();
       assert.equal(await page.locator('.writing-outline-heading').first().inputValue(), title);
       assert.equal(await page.locator('[data-writing-outline-field="purpose"]').first().inputValue(), purpose);
@@ -105,7 +105,7 @@ for (const { scenario, width } of [{ scenario: "pending", width: 320 }, { scenar
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title })
         .getByRole("button", { name: "继续提纲", exact: true }).click();
-      await page.locator('.rail-btn[data-module="writing"]').click();
+      await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "outline");
       await page.locator('.writing-outline-heading:visible').first().waitFor();
       assert.equal(await page.locator('.writing-outline-heading').first().inputValue(), "My later title must survive reopening");
       assert.equal(count, before);
@@ -308,7 +308,7 @@ for (const width of [1366, 320]) {
         await page.locator('.rail-btn[data-module="writing"]').click();
         await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title })
           .getByRole("button", { name: "继续提纲", exact: true }).click();
-        await page.locator('.rail-btn[data-module="writing"]').click();
+        await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "outline");
         await page.locator('.writing-outline-heading:visible').first().waitFor();
         assert.equal(await page.locator('.writing-outline-heading').first().inputValue(), newer);
         await page.addStyleTag({ content: '.writing-outline-heading { field-sizing: fixed !important; }' });
@@ -475,7 +475,7 @@ for (const width of [1366, 390, 320]) {
       await page.reload({ waitUntil: "networkidle" });
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator("#writingThemeIndexList [data-writing-index-card-id]", { hasText: project.title }).getByRole("button", { name: "继续草稿", exact: true }).click();
-      await page.locator('.rail-btn[data-module="writing"]').click();
+      await page.waitForFunction(() => document.querySelector(".writing-shell")?.dataset.writingActiveTab === "draft");
       await useWritingMarkdown(page);
       assert.match(await page.locator("#writingDraftEditor").inputValue(), /第80段/);
       const persisted = (await fetchJson(apiBase, `/api/v1/draft-scaffolds/${project.scaffold_id}`)).json.item;

@@ -112,7 +112,7 @@ test("prototype writing keeps distinct themes with the same notes isolated and r
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   const topicA = page.locator('#writingThemeIndexList [data-writing-index-card-id]', { hasText: "Theme Continuity Index A" });
-  await topicA.locator('button').click();
+  await topicA.locator('button.primary').click();
   await page.locator('#writingTitle:visible').waitFor();
   assert.equal(await page.locator('#writingTitle').inputValue(), "Theme Continuity Index A");
   await page.locator('#btnWritingCreateScaffold').click();

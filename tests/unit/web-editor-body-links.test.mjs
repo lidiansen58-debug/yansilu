@@ -164,6 +164,38 @@ test("closing the picker during save cannot release the insertion lock", async (
   assert.equal(host.isSubmittingLinkInsert, false);
 });
 
+for (const interaction of ["cursor", "selection", "picker", "unchanged"]) {
+  test(`late link save preserves a newer ${interaction}`, async () => {
+    let body = "正文", selection = { from: 2, to: 2 }, release, restored = 0, scrolled = 0;
+    const saving = new Promise(resolve => { release = resolve; });
+    const tab = { savedBody: body }, notes = [{ id: "source" }, { id: "target", title: "目标" }];
+    const host = { state: { notes }, activeNote: () => notes[0], activeTab: () => tab,
+      manualLinkReturnSelection: { from: 2, to: 2 }, normalizedSelectionRange: r => r,
+      getEditorValue: () => body, editorSelection: () => ({ ...selection }), isWysiwygMode: () => false,
+      replaceEditorRange: (from, to, token) => {
+        body = body.slice(0, from) + token + body.slice(to);
+        selection = { from: from + token.length, to: from + token.length };
+      },
+      handleEditorInput() {}, focusEditor() {}, onStatus() {},
+      setEditorSelectionRange: (from, to) => { restored++; selection = { from, to }; },
+      scheduleEditorScrollRestore: () => scrolled++, saveActiveNote: () => saving };
+    const controller = new EditorRelationLinkController(host);
+    controller.close = () => { controller.returnContext = null; };
+    controller.updateConfirmButton = () => {};
+    const pending = controller.insertSelected("target");
+    if (interaction === "cursor") selection = { from: 5, to: 5 };
+    if (interaction === "selection") selection = { from: 3, to: 8 };
+    if (interaction === "picker") controller.returnContext = { noteId: "source", body };
+    const expected = { ...selection };
+    tab.savedBody = body;
+    release(true);
+    await pending;
+    assert.deepEqual(selection, expected, "Saving must not replace a newer selection");
+    assert.equal(restored, interaction === "unchanged" ? 1 : 0);
+    assert.equal(scrolled, interaction === "unchanged" ? 1 : 0);
+  });
+}
+
 for (const change of ["query", "note", "vault", "picker"]) {
   test(`loading an existing target ignores a changed ${change}`, async () => {
     let resolve;

@@ -1,5 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { literatureCitationReadiness } from "./literature-source-readiness.js";
+import { createPermanentSectionRoleResolver } from "./permanent-section-roles.js";
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 
 function escapeRegExp(value) {
@@ -780,8 +781,12 @@ export function parsePermanentWorkspace(body = "") {
   const repeatedKnownSections = [];
   const sectionLayout = [];
   const seenKnown = new Set();
+  const resolveSectionKey = createPermanentSectionRoleResolver(
+    sections.map((section) => section.heading),
+    { normalizeHeading: normalizeLooseText, sectionKeyFromHeading: permanentSectionKeyFromHeading }
+  );
   for (const section of sections) {
-    const key = permanentSectionKeyFromHeading(section.heading);
+    const key = resolveSectionKey(section.heading);
     const sectionBody = normalizeFieldText(section.body);
     if (!key) {
       unknownSections.push(section);

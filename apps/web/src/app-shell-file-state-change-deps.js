@@ -2,6 +2,7 @@ export function buildAppShellFileStateChangeDeps(host = {}) {
   const {
     deleteDirectory = async () => null,
     deleteNote = async () => null,
+    getVaultPath = () => "",
     editor = null,
     descendantDirectoryIds = () => [],
     folderById = () => null,
@@ -38,6 +39,7 @@ export function buildAppShellFileStateChangeDeps(host = {}) {
     },
     noteDelete: {
       state,
+      getVaultPath,
       usingLocalFallbackData,
       deleteNote,
       removeNoteFromClientState,
@@ -57,6 +59,7 @@ export function buildAppShellFileStateChangeDeps(host = {}) {
     },
     directoryDelete: {
       state,
+      getVaultPath,
       deleteDirectory,
       setStatus,
       renderAll

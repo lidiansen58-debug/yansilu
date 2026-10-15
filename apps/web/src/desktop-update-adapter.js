@@ -50,7 +50,7 @@ export function normalizeDesktopDownloadEvent(event = {}, previous = {}) {
     phase = "downloading";
     downloadedBytes += Number(data.chunkLength ?? data.deltaBytes ?? data.downloadedBytes ?? 0) || 0;
   } else if (name === "finished" || name === "finish") {
-    phase = "installing";
+    phase = "downloaded";
     if (totalBytes > 0) downloadedBytes = totalBytes;
   }
 
@@ -84,7 +84,7 @@ export async function checkDesktopUpdate(options = {}) {
   return {
     supported: true,
     available: Boolean(update),
-    installable: typeof update?.downloadAndInstall === "function",
+    installable: typeof update?.download === "function" && typeof update?.install === "function",
     update,
     metadata: normalizeDesktopUpdateMetadata(update)
   };

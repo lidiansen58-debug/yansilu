@@ -42,7 +42,7 @@ test("graph presentation controller syncs utility drawer and section disclosure 
   });
 });
 
-test("graph presentation controller schedules density hint dismissal with injected host deps", () => {
+test("graph presentation controller expires only density guidance without rebuilding focused graph controls", () => {
   const calls = [];
   const graphState = {
     lastLoadedDirectoryId: "dir-1",
@@ -52,6 +52,10 @@ test("graph presentation controller schedules density hint dismissal with inject
   const controller = createGraphPresentationController({
     graphState,
     windowRef: {
+      document: { querySelectorAll: selector => {
+        assert.equal(selector, "#graphCanvas .graph-density-hint");
+        return [{ remove: () => calls.push(["remove-hint"]) }];
+      } },
       setTimeout: (callback, delay) => {
         timeoutCallback = callback;
         calls.push(["timeout", delay]);
@@ -73,7 +77,8 @@ test("graph presentation controller schedules density hint dismissal with inject
 
   assert.equal(graphState.densityHintTimer, 0);
   assert.equal(graphState.densityHintVisibleUntil, 0);
-  assert.deepEqual(calls.at(-1), ["render"]);
+  assert.deepEqual(calls.at(-1), ["remove-hint"]);
+  assert.equal(calls.some(call => call[0] === "render"), false);
 });
 
 test("graph presentation controller clears density hint timer", () => {

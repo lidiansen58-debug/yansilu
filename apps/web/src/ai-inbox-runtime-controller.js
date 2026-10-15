@@ -1,3 +1,5 @@
+import { confirmAiInboxRecommendedAction } from "./ai-inbox-recommended-confirmation.js";
+
 export async function loadAiInboxDetailForRuntime(deps = {}, artifactId = "") {
   const {
     aiInboxState,
@@ -79,14 +81,21 @@ export async function refreshAiInboxForRuntime(deps = {}, options = {}) {
   } = deps;
   const { silent = false, preserveDetail = false } = options;
   aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
+  const requestFilters = { ...aiInboxState.filters };
+  const filtersKey = JSON.stringify(requestFilters);
+  const requestToken = (Number(aiInboxState.listRequestToken) || 0) + 1;
+  aiInboxState.listRequestToken = requestToken;
+  const isCurrentRequest = () => requestToken === aiInboxState.listRequestToken &&
+    JSON.stringify(normalizeAiInboxFilters(aiInboxState.filters)) === filtersKey;
   if (!silent) {
     aiInboxState.loading = true;
     aiInboxState.error = "";
     render();
   }
-  const previousSelectedId = String(aiInboxState.selectedArtifactId || "").trim();
   try {
-    const result = await fetchAiInbox({ ...aiInboxState.filters, canonical: true });
+    const result = await fetchAiInbox({ ...requestFilters, canonical: true });
+    if (!isCurrentRequest()) return null;
+    const previousSelectedId = String(aiInboxState.selectedArtifactId || "").trim();
     const nextItems = Array.isArray(result?.canonical?.items) && result.canonical.items.length
       ? result.canonical.items.map((item) => aiInboxItemFromCanonical(item))
       : result.items;
@@ -147,12 +156,15 @@ export async function refreshAiInboxForRuntime(deps = {}, options = {}) {
     }
     return result;
   } catch (error) {
+    if (!isCurrentRequest()) return null;
     aiInboxState.error = String(error?.message || error);
     setStatus(`AI 建议加载失败：${aiInboxState.error}`, "warn");
     return null;
   } finally {
-    aiInboxState.loading = false;
-    render();
+    if (requestToken === aiInboxState.listRequestToken) {
+      aiInboxState.loading = false;
+      render();
+    }
   }
 }
 
@@ -492,7 +504,7 @@ export async function recordAiInboxReviewDecisionForRuntime(deps = {}, decision 
 export async function applyAiInboxRecommendedActionForRuntime(deps = {}, action = "") {
   const {
     aiInboxState,
-    confirm = () => true,
+    confirm = message => globalThis.confirm?.(message),
     appendDecisionComment = () => {},
     acceptLink = async () => null,
     adoptFieldSuggestion = async () => null,
@@ -548,7 +560,10 @@ export async function applyAiInboxRecommendedActionForRuntime(deps = {}, action 
     needs_more_context: "mark this item as needing more context"
   };
   const label = labels[normalized] || normalized;
-  if (!confirm(`Apply AI recommended action: ${label}?`)) return false;
+  if (!await confirmAiInboxRecommendedAction({ ...deps, confirm, setStatus }, {
+    message: `Apply AI recommended action: ${label}?`,
+    isReady: () => aiInboxActionGuardForRuntime(aiInboxState, { artifactId }).type === "ready"
+  })) return false;
 
   if (normalized === "accept_link") return acceptLink(artifactId);
   if (normalized === "adopt_field_suggestion") {

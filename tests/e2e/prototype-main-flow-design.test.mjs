@@ -4,15 +4,20 @@ import { mkdir } from "node:fs/promises";
 import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function controlsFit(page, locator, width) {
-  const report = await locator.evaluate(el => {
-    const rect = el.getBoundingClientRect();
-    const style = getComputedStyle(el);
-    return { left: rect.left, right: rect.right, width: rect.width, height: rect.height, font: style.fontSize };
+  // A graph refresh can replace the control between resolving it and measuring it.
+  await waitFor(async () => {
+    const reports = await locator.evaluateAll(elements => elements.map(el => {
+      const rect = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return { left: rect.left, right: rect.right, width: rect.width, height: rect.height, font: style.fontSize };
+    }));
+    assert.equal(reports.length, 1);
+    const report = reports[0];
+    assert.ok(report.width > 0 && report.left >= 0 && report.right <= width + 1, JSON.stringify(report));
+    assert.ok(report.height >= (width <= 700 ? 44 : 40), JSON.stringify(report));
+    assert.equal(report.font, "14px");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   });
-  assert.ok(report.width > 0 && report.left >= 0 && report.right <= width + 1, JSON.stringify(report));
-  assert.ok(report.height >= (width <= 700 ? 44 : 40), JSON.stringify(report));
-  assert.equal(report.font, "14px");
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 }
 
 async function graphToolsFit(page, width) {
@@ -97,13 +102,17 @@ test("home, graph, theme suggestions and settings keep clear actions and usable 
       assert.equal(await page.locator('.graph-pan-hint').count(), 0);
       assert.equal(await page.locator('.graph-map-star, .graph-map-nebula').count(), 0);
       assert.equal(await page.locator('.graph-map-backdrop').evaluate(el => getComputedStyle(el).fill), "rgb(245, 247, 248)");
-      const hintStyles = await page.locator('.graph-canvas-help-hint').evaluateAll(hints => hints.map(hint => ({
-        animation: getComputedStyle(hint).animationName, color: getComputedStyle(hint).color
-      })));
-      for (const hint of hintStyles) {
-        assert.equal(hint.animation, 'none');
-        assert.equal(hint.color, 'rgb(82, 97, 116)');
-      }
+      await waitFor(async () => {
+        // A task refresh can retire locator elements before their styles are read.
+        const hintStyles = await page.evaluate(() => [...document.querySelectorAll('.graph-canvas-help-hint')].map(hint => ({
+          connected: hint.isConnected, animation: getComputedStyle(hint).animationName, color: getComputedStyle(hint).color
+        })));
+        for (const hint of hintStyles) {
+          assert.equal(hint.connected, true);
+          assert.equal(hint.animation, 'none');
+          assert.equal(hint.color, 'rgb(82, 97, 116)');
+        }
+      });
       await page.screenshot({ path: `output/main-flow-design-system/graph-${view}-${width}.png` });
     }
 

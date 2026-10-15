@@ -22,13 +22,14 @@ export async function refreshAiSettingsReadback({
   aiRefresh, settingsState, fetchPreferences, applyPreferences,
   fetchProviderConfigs, applyProviderConfig, persist = () => {}
 }) {
-  const preferences = await fetchPreferences().catch(() => null);
-  if (preferences && aiRefresh.canApplyPreferences()) {
+  const [preferences, configs] = await Promise.all([
+    fetchPreferences().catch(() => null), fetchProviderConfigs().catch(() => null)
+  ]);
+  if (preferences && Array.isArray(configs) && aiRefresh.canApplyPreferences()) {
     applyPreferences(preferences);
     aiRefresh.capture();
     persist();
   }
-  const configs = await fetchProviderConfigs().catch(() => null);
   if (Array.isArray(configs)) {
     settingsState.ai.providerConfigs = configs;
     if (aiRefresh.isCurrent()) {

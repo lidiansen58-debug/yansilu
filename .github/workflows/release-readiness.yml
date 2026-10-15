@@ -132,11 +132,12 @@ jobs:
       - name: Build desktop bundles
         run: npm run build:desktop
 
+      - name: Stage final desktop assets
+        run: node ./scripts/stage-desktop-bundles.mjs
+
       - name: Upload desktop bundles
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
-          path: |
-            apps/desktop/src-tauri/target/**/release/bundle/**
-            !apps/desktop/src-tauri/target/**/release/bundle/**/*.dSYM/**
+          path: output/desktop-release-assets/
           if-no-files-found: error

@@ -1,4 +1,5 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
+import { createWritingThemeEditController } from "./writing-theme-edit-controller.js";
 import { installDisclosureMenus } from "./ui-disclosure-menu.js";
 import { installWritingDocumentEditor, syncWritingDocumentEditor } from "./writing-document-editor.js";
 import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
@@ -83,7 +84,8 @@ export function installWritingPanelBasketEventHandlers(options = {}) {
 
 export function installWritingThemeIndexEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
-  const deps = () => depsProvider();
+  const editor = createWritingThemeEditController({ depsProvider });
+  const deps = () => ({ ...depsProvider(), editWritingTheme: (id, options) => editor.open(id, options) });
   const registrations = [];
   const add = (id, eventName, handler) => {
     const element = $(id);
@@ -402,9 +404,12 @@ export async function persistWritingProjectForm(deps = {}) {
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) return null;
   try {
-    const project = await syncWritingProjectForm(deps, { force: true });
-    renderWritingPanel();
-    setStatus("主题已保存", "ok");
+    const previous = writingState.project;
+    const project = await syncWritingProjectForm(deps);
+    if (project !== previous) {
+      renderWritingPanel();
+      setStatus("主题已保存", "ok");
+    }
     return project;
   } catch (error) {
     if (error?.code === "WRITING_CONTEXT_CHANGED") return null;
@@ -821,15 +826,25 @@ async function createWritingScaffold(deps = {}) {
       markdown: result.export?.markdown,
       versionNote: result.item?.version_note || ""
     });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    if (!isCurrent()) return;
     renderWritingPanel();
     applyWritingTab("outline");
     const message = "提纲已生成。现在可以编辑章节，或开始写草稿。";
     setWritingActionFeedback($, message, "ok");
     setStatus(message, "ok");
+    // The returned scaffold is authoritative. Metadata refresh must not delay
+    // showing it or turn a successful generation into a generation failure.
+    try {
+      await loadWritingProjectsList();
+      if (!isCurrent()) return;
+      await loadWritingScaffoldVersions();
+      if (!isCurrent()) return;
+      await loadWritingDraftVersions();
+    } catch {
+      if (!isCurrent()) return;
+      const refreshMessage = "提纲已生成，历史记录暂未刷新。";
+      setWritingActionFeedback($, refreshMessage, "warn");
+      setStatus(refreshMessage, "warn");
+    }
   } catch (error) {
     if (!isCurrent()) return;
     showWritingResult({
@@ -1089,6 +1104,13 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
+  if (action === "edit") {
+    const resetButton = setButtonPending(button, true, "正在打开…");
+    try { await deps.editWritingTheme(indexId, { onOpened: resetButton, returnFocus: button }); }
+    catch (error) { setStatus(`打开主题失败：${String(error?.message || error)}`, "bad"); }
+    finally { resetButton(); }
+    return;
+  }
   const continuationRoute = writingThemeIndexContinuationRoute({ action, projectId });
   if (continuationRoute.kind === "continue-project") {
     const resetButton = setButtonPending(button, true, continuationRoute.openDraft ? "正在打开草稿..." : "正在打开...");
@@ -1303,11 +1325,12 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   const preparing = action === "prepare";
   const startedProjectId = String(writingState.project?.id || "").trim();
   const startedThemeId = String(writingState.selectedThemeIndexId || "");
+  const startedModule = deps.state?.module;
   const vaultScope = deps.state ? (deps.state.noteMoveVaultScope ||= {}) : null;
   const preparationIsCurrent = () => !preparing || (
     String(writingState.project?.id || "").trim() === startedProjectId &&
     String(writingState.selectedThemeIndexId || "") === startedThemeId &&
-    (!deps.state || (deps.state.noteMoveVaultScope === vaultScope && !deps.state.noteMoveVaultSwitching && !deps.state.noteMoveVaultUncertain))
+    (!deps.state || (deps.state.module === startedModule && deps.state.noteMoveVaultScope === vaultScope && !deps.state.noteMoveVaultSwitching && !deps.state.noteMoveVaultUncertain))
   );
   if (action === "prepare") {
     if (button.disabled) return;
@@ -1326,7 +1349,7 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
     } catch (error) {
       const message = String(error?.message || error);
       if (feedback) feedback.textContent = message;
-      setStatus(message, "warn");
+      if (preparationIsCurrent()) setStatus(message, "warn");
       return;
     } finally { button.disabled = false; }
   }

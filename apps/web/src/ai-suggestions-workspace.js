@@ -1,6 +1,7 @@
 import { renderAiSuggestionsPanel } from "./ai-suggestions-panel.js";
 import { normalizeAiSuggestionFilters } from "./ai-suggestions-model.js";
-import { renderWithAiSuggestionEditorDrafts } from "./ai-suggestion-editor-draft.js";
+import { captureAiSuggestionEditorDrafts, renderWithAiSuggestionEditorDrafts } from "./ai-suggestion-editor-draft.js";
+import { applySuggestionGroup } from "./ai-suggestion-group-actions.js";
 
 export function normalizeVisibleSuggestionFilters(filters = {}) {
   return normalizeAiSuggestionFilters({
@@ -47,6 +48,12 @@ export function enrichAiSuggestionsWithNoteTitles(items = [], notes = []) {
 
 export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], renderPanel = renderAiSuggestionsPanel } = {}) {
   if (!mount) return false;
+  if (state?.suggestionDetailLoading) {
+    const drafts = captureAiSuggestionEditorDrafts(mount, state.suggestionDetachedEditorDrafts || new Map());
+    // A grouped review can have edits in a peer field rather than its selected field.
+    const scopedDrafts = new Map([...drafts].filter(([, draft]) => draft.scope));
+    if (scopedDrafts.size) state.suggestionDetachedEditorDrafts = scopedDrafts;
+  }
   const visibleFilters = normalizeVisibleSuggestionFilters(state?.suggestionFilters || {});
   if (state) state.suggestionFilters = visibleFilters;
   renderWithAiSuggestionEditorDrafts(mount, renderPanel({
@@ -67,7 +74,7 @@ export function renderAiSuggestionsWorkspaceView({ mount, state, notes = [], ren
     actionError: state?.suggestionActionError,
     error: state?.suggestionsError,
     compact: true
-  }));
+  }), state?.suggestionDetachedEditorDrafts, state?.suggestionDetail?.writeBase?.vaultPath || "");
   return true;
 }
 
@@ -115,19 +122,32 @@ export function aiSuggestionReviewedContentFromWorkspace({ getElement, current =
       }
       if (typeof previousValue === "number") {
         const number = Number(raw);
-        if (Number.isFinite(number)) return { ...current.content, [key]: number };
-        throw new Error("Reviewed suggestion content must keep the original number format before it can be marked edited or confirmed");
+        if (raw.trim() && Number.isFinite(number)) return { ...current.content, [key]: number };
+        throw new Error("请输入有效的数字。");
       }
       if (typeof previousValue === "boolean") {
         const clean = raw.trim().toLowerCase();
         if (clean === "true" || clean === "false") return { ...current.content, [key]: clean === "true" };
-        throw new Error("Reviewed suggestion content must keep the original true/false format before it can be marked edited or confirmed");
+        throw new Error("此项只接受 true 或 false。");
       }
       return { ...current.content, [key]: raw };
     }
-    throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+    throw new Error("请输入有效的 JSON，保留原有内容结构。");
   }
-  throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+  throw new Error("请输入有效的 JSON，保留原有内容结构。");
+}
+
+function dismissAiSuggestionDetail(state) {
+  state.suggestionDetailRequestToken = Number(state.suggestionDetailRequestToken || 0) + 1;
+  state.suggestionDetailLoading = false;
+  state.selectedSuggestionId = "";
+  state.suggestionDetail = null;
+  state.suggestionDetailSuggestionId = "";
+  state.suggestionDetailError = "";
+  state.suggestionActionError = "";
+  state.suggestionActionNoticeSuggestionId = "";
+  state.suggestionActionNotice = "";
+  state.suggestionActionNoticeTone = "";
 }
 
 export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
@@ -162,21 +182,25 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
   const openTargetNoteButton = target.closest("[data-ai-suggestion-open-note]");
   if (openTargetNoteButton) {
     const noteId = String(openTargetNoteButton.getAttribute("data-ai-suggestion-open-note") || "").trim();
-    await openTargetNote(noteId);
+    const selectedId = settingsAiState?.selectedSuggestionId;
+    const detailToken = settingsAiState?.suggestionDetailRequestToken;
+    const mount = target.closest("#settingsAiSuggestionsPanel");
+    if (await openTargetNote(noteId) === true && settingsAiState &&
+        settingsAiState.selectedSuggestionId === selectedId && settingsAiState.suggestionDetailRequestToken === detailToken) {
+      const drafts = captureAiSuggestionEditorDrafts(mount || {});
+      const scope = settingsAiState.suggestionDetail?.writeBase?.vaultPath;
+      for (const draft of drafts.values()) draft.scope = scope;
+      if (drafts.size && scope) settingsAiState.suggestionDetachedEditorDrafts = drafts;
+      else delete settingsAiState.suggestionDetachedEditorDrafts;
+      dismissAiSuggestionDetail(settingsAiState);
+      render();
+    }
     return true;
   }
 
   if (target.closest("[data-ai-suggestion-close]")) {
-    settingsAiState.suggestionDetailRequestToken = Number(settingsAiState.suggestionDetailRequestToken || 0) + 1;
-    settingsAiState.suggestionDetailLoading = false;
-    settingsAiState.selectedSuggestionId = "";
-    settingsAiState.suggestionDetail = null;
-    settingsAiState.suggestionDetailSuggestionId = "";
-    settingsAiState.suggestionDetailError = "";
-    settingsAiState.suggestionActionError = "";
-    settingsAiState.suggestionActionNoticeSuggestionId = "";
-    settingsAiState.suggestionActionNotice = "";
-    settingsAiState.suggestionActionNoticeTone = "";
+    delete settingsAiState.suggestionDetachedEditorDrafts;
+    dismissAiSuggestionDetail(settingsAiState);
     render();
     return true;
   }
@@ -188,14 +212,7 @@ export async function handleAiSuggestionsWorkspaceClick(event, deps = {}) {
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean);
-    for (const suggestionId of ids) {
-      await loadAiSuggestionDetail(suggestionId);
-      await applyAiSuggestionStatus(suggestionId, status);
-    }
-    settingsAiState.selectedSuggestionId = "";
-    settingsAiState.suggestionDetail = null;
-    settingsAiState.suggestionDetailSuggestionId = "";
-    render();
+    await applySuggestionGroup({ settingsAiState, loadAiSuggestionDetail, applyAiSuggestionStatus, render }, ids, status);
     return true;
   }
 
@@ -222,6 +239,15 @@ export function bindAiSuggestionsWorkspaceEvents(panel, deps = {}) {
   const onClick = async (event) => {
     await handleAiSuggestionsWorkspaceClick(event, deps);
   };
+  const onChange = event => {
+    if (!event?.target?.closest?.("#aiSuggestionStatusFilter") || !deps.settingsAiState) return;
+    const filters = deps.getFilters?.() || deps.settingsAiState.suggestionFilters || {};
+    deps.settingsAiState.suggestionFilters = normalizeVisibleSuggestionFilters({ ...filters, status: event.target.value });
+  };
   panel.addEventListener("click", onClick);
-  return () => panel.removeEventListener("click", onClick);
+  panel.addEventListener("change", onChange);
+  return () => {
+    panel.removeEventListener("click", onClick);
+    panel.removeEventListener("change", onChange);
+  };
 }

@@ -53,10 +53,20 @@ test(`graph AI candidates require confirmation and late responses preserve a new
   await workspace.locator(".permanent-relation-result").waitFor();
   assert.ok((await read()).some(link => link.toNoteId === target.id && link.relationType === "supports"));
   await workspace.locator('[data-permanent-relation-action="complete"]').click();
+  const chart = await page.locator('.graph-map-viewport').boundingBox();
+  const details = await page.locator('.graph-side-stack').boundingBox();
+  assert.ok(chart && details);
+  if (width > 920) assert.ok(details.x >= chart.x + chart.width, "Details must not cover the graph on desktop");
+  else assert.ok(details.y >= chart.y + chart.height, "Narrow screens place details below the graph");
   hold = true;
   await page.evaluate(id => { window.__heldAiConnect = window.__prototypeGraph.runAiConnectForNote(id); }, source.id);
   await started;
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.id}"]`).click();
+  assert.equal(await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.id}"] .graph-map-node-hit`).evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return top?.closest('.graph-map-node')?.dataset.nodeId === node.closest('.graph-map-node').dataset.nodeId;
+  }), true, "A neighbouring clickable title must not cover the node centre");
+  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.id}"] .graph-map-node-hit`).click();
   await page.locator(".graph-selection-panel", { hasText: target.title }).waitFor();
   release();
   assert.equal(await page.evaluate(() => window.__heldAiConnect), false);
@@ -65,3 +75,51 @@ test(`graph AI candidates require confirmation and late responses preserve a new
   assert.ok(!(await read()).some(link => link.toNoteId === other.id));
 });
 }
+
+test("twelve linked long-title notes remain framed and clickable on narrow screens", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  const titles = Array.from({ length: 12 }, (_, i) => `第${i + 1}条用于验证小图完整可点击区域的长标题`);
+  const notes = [];
+  for (const [i, title] of titles.entries()) notes.push((await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default", body: `# ${title}\n\n${i + 1 < titles.length ? `[[${titles[i + 1]}]]` : "独立观点。"}`
+  })).json.item);
+  for (let i = 0; i + 1 < notes.length; i++) {
+    const saved = await postJson(apiBase, `/api/v1/notes/${notes[i].id}/relations`, {
+      toNoteId: notes[i + 1].id, relationType: "supports", rationale: "相邻观点形成已经确认的验证关系。", status: "confirmed"
+    });
+    assert.equal(saved.status, 201);
+  }
+  const graph = (await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_original_default&includeDescendants=true")).json.item;
+  assert.equal(graph.nodes.length, 12);
+  assert.ok(notes.slice(0, -1).every((note, i) => graph.edges.some(edge => edge.fromNoteId === note.id && edge.toNoteId === notes[i + 1].id && edge.status === "confirmed")),
+    "The detail-navigation fixture must contain actual confirmed relations");
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.waitForFunction(() => window.__prototypeState.graphConnectivityReady === true);
+  await waitFor(async () => assert.equal(await page.locator('#graphCanvas .graph-map-node').count(), 12));
+  for (const width of [1366, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const reading = await page.locator('#graphCanvas .graph-map-node').evaluateAll(nodes => nodes.map(node => {
+      const label = node.querySelector('.graph-map-node-label'), hit = node.querySelector('.graph-map-node-hit');
+      const bounds = label.getBoundingClientRect(), rect = hit.getBoundingClientRect();
+      const frame = node.closest('svg').getBoundingClientRect();
+      const top = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { id: node.dataset.nodeId, framed: bounds.left >= frame.left && bounds.right <= frame.right && bounds.top >= frame.top && bounds.bottom <= frame.bottom,
+        receivesClick: top?.closest('.graph-map-node')?.dataset.nodeId === node.dataset.nodeId };
+    }));
+    assert.ok(reading.every(node => node.framed && node.receivesClick), `${width}px ${JSON.stringify(reading)}`);
+    await page.locator(`#graphCanvas .graph-map-node[data-node-id="${notes[4].id}"] .graph-map-node-hit`).click();
+    await page.locator('.graph-selection-panel', { hasText: notes[4].title }).waitFor().catch(async error => {
+      const ui = await page.evaluate(() => ({ module: window.__prototypeState.module,
+        selected: [...document.querySelectorAll('.graph-map-node.is-selected, .graph-map-node.is-isolated-selected')].map(node => ({ id: node.dataset.nodeId, title: node.dataset.nodeTitle })),
+        panels: [...document.querySelectorAll('.graph-selection-panel')].map(node => ({ visible: Boolean(node.getClientRects().length), heading: node.querySelector('h2,h3,strong')?.textContent })),
+        composer: Boolean(document.querySelector('[data-permanent-relation-workspace]')) }));
+      throw new Error(`${width}px clicked ${notes[4].id}: ${error.message}\n${JSON.stringify(ui)}`);
+    });
+    await page.locator('[data-graph-selection-close]').click();
+  }
+});

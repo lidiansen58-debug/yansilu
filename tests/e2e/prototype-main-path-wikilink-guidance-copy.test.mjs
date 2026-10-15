@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { optionalPlaywright, fetchJson, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
   const authorship = payload.authorship || { user_confirmed: true, ai_assisted: false };
@@ -60,7 +62,7 @@ test("prototype body links are visible as saved relations rather than isolated n
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, webBase, vaultPath } = stack;
 
   const target = await createWritingReadyPermanentNote(apiBase, {
     title: "Wikilink Guidance Target",
@@ -86,20 +88,49 @@ test("prototype body links are visible as saved relations rather than isolated n
     boundaryOrCounterpoint: "Only use this once the note has already been confirmed."
   });
 
+  const snapshots = await Promise.all([source, target].map(async note => {
+    const { json } = await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`);
+    return { item: json.item, bytes: await fs.readFile(path.join(vaultPath, json.item.markdownPath)) };
+  }));
+  const output = path.resolve('output/playwright/body-link-guidance');
+  await fs.mkdir(output, { recursive: true });
   await page.goto(`${webBase}/prototype?note=${encodeURIComponent(source.json.item.id)}`, { waitUntil: "networkidle" });
   await page.waitForFunction(
     (noteId) => Array.isArray(window.__prototypeState?.notes) && window.__prototypeState.notes.some((item) => item?.id === noteId),
     source.json.item.id
   );
   await page.locator('[data-action="quick-original"]').click();
-  await page.locator(`.explorer-item[data-kind="file"][data-id="${source.json.item.id}"]`).click();
-  await ensureNoteMode(page);
-  const action = page.locator('[data-note-main-route-action="relations"]').first();
-  await action.waitFor();
-  assert.match(await action.innerText(), /关联 1/);
-  await action.click();
-  await waitFor(async () => {
-    assert.match(await page.locator("#resultArea").innerText(), /Wikilink Guidance Target/);
-    assert.doesNotMatch(await page.locator("#resultArea").innerText(), /markdown_wikilink|不要让它孤立/);
-  });
+  for (const width of [1366, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [index, note] of [source, target].entries()) {
+      if (await page.locator('#relatedPanel').isVisible()) await page.locator('#btnHideRelated').click();
+      await page.locator('#btnToggleSearch').click();
+      await page.locator('#globalNoteSearchInput').fill(note.json.item.title);
+      await page.locator(`[data-search-note="${note.json.item.id}"]`).click();
+      await page.locator('#noteSearchDialog').waitFor({ state: 'hidden' });
+      await ensureNoteMode(page);
+      const action = page.locator('[data-note-main-route-action="relations"]').first();
+      await waitFor(async () => assert.match(await action.innerText(), /关联 1/));
+      await action.click();
+      const section = page.locator(`#resultArea [data-note-relations-section][data-note-id="${note.json.item.id}"]`);
+      await section.waitFor({ state: 'visible' });
+      await waitFor(async () => {
+        assert.equal(await section.locator('[data-relation-tab="body"] small').innerText(), '1');
+        assert.equal(await section.locator('[data-relation-tab="external"] small').innerText(), '0');
+        assert.equal(await section.locator('[data-relation-tab="body"]').getAttribute('aria-pressed'), 'true');
+        const text = await section.locator('[data-relation-tab-panel="body"]').innerText();
+        assert.ok(text.includes(index === 0 ? 'Wikilink Guidance Target' : 'Wikilink Guidance Source'));
+        assert.ok(text.includes(index === 0 ? '当前正文链接到对方' : '对方正文引用当前笔记'));
+        assert.doesNotMatch(await page.locator('#resultArea').innerText(), /markdown_wikilink|不要让它孤立/);
+      });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      await page.screenshot({ path: path.join(output, `${width}-${index === 0 ? 'outgoing' : 'incoming'}.png`), fullPage: true });
+      await page.locator('#btnHideRelated').click();
+    }
+  }
+  for (const snapshot of snapshots) {
+    const { json } = await fetchJson(apiBase, `/api/v1/notes/${snapshot.item.id}`);
+    assert.deepEqual(json.item, snapshot.item, 'Reading body links must not mutate the note');
+    assert.deepEqual(await fs.readFile(path.join(vaultPath, json.item.markdownPath)), snapshot.bytes);
+  }
 });

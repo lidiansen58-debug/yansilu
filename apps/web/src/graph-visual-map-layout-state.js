@@ -8,6 +8,7 @@ export function buildGraphVisualMapLayoutState({
   relationFilterEdges = [],
   filterActive = false,
   focusedNoteId = "",
+  zoomKey = "fit",
   structureFallback = false
 } = {}, deps = {}) {
   const {
@@ -26,7 +27,7 @@ export function buildGraphVisualMapLayoutState({
   } = deps;
 
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
-  const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
+  const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId, zoomKey });
   const adjacencyMap = buildGraphVisualMapAdjacencyMap(edges);
   const visibleEdges = edges
     .map((edge) => {

@@ -23,7 +23,7 @@ import { syncRailSelectionDom, todayRailHasTasks } from "./app-shell-rail.js";
 import { installAppRailEventBindings } from "./app-rail-event-bindings.js";
 import { installQuickActionEventBindings } from "./quick-action-event-bindings.js";
 import { installAppGlobalKeyboardEvents } from "./app-global-keyboard-events.js";
-import { dismissSafeOverlaysForEscape, dismissSafeOverlaysForNavigation } from "./app-overlay-dismissal-controller.js";
+import { createOverlayDismissalCallbacks } from "./app-overlay-dismissal-controller.js";
 import { installStartupAutoOpenEventBindings } from "./startup-auto-open-event-bindings.js";
 import { installDirtyTabsBeforeUnloadEventBindings } from "./dirty-tabs-beforeunload-event-bindings.js";
 import { installEditorShellEventBindings } from "./editor-shell-event-bindings.js";
@@ -42,7 +42,9 @@ import { createAppShellStateChangePrototypeDepsProvider } from "./app-shell-stat
 import { handleCreateDirectoryFromDialog } from "./app-shell-state-file-actions.js";
 import { routeAppShellStateChange } from "./app-shell-state-change-router.js";
 import { bootstrapAppForRuntime } from "./app-startup-controller.js";
-import { SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID, smartNotesDemoExistingFolder, smartNotesDemoImportedStatus, smartNotesDemoOpenedExistingGuideStatus, smartNotesDemoStartupNoteId, shouldRefreshHomeAfterSmartNotesDemoImport } from "./smart-notes-demo-startup-note.js";
+import { createSmartNotesDemoImportController } from "./smart-notes-demo-import-controller.js";
+import { loadWritingThemeIndexesForRuntime } from "./writing-theme-index-loader.js";
+import { createWritingRelationCountLoader } from "./writing-relation-count-loader.js";
 import { candidatePreviewItemIds, candidatePreviewItems, confirmSkipReasonMap, confirmSkippedCandidateIds, selectionSummary as summarizeCandidateSelection } from "./import-candidate-preview-model.js";
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "./import-candidate-preview-panel.js";
 import { selectedCandidateIdsForImportAction } from "./import-selection-actions.js";
@@ -657,7 +659,7 @@ let selectedSystemMessageId = systemMessages[0]?.id || "";
 let todayReturnTarget = null;
 let startupAutoOpenSuppressed = false;
 const FEEDBACK_EMAIL = "lidiansen58@gmail.com";
-const APP_VERSION = "0.1.1-beta.2";
+const APP_VERSION = "0.1.1-beta.3";
 const UPDATE_SETTINGS_KEY = "yansilu:update:settings:v1";
 const UPDATE_LAST_RESULT_KEY = "yansilu:update:last-result:v1";
 const AI_RUNTIME_MODE_KEY = "yansilu:ai:runtime-mode";
@@ -706,6 +708,7 @@ function desktopUpdateRestartBlockers() {
 }
 
 const updateController = createPrototypeUpdateController({
+  state, getVaultPath: currentVaultPath,
   settingsState,
   readStoredText,
   writeStoredText,
@@ -1205,7 +1208,7 @@ function loadAiSettingsFromStorage() {
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
-  const storedRemoteApiKey = String(readStoredText(AI_REMOTE_API_KEY_KEY, "") || "").trim();
+  writeStoredText(AI_REMOTE_API_KEY_KEY, "");
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
@@ -1224,8 +1227,8 @@ function loadAiSettingsFromStorage() {
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
-  settingsState.ai.remoteApiKey = storedRemoteApiKey;
-  settingsState.ai.secretRef = storedRemoteApiKey ? remoteApiKeySecretRef() : storedSecretRef;
+  settingsState.ai.remoteApiKey = "";
+  settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
@@ -1247,7 +1250,7 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
-  writeStoredText(AI_REMOTE_API_KEY_KEY, settingsState.ai.remoteApiKey);
+  writeStoredText(AI_REMOTE_API_KEY_KEY, "");
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
@@ -1464,6 +1467,7 @@ function aiTestBlockedReason() {
 }
 
 const settingsAiRuntimeController = createSettingsAiRuntimeController(() => ({
+  state, getVaultPath: currentVaultPath,
   aiProviderConfigPayload,
   applyActiveAiProviderConfigToState,
   applyAiPreferencesToSettingsState,
@@ -2142,9 +2146,10 @@ const aiSuggestionsActionRoutes = createAiSuggestionsActionRoutes(() => ({
 
 function aiSuggestionAlreadyAppliedNotice(status = "") { return aiSuggestionsActionRoutes.aiSuggestionAlreadyAppliedNotice(status); }
 
-async function applyAiSuggestionStatus(suggestionId, status) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status); }
+async function applyAiSuggestionStatus(suggestionId, status, options) { return aiSuggestionsActionRoutes.applyAiSuggestionStatus(suggestionId, status, options); }
 
 const scheduledTasksRuntimeController = createScheduledTasksRuntimeController(() => ({
+  getVaultPath: currentVaultPath,
   addSystemMessage,
   aiInboxState,
   fetchAiScheduledTasks,
@@ -2392,6 +2397,7 @@ async function finalizeAiInboxActionRefresh({ preserveDetail = false } = {}) {
 }
 
 const aiInboxActionRoutes = createAiInboxActionRoutes(() => ({
+  state, getVaultPath: currentVaultPath,
   aiInboxState,
   recordAiInboxDecision,
   aiInboxFeedback: aiInboxFeedbackFromUi,
@@ -2587,6 +2593,7 @@ function clearLiteratureQueueFocus() {
 
 const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   $,
+  state,
   activateModule,
   applyWritingTab: (tab) => applyWritingTab(tab, { root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document }),
   clearWritingFocusedCandidateScope,
@@ -2839,7 +2846,7 @@ const writableThemeDiscoveryController = createWritableThemeDiscoveryController(
   aiTopicCandidates: () => graphState.aiAnalysis?.topicCandidates || [],
   parseTags,
   noteById: writingNoteById,
-  createIndexCard,
+  createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   writingThemeIndexScopeDirectoryId,
   upsertWritingThemeIndex,
   setWritingSourceIndexIds,
@@ -3042,9 +3049,9 @@ async function syncLoadedNotesForDirectories(directoryIds = []) {
   }
 }
 
-async function syncNotesForDirectoryTree(rootDirectoryId) {
+async function syncNotesForDirectoryTree(rootDirectoryId, { isCurrent = () => true } = {}) {
   return syncDirectoryTreeNotes(rootDirectoryId, {
-    state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory
+    state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory, isCurrent
   });
 }
 
@@ -4177,32 +4184,18 @@ function currentWritingBasketReadiness() {
 
 function countExplicitRelationsForWriting(relations = null) { return countExplicitSemanticRelations(relations); }
 
-async function loadWritingRelationCounts(noteIds = []) {
-  const ids = uniqueStrings(noteIds);
-  if (!ids.length) return { counts: {}, errors: {} };
-  const results = await Promise.all(
-    ids.map(async (noteId) => {
-      try {
-        const relations = await fetchNoteRelations(noteId);
-        return [noteId, { count: countExplicitRelationsForWriting(relations), error: false }];
-      } catch {
-        return [noteId, { count: 0, error: true }];
-      }
-    })
-  );
-  return results.reduce(
-    (acc, [noteId, value]) => {
-      acc.counts[noteId] = value.count;
-      acc.errors[noteId] = value.error;
-      return acc;
-    },
-    { counts: {}, errors: {} }
-  );
-}
+const loadWritingRelationCounts = createWritingRelationCountLoader({
+  fetchNoteRelations,
+  countRelations: countExplicitRelationsForWriting,
+  getScope: () => [currentVaultPath(), state.noteMoveVaultScope],
+  canRead: () => !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain && !state.unresolvedNoteMove
+});
 
 async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.relationCountRequestSerial;
+  const vaultPath = currentVaultPath(), vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => requestSerial === writingState.relationCountRequestSerial && vaultPath === currentVaultPath() && vaultScope === state.noteMoveVaultScope;
   writingState.loadingRelationCounts = ids.length > 0;
   if (!ids.length) {
     writingState.relationCounts = {};
@@ -4213,14 +4206,17 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
   if (render && state.module === "writing") renderWritingPanel();
   try {
     const payload = await loadWritingRelationCounts(ids);
-    if (requestSerial !== writingState.relationCountRequestSerial) {
+    if (!isCurrent()) {
       return { counts: writingState.relationCounts, errors: writingState.relationCountErrors };
     }
     writingState.relationCounts = payload.counts;
     writingState.relationCountErrors = payload.errors;
     return payload;
+  } catch (error) {
+    if (error?.code !== "WRITING_CONTEXT_CHANGED") throw error;
+    return { counts: writingState.relationCounts, errors: writingState.relationCountErrors };
   } finally {
-    if (requestSerial === writingState.relationCountRequestSerial) {
+    if (isCurrent()) {
       writingState.loadingRelationCounts = false;
       if (render && state.module === "writing") renderWritingPanel();
     }
@@ -4230,6 +4226,8 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
 async function refreshWritingThemeRelationCounts(noteIds = [], { render = true } = {}) {
   const ids = uniqueStrings(noteIds);
   const requestSerial = ++writingState.themeRelationCountRequestSerial;
+  const vaultPath = currentVaultPath(), vaultScope = state.noteMoveVaultScope;
+  const isCurrent = () => requestSerial === writingState.themeRelationCountRequestSerial && vaultPath === currentVaultPath() && vaultScope === state.noteMoveVaultScope && sameUniqueStringSet(ids, writingState.themeRelationNoteIds);
   writingState.themeRelationNoteIds = ids;
   writingState.loadingThemeRelationCounts = ids.length > 0;
   if (!ids.length) {
@@ -4241,14 +4239,17 @@ async function refreshWritingThemeRelationCounts(noteIds = [], { render = true }
   if (render && state.module === "writing") renderWritingPanel();
   try {
     const payload = await loadWritingRelationCounts(ids);
-    if (requestSerial !== writingState.themeRelationCountRequestSerial || !sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+    if (!isCurrent()) {
       return { counts: writingState.themeRelationCounts, errors: writingState.themeRelationCountErrors };
     }
     writingState.themeRelationCounts = payload.counts;
     writingState.themeRelationCountErrors = payload.errors;
     return payload;
+  } catch (error) {
+    if (error?.code !== "WRITING_CONTEXT_CHANGED") throw error;
+    return { counts: writingState.themeRelationCounts, errors: writingState.themeRelationCountErrors };
   } finally {
-    if (requestSerial === writingState.themeRelationCountRequestSerial && sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+    if (isCurrent()) {
       writingState.loadingThemeRelationCounts = false;
       if (render && state.module === "writing") renderWritingPanel();
     }
@@ -4476,22 +4477,10 @@ function writingThemeIndexScopeDirectoryId() {
   });
 }
 
-async function loadWritingThemeIndexes() {
-  const directoryId = writingThemeIndexScopeDirectoryId();
-  writingState.loadingThemeIndexes = true;
-  renderWritingPanel();
-  try {
-    writingState.themeIndexes = await listIndexCards({
-      directoryId,
-      includeDescendants: true,
-      indexType: "topic",
-      limit: 12
-    });
-    return writingState.themeIndexes;
-  } finally {
-    writingState.loadingThemeIndexes = false;
-    renderWritingPanel();
-  }
+async function loadWritingThemeIndexes({ isCurrent = () => true } = {}) {
+  return loadWritingThemeIndexesForRuntime({
+    writingState, directoryId: writingThemeIndexScopeDirectoryId(), listIndexCards, renderWritingPanel, isCurrent
+  });
 }
 
 function writingThemeDetailHintText(indexCard) {
@@ -5241,10 +5230,11 @@ function renderGraphPanel() {
   }, graphPanelRuntimeDeps());
 }
 
-async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelation = () => true } = {}) {
+async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelation = () => true, isCurrent = () => true } = {}) {
   const revealScope = graphScopeDirectoryId();
   const refreshed = await refreshDirectoryGraphForRuntime({
     graphState,
+    isCurrent,
     graphScopeDirectoryId,
     graphOriginalScopeDirectoryId: GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID,
     graphLoadedScopeCoversDirectory,
@@ -5257,7 +5247,7 @@ async function refreshDirectoryGraph({ savedRelation = null, canRevealSavedRelat
     renderGraphPanel,
     renderAll
   });
-  if (refreshed && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
+  if (refreshed && isCurrent() && savedRelation && state.module === "graph" && revealScope === graphScopeDirectoryId() && canRevealSavedRelation()) {
     revealSavedGraphRelation(graphState, savedRelation, { setRelationTypeFilter: setGraphRelationTypeFilter, renderGraphPanel });
     window.requestAnimationFrame(() => centerGraphViewportIfZoomed());
   }
@@ -5269,7 +5259,7 @@ const graphRouteRuntime = createGraphRouteRuntime({
   graphThemeContextKey: () => [currentVaultPath(), state.noteMoveVaultScope, graphScopeDirectoryId(), state.module],
   addSystemMessage,
   analyzeDirectoryGraph,
-  createIndexCard,
+  createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   graphAiConnectRuntimeController,
   graphDataList: graphDataListFromElement,
   graphFindPotentialRelationCandidate,
@@ -5311,107 +5301,14 @@ const {
   createGraphThemeIndexFromNoteIds,
   createGraphThemeIndexFromButton
 } = graphRouteRuntime;
-const SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS = [1000, 1500, 2000, 2500, 3000];
+const importSmartNotesProductThinkingDemo = createSmartNotesDemoImportController(() => ({
+  state, editor, getVaultPath: currentVaultPath, fetchDirectories, mapDirectoryItem,
+  fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory, rootBoxIdFromFolder,
+  resetDesktopServiceStatusCache, seedSmartNotesProductThinkingDemo,
+  waitForRetry: delayMs => new Promise(resolve => window.setTimeout(resolve, delayMs)),
+  loadWritingThemeIndexes, refreshDirectoryGraph, activateModule, renderAll, openNoteById, setStatus
+}));
 
-function waitForSmartNotesDemoImportRetry(delayMs = 0) {
-  return new Promise((resolve) => {
-    const timerHost = typeof window !== "undefined" ? window : globalThis;
-    timerHost.setTimeout(resolve, Math.max(0, Number(delayMs || 0) || 0));
-  });
-}
-
-function shouldRetrySmartNotesDemoImport(error = null) {
-  const code = String(error?.code || "").trim();
-  return code === "api_unavailable" || code === "desktop_api_unavailable";
-}
-
-async function seedSmartNotesProductThinkingDemoWithStartupRetry() {
-  let lastError = null;
-  for (let attempt = 0; attempt <= SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      resetDesktopServiceStatusCache();
-      return await seedSmartNotesProductThinkingDemo();
-    } catch (error) {
-      lastError = error;
-      const retryDelay = SMART_NOTES_DEMO_IMPORT_RETRY_DELAYS_MS[attempt];
-      if (!shouldRetrySmartNotesDemoImport(error) || retryDelay === undefined) throw error;
-      setStatus("本地服务正在启动，正在自动重试导入 Demo...", "busy");
-      await waitForSmartNotesDemoImportRetry(retryDelay);
-    }
-  }
-  throw lastError;
-}
-
-async function importSmartNotesProductThinkingDemo(options = {}) {
-  const { startup = false } = options;
-  const shouldRefreshHome = shouldRefreshHomeAfterSmartNotesDemoImport(options);
-  setStatus("正在导入 Smart Notes Demo...", "");
-  try {
-    const result = await seedSmartNotesProductThinkingDemoWithStartupRetry();
-    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");
-    await syncDirectoriesFromApi();
-    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
-    state.selectedFolderId = directoryId;
-    await syncNotesForDirectoryTree(directoryId);
-    for (const contentDirectoryId of result.directoryIds || []) {
-      if (contentDirectoryId !== directoryId) await syncNotesForDirectory(contentDirectoryId);
-    }
-    if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
-    await syncNotesForDirectory("dir_fleeting_default");
-    await syncNotesForDirectory("dir_literature_default");
-    await loadWritingThemeIndexes();
-    const firstNoteId = smartNotesDemoStartupNoteId({ result, notes: state.notes });
-    const shouldOpenGuide = Boolean(firstNoteId) && (startup || !shouldRefreshHome);
-    if (shouldOpenGuide) {
-      state.selectedFileId = firstNoteId;
-      openNoteById(firstNoteId, { preferTitleSelection: false });
-    }
-    await refreshDirectoryGraph();
-    if (shouldOpenGuide) activateModule("explorer");
-    else if (shouldRefreshHome) activateModule("today");
-    renderAll();
-    if (shouldOpenGuide) {
-      state.selectedFileId = firstNoteId;
-      openNoteById(firstNoteId, { preferTitleSelection: false });
-      editor?.resetEditorViewportToStart?.();
-    }
-    const refreshedHome = shouldRefreshHome && !shouldOpenGuide;
-    const importedStatus = smartNotesDemoImportedStatus(result, { openedGuide: shouldOpenGuide, refreshedHome });
-    if (refreshedHome) {
-      state.todayNoticeMessage = importedStatus;
-      renderAll();
-    }
-    setStatus(importedStatus, "ok");
-    return true;
-  } catch (error) {
-    if (startup) {
-      if (!state.notes.length) {
-        try {
-          await syncDirectoriesFromApi();
-          const demoFolder = smartNotesDemoExistingFolder(state.folders);
-          if (demoFolder?.id) {
-            state.browserRootId = rootBoxIdFromFolder(state, demoFolder.id);
-            state.selectedFolderId = demoFolder.id;
-            await syncNotesForDirectory(demoFolder.id);
-            if (folderById(state, SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID)) await syncNotesForDirectory(SMART_NOTES_DEMO_GUIDE_DIRECTORY_ID);
-          }
-        } catch {}
-      }
-      const fallbackNoteId = smartNotesDemoStartupNoteId({ result: {}, notes: state.notes });
-      if (fallbackNoteId) {
-        state.selectedFileId = fallbackNoteId;
-        activateModule("explorer");
-        openNoteById(fallbackNoteId, { preferTitleSelection: false });
-        editor?.resetEditorViewportToStart?.();
-        setStatus(smartNotesDemoOpenedExistingGuideStatus(), "ok");
-        return true;
-      }
-    }
-    setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
-    throw error;
-  }
-}
 function openImportModule() {
   activateModule("imports");
   setStatus("先选择 Obsidian 文件夹，生成预览后再确认导入。", "ok");
@@ -5664,7 +5561,7 @@ const permanentNoteDialog = new PermanentNoteDialog({
 const requestTextInput = createTextInputDialog({ documentRef: document });
 const writingManualThemeController = createWritingManualThemeController({
   state, writingState, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
-  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard,
+  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
   upsertWritingThemeIndex, useThemeIndexAsWritingEntry,
   openTheme: () => {
     const root = $("writingPanel")?.querySelector?.(".writing-shell");
@@ -5896,13 +5793,13 @@ installSettingsAiEventBindings({
   onAiSettingsReady: resumePendingAiSettingsAction
 });
 void autoPrepareLocalAiOnStartup();
-bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({
-  settingsState,
+bindAiSuggestionsWorkspaceEvents(document, createAiSuggestionsWorkspaceHostDeps({ settingsState,
   aiSuggestionFiltersFromUi,
   refreshAiSuggestions,
   loadAiSuggestionDetail,
   applyAiSuggestionStatus,
   render: renderAiSuggestionsWorkspace,
+  openFreshNote: createSearchNoteOpener({ state, fetchNote, mapNoteItem, activateModule, openNoteById: id => openNoteById(id, { preferTitleSelection: false }) }),
   activateModule,
   openNoteById,
   setStatus
@@ -5976,6 +5873,9 @@ installWritingSidebarActionEvents({
 installWritingThemeIndexEventHandlers({
   $,
   depsProvider: () => ({
+    state, getVaultPath: currentVaultPath,
+    upsertWritingThemeIndex, renderWritingPanel,
+    parseWritingBasketIds,
     writingState,
     loadWritingThemeIndexes,
     refreshWritableThemeDiscoverySuggestions,
@@ -6146,6 +6046,14 @@ installGraphWorkbenchClickFallbackEvents(document, {
   runGraphAiAnalysis,
   setStatus
 });
+const overlayDismissal = createOverlayDismissalCallbacks({
+  state, graphState, getVaultPath: currentVaultPath,
+  getPermanentRelationWorkspaceState: () => editor.permanentRelationWorkspaceState,
+  closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
+  closeSystemMessages, isSystemMessageModalOpen, renderGraphPanel, setStatus,
+  confirm: message => window.confirm(message)
+});
+
 bindGraphCanvasEvents($("graphPanel"), {
   appState: state,
   graphState,
@@ -6170,14 +6078,7 @@ bindGraphCanvasEvents($("graphPanel"), {
   endGraphUtilityDrawerDrag,
   endGraphViewportDrag,
   renderGraphPanel,
-  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
-    graphState,
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForEscape: overlayDismissal.dismissSafeOverlaysForEscape,
   setStatus,
   moveGraphIsolatedWorkflowTab,
   activateGraphIsolatedWorkflowTab,
@@ -6267,16 +6168,7 @@ installAppRailEventBindings({
   refreshVaultSettings,
   openWritingModule,
   openDistillationModule,
-  dismissSafeOverlaysForNavigation: () => dismissSafeOverlaysForNavigation({
-    graphState,
-    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
-    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForNavigation: overlayDismissal.dismissSafeOverlaysForNavigation,
   setStatus
 });
 
@@ -6312,6 +6204,7 @@ installQuickActionEventBindings({
   windowRef: window,
   state,
   editor,
+  dismissSafeOverlaysForNavigation: overlayDismissal.dismissSafeOverlaysForNavigation,
   getGraphModuleActivationGuardUntil: () => graphModuleActivationGuardUntil,
   setGraphModuleActivationGuardUntil: (value) => { graphModuleActivationGuardUntil = value; },
   folderById,
@@ -6334,16 +6227,7 @@ installAppGlobalKeyboardEvents({
   editor,
   handleSystemMessageEscapeKey,
   systemMessageEventDeps,
-  dismissSafeOverlaysForEscape: (event) => dismissSafeOverlaysForEscape(event, {
-    graphState,
-    permanentRelationWorkspaceState: editor.permanentRelationWorkspaceState,
-    closePermanentRelationWorkspace: () => editor.closePermanentRelationWorkspace(),
-    closeSystemMessages,
-    isSystemMessageModalOpen,
-    renderGraphPanel,
-    setStatus,
-    confirm: window.confirm.bind(window)
-  }),
+  dismissSafeOverlaysForEscape: overlayDismissal.dismissSafeOverlaysForEscape,
   noteDeleteKeyRoute,
   syncExplorerContextToActiveTab,
   folderById,
@@ -6408,6 +6292,7 @@ function appStartupDeps() {
     renderAll,
     confirm: window.confirm.bind(window),
     importSmartNotesProductThinkingDemo,
+    getVaultPath: currentVaultPath,
     preferredLocalFallbackNote,
     fetchNote, mapNoteItem,
     openNoteById,

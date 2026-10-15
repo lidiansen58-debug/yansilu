@@ -260,12 +260,13 @@ test("prototype update controller starts installable desktop updates in the back
             currentVersion: "0.1.1",
             version: "0.1.2",
             body: "Small fix",
-            async downloadAndInstall(onEvent) {
+            async download(onEvent) {
               onEvent({ event: "Started", data: { contentLength: 100 } });
               onEvent({ event: "Progress", data: { chunkLength: 25 } });
               progressEvents.push("download");
               onEvent({ event: "Finished" });
-            }
+            },
+            async install() { throw new Error("Background download must not install"); }
           };
         }
       }
@@ -336,5 +337,47 @@ test("prototype update controller defers restart while notes or workflows are ac
     assert.deepEqual(relaunchCalls, []);
     assert.equal(statuses.at(-1).tone, "warn");
     assert.match(statuses.at(-1).text, /当前不重启/);
+  });
+});
+
+for (const failure of ['version-info', 'update-check']) {
+  test(`a late ${failure} failure preserves downloaded bytes after cancelling installation`, async () => {
+    const settingsState = {update: createUpdateState({currentVersion:'0.1.1', latestVersion:'0.1.2'})};
+    let rejectVersion, checksFail = false, installs = 0, restarts = 0, downloads = 0;
+    const decisions = [false, true];
+    await withWindow({confirm: async () => decisions.shift(), __TAURI__: {
+      updater: {async check() {
+        if (checksFail) throw new Error('check unavailable');
+        return {currentVersion:'0.1.1', version:'0.1.2', async download(onEvent) {
+          downloads++; onEvent({event:'Finished'});
+        }, async install() { installs++; }, async close() {}};
+      }}, process:{async relaunch() { restarts++; }}
+    }}, async () => {
+      const controller = createPrototypeUpdateController({settingsState,
+        fetchAppVersion: () => new Promise((_resolve, reject) => { rejectVersion = reject; })});
+      const versionRead = failure === 'version-info' ? controller.refreshAppVersionInfo() : null;
+      await controller.runAppUpdateCheck({manual:true});
+      await controller.queueBackgroundUpdateDownload({await:true});
+      assert.equal(settingsState.update.installReadyForRestart, true);
+      assert.equal(await controller.relaunchAfterInstalledUpdate(), false);
+      assert.equal(installs, 0);
+      if (versionRead) { rejectVersion(new Error('version unavailable')); await versionRead; }
+      else { checksFail = true; await controller.runAppUpdateCheck({manual:true}); }
+      assert.equal(settingsState.update.installReadyForRestart, true);
+      assert.equal(settingsState.update.status, 'downloaded');
+      assert.match(settingsState.update.error, /unavailable/);
+      assert.equal(await controller.relaunchAfterInstalledUpdate(), true);
+      assert.equal(installs, 1); assert.equal(restarts, 1); assert.equal(downloads, 1);
+    });
+  });
+}
+
+test('a stored ready flag without a retained native resource cannot survive version query failure', async () => {
+  const settingsState = {update:createUpdateState({status:'downloaded', latestVersion:'0.1.2', installReadyForRestart:true})};
+  await withWindow({__TAURI__:{}}, async () => {
+    const controller = createPrototypeUpdateController({settingsState, fetchAppVersion:async () => {throw new Error('unavailable');}});
+    await controller.refreshAppVersionInfo();
+    assert.equal(settingsState.update.installReadyForRestart, false);
+    assert.equal(settingsState.update.status, 'failed');
   });
 });

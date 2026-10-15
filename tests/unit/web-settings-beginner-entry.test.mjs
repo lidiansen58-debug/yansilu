@@ -64,7 +64,8 @@ test("settings help exposes a one-click Smart Notes Demo entrance", async () => 
   assert.match(html, /id="settingsImportSmartNotesDemo"/);
   assert.match(html, /导入示例笔记与写作/);
   assert.match(settingsEvents, /data-settings-help-action/);
-  assert.match(settingsEvents, /runSettingsDemoImport\(button, \{ \$, handleStateChange, setStatus \}\)/);
+  assert.match(settingsEvents, /runSettingsDemoImport\(button, \{ \$, handleStateChange, setStatus, state,/);
+  assert.match(settingsEvents, /getVaultPath: deps\.getVaultPath \|\| \(\(\) => settingsState\.vault\?\.vaultPath\)/);
   const demoAction = await fs.readFile(path.resolve("apps/web/src/settings-demo-import-action.js"), "utf8");
   assert.match(demoAction, /handleStateChange\("seed-smart-notes-demo", \{ source: "settings-help" \}\)/);
   assert.match(settingsEvents, /activateModule\("today"\)/);

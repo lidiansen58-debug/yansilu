@@ -10,6 +10,7 @@ function deferred() {
 
 test('late graph opening cannot replace a newer writing navigation', async () => {
   const read = deferred();
+  const started = deferred();
   const handlers = {};
   const state = { module: 'today', noteMoveVaultScope: {} };
   const activations = [];
@@ -21,11 +22,11 @@ test('late graph opening cannot replace a newer writing navigation', async () =>
     getGraphModuleActivationGuardUntil: () => guardUntil,
     setGraphModuleActivationGuardUntil: value => { guardUntil = value; },
     activateModule: module => { activations.push(module); state.module = module; },
-    refreshDirectoryGraph: () => read.promise
+    refreshDirectoryGraph: () => { started.resolve(); return read.promise; }
   });
   const event = { preventDefault() {}, stopPropagation() {} };
   const pending = handlers.graph(event);
-  await Promise.resolve();
+  await started.promise;
   await handlers.writing(event);
   read.resolve();
   await pending;
@@ -35,6 +36,7 @@ test('late graph opening cannot replace a newer writing navigation', async () =>
 
 test('leaving during graph AI preparation does not start a stale graph refresh', async () => {
   const preview = deferred();
+  const started = deferred();
   const handlers = {};
   const state = { module: 'today' };
   let refreshes = 0;
@@ -43,11 +45,12 @@ test('leaving during graph AI preparation does not start a stale graph refresh',
       dataset: { module }, addEventListener(_event, handler) { handlers[module] = handler; }
     })) }, state,
     activateModule: module => { state.module = module; },
-    previewOllamaLocalAiBootstrapFromUi: () => preview.promise,
+    previewOllamaLocalAiBootstrapFromUi: () => { started.resolve(); return preview.promise; },
     refreshDirectoryGraph: async () => { refreshes++; }
   });
   const event = { preventDefault() {}, stopPropagation() {} };
   const pending = handlers.graph(event);
+  await started.promise;
   await handlers.writing(event);
   preview.resolve();
   await pending;
@@ -58,6 +61,7 @@ test('leaving during graph AI preparation does not start a stale graph refresh',
 test('a superseded graph open cannot restore the graph using a newer guard window', async () => {
   for (const change of ['navigation', 'vault']) {
     const reads = [deferred(), deferred()];
+    const started = [deferred(), deferred()];
     const handlers = {};
     const state = { module: 'today', noteMoveVaultScope: {} };
     let guardUntil = 0, requests = 0;
@@ -69,14 +73,14 @@ test('a superseded graph open cannot restore the graph using a newer guard windo
       getGraphModuleActivationGuardUntil: () => guardUntil,
       setGraphModuleActivationGuardUntil: value => { guardUntil = value; },
       activateModule: module => { state.module = module; },
-      refreshDirectoryGraph: () => reads[requests++].promise,
+      refreshDirectoryGraph: () => { const index = requests++; started[index].resolve(); return reads[index].promise; },
       setStatus: message => messages.push(message)
     });
     const event = { preventDefault() {}, stopPropagation() {} };
     const old = handlers.graph(event);
-    await Promise.resolve();
+    await started[0].promise;
     let current;
-    if (change === 'navigation') { current = handlers.graph(event); await Promise.resolve(); }
+    if (change === 'navigation') { current = handlers.graph(event); await started[1].promise; }
     else state.noteMoveVaultScope = {};
     state.module = 'writing';
     reads[0].resolve();
@@ -109,8 +113,10 @@ function settingsRail(refreshVaultSettings) {
 
 test("settings refresh does not replace feedback from a newer user action", async () => {
   const read = deferred();
-  const rail = settingsRail(() => read.promise);
+  const started = deferred();
+  const rail = settingsRail(() => { started.resolve(); return read.promise; });
   const pending = rail.click();
+  await started.promise;
   rail.setStatus("已打开笔记库：新库", "ok");
   read.resolve();
   await pending;
@@ -119,8 +125,10 @@ test("settings refresh does not replace feedback from a newer user action", asyn
 
 test("a late old-vault settings refresh failure does not override the new vault", async () => {
   const read = deferred();
-  const rail = settingsRail(() => read.promise);
+  const started = deferred();
+  const rail = settingsRail(() => { started.resolve(); return read.promise; });
   const pending = rail.click();
+  await started.promise;
   rail.state.noteMoveVaultScope = {};
   read.reject(new Error("old vault unavailable"));
   await pending;

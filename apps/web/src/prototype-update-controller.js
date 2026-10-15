@@ -1,4 +1,5 @@
 import { LOCAL_RELEASE_NOTES } from "./local-release-notes.js";
+import { captureActionConfirmationContext, confirmCurrentAction } from "./action-confirmation-context.js";
 import {
   createUpdateState,
   normalizeUpdateSettings,
@@ -16,10 +17,10 @@ import {
 } from "./update-state.js";
 import {
   checkDesktopUpdate,
-  downloadAndInstallDesktopUpdate,
   isDesktopUpdaterAvailable,
   relaunchDesktopApp
 } from "./desktop-update-adapter.js";
+import { createDesktopUpdateSession } from "./desktop-update-session.js";
 
 export function createPrototypeUpdateController(deps = {}) {
   const {
@@ -40,6 +41,8 @@ export function createPrototypeUpdateController(deps = {}) {
     getRestartBlockers = () => []
   } = deps;
   let backgroundDownloadPromise = null;
+  let relaunchPending = false;
+  const updateSession = createDesktopUpdateSession();
 
   function loadUpdateSettingsFromStorage() {
     const settingsRaw = readStoredText(UPDATE_SETTINGS_KEY, "");
@@ -62,6 +65,10 @@ export function createPrototypeUpdateController(deps = {}) {
       ...storedResult,
       ...settings
     });
+    if (settingsState.update.installReadyForRestart && !updateSession.has(settingsState.update.latestVersion)) {
+      settingsState.update = { ...settingsState.update, status: UPDATE_STATUS.IDLE,
+        installReadyForRestart: false, installPhase: "", installProgress: null, error: "" };
+    }
   }
 
   function persistUpdateSettingsToStorage() {
@@ -147,6 +154,19 @@ export function createPrototypeUpdateController(deps = {}) {
     };
   }
 
+  function applyUpdateMetadataFailure(error) {
+    const previous = settingsState.update;
+    const retained = previous?.installReadyForRestart === true && updateSession.has(previous.latestVersion);
+    const failed = updateStateFailed(previous, error);
+    settingsState.update = retained ? {
+      ...failed,
+      status: UPDATE_STATUS.DOWNLOADED,
+      installPhase: previous.installPhase,
+      installProgress: previous.installProgress,
+      installReadyForRestart: true
+    } : failed;
+  }
+
   async function refreshAppVersionInfo() {
     try {
       const info = await fetchAppVersion();
@@ -157,7 +177,7 @@ export function createPrototypeUpdateController(deps = {}) {
       return info;
     } catch (error) {
       settingsState.update.currentVersion = settingsState.update.currentVersion || APP_VERSION;
-      settingsState.update = updateStateFailed(settingsState.update, error);
+      applyUpdateMetadataFailure(error);
       persistUpdateLastResultToStorage();
       renderSettingsPanel();
       return null;
@@ -178,9 +198,14 @@ export function createPrototypeUpdateController(deps = {}) {
     const requestToken = settingsState.update.requestToken;
     try {
       const desktopResult = await checkDesktopUpdate();
-      const result = updateCheckResultFromDesktopCheck(desktopResult) || await checkAppUpdate({
-        manifestUrl: settingsState.update.manifestUrl || undefined
-      });
+      let result;
+      try {
+        result = updateCheckResultFromDesktopCheck(desktopResult) || await checkAppUpdate({
+          manifestUrl: settingsState.update.manifestUrl || undefined
+        });
+      } finally {
+        if (typeof desktopResult.update?.close === "function") await desktopResult.update.close();
+      }
       if (requestToken !== settingsState.update.requestToken) return settingsState.update;
       settingsState.update = updateStateFromCheckResult(settingsState.update, result || {}, { manual: options.manual === true });
       persistUpdateLastResultToStorage();
@@ -202,7 +227,7 @@ export function createPrototypeUpdateController(deps = {}) {
       return settingsState.update;
     } catch (error) {
       if (requestToken !== settingsState.update.requestToken) return settingsState.update;
-      settingsState.update = updateStateFailed(settingsState.update, error);
+      applyUpdateMetadataFailure(error);
       persistUpdateLastResultToStorage();
       if (options.manual === true) setStatus(`检查更新失败：${String(error?.message || error)}`, "bad");
       renderSettingsPanel();
@@ -245,20 +270,24 @@ export function createPrototypeUpdateController(deps = {}) {
     return true;
   }
 
-  async function installUpdateFromDesktopUpdater() {
+  async function performUpdateDownload() {
     if (!canStartBackgroundUpdateDownload()) return false;
     settingsState.update = updateStateDownloading(settingsState.update, { phase: "downloading", percent: 0 });
     persistUpdateLastResultToStorage();
     renderSettingsPanel();
+    const version = settingsState.update.latestVersion, requestToken = settingsState.update.requestToken;
+    const isCurrent = () => settingsState.update.latestVersion === version && settingsState.update.requestToken === requestToken;
 
     try {
-      const result = await downloadAndInstallDesktopUpdate({
+      const result = await updateSession.download({ version,
         onProgress(progress) {
+          if (!isCurrent()) return;
           settingsState.update = updateStateDownloading(settingsState.update, progress);
           persistUpdateLastResultToStorage();
           renderSettingsPanel();
         }
       });
+      if (!isCurrent()) { await updateSession.discard(); return false; }
       if (result.status === "up-to-date") {
         settingsState.update = {
           ...settingsState.update,
@@ -283,10 +312,11 @@ export function createPrototypeUpdateController(deps = {}) {
       setStatus("更新已下载；请在保存工作后重启完成更新。", "ok");
       return true;
     } catch (error) {
+      if (!isCurrent()) return false;
       settingsState.update = updateStateFailed(settingsState.update, error);
       persistUpdateLastResultToStorage();
       renderSettingsPanel();
-      setStatus(`应用内安装失败：${String(error?.message || error)}`, "bad");
+      setStatus(`更新下载失败：${String(error?.message || error)}`, "bad");
       return false;
     }
   }
@@ -294,11 +324,18 @@ export function createPrototypeUpdateController(deps = {}) {
   function queueBackgroundUpdateDownload(options = {}) {
     if (backgroundDownloadPromise || settingsState.update?.status === UPDATE_STATUS.DOWNLOADING) return backgroundDownloadPromise;
     if (!canStartBackgroundUpdateDownload()) return null;
-    backgroundDownloadPromise = installUpdateFromDesktopUpdater()
+    backgroundDownloadPromise = performUpdateDownload()
       .finally(() => {
         backgroundDownloadPromise = null;
+        if (settingsState.update?.status === UPDATE_STATUS.UPDATE_AVAILABLE && settingsState.update?.installable === true) {
+          queueBackgroundUpdateDownload();
+        }
       });
     return options.await === true ? backgroundDownloadPromise : null;
+  }
+
+  async function installUpdateFromDesktopUpdater() {
+    return await queueBackgroundUpdateDownload({ await: true }) || false;
   }
 
   function restartBlockerReasons() {
@@ -314,6 +351,7 @@ export function createPrototypeUpdateController(deps = {}) {
   }
 
   async function relaunchAfterInstalledUpdate() {
+    if (relaunchPending) return false;
     if (!settingsState.update?.installReadyForRestart) {
       setStatus("还没有完成可重启的更新安装。", "warn");
       return false;
@@ -323,14 +361,42 @@ export function createPrototypeUpdateController(deps = {}) {
       setStatus(`当前不重启：${blockers.join("、")}。保存或完成当前流程后再重启更新。`, "warn");
       return false;
     }
-    const message = "将重启研思录以完成更新。是否现在重启？";
-    if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(message)) return false;
+    if (!updateSession.has(settingsState.update.latestVersion)) {
+      settingsState.update = { ...settingsState.update, status: UPDATE_STATUS.UPDATE_AVAILABLE, installReadyForRestart: false };
+      persistUpdateLastResultToStorage(); renderSettingsPanel();
+      setStatus("更新文件已失效，请重新下载后安装。", "warn");
+      return false;
+    }
+    const message = "将安装已下载的更新并重启研思录。是否现在安装？";
+    const confirmedUpdate = settingsState.update;
+    const currentContext = captureActionConfirmationContext(() => deps, () => JSON.stringify([
+      settingsState.update?.latestVersion, settingsState.update?.installReadyForRestart, settingsState.update?.requestToken
+    ]));
+    relaunchPending = true;
     try {
+      if (!await confirmCurrentAction(settingsState, {
+        confirm: prompt => globalThis.window?.confirm?.(prompt), message,
+        isCurrent: () => currentContext() && settingsState.update === confirmedUpdate,
+        onError: error => setStatus(`确认未完成：${String(error?.message || error)}`, "warn")
+      })) return false;
+      const currentBlockers = restartBlockerReasons();
+      if (currentBlockers.length) {
+        setStatus(`当前不重启：${currentBlockers.join("、")}。保存或完成当前流程后再重启更新。`, "warn");
+        return false;
+      }
+      await updateSession.install(settingsState.update.latestVersion);
+      const afterInstallBlockers = restartBlockerReasons();
+      if (afterInstallBlockers.length) {
+        setStatus(`更新已安装，当前不重启：${afterInstallBlockers.join("、")}。保存或完成当前流程后再重启。`, "warn");
+        return false;
+      }
       await relaunchDesktopApp();
       return true;
     } catch (error) {
       setStatus(`重启应用失败：${String(error?.message || error)}`, "bad");
       return false;
+    } finally {
+      relaunchPending = false;
     }
   }
 
@@ -498,7 +564,7 @@ export function renderUpdateSettingsCard({ $, escapeHtml, settingsState, appVers
     const percent = Math.round(Number(progress.percent || 0) || 0);
     const phase = update.installPhase === "installing"
       ? "正在准备"
-      : update.installPhase === "installed"
+      : update.installPhase === "downloaded" || update.installPhase === "installed"
         ? "已下载，等待重启"
         : "正在下载";
     installProgress.textContent = installing || installed

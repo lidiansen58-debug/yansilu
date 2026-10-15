@@ -24,6 +24,31 @@ function targetFor(matches = {}) {
   };
 }
 
+for (const [returnedScope, editedId] of [['owned-vault', 'a'], ['another-vault', 'a'], ['owned-vault', 'peer'], ['another-vault', 'peer']]) {
+  test('background detail loading preserves unsaved review only in its original vault: ' + returnedScope + '/' + editedId, () => {
+    let nodes = [];
+    const mount = {
+      querySelectorAll: () => nodes,
+      set innerHTML(value) {
+        nodes = value === 'loading' ? [] : ['a', 'peer'].map(id => ({ defaultValue: 'Original', value: 'Original', getAttribute: () => id }));
+      }
+    };
+    const state = { suggestions: [], selectedSuggestionId: 'a', suggestionDetailLoading: false,
+      suggestionDetail: { writeBase: { vaultPath: 'owned-vault' } } };
+    const renderPanel = () => state.suggestionDetailLoading ? 'loading' : 'detail';
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    nodes.find(node => node.getAttribute() === editedId).value = 'Human text not submitted';
+    state.suggestionDetail = null;
+    state.suggestionDetailLoading = true;
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    assert.equal(nodes.length, 0);
+    state.suggestionDetailLoading = false;
+    state.suggestionDetail = { writeBase: { vaultPath: returnedScope } };
+    renderAiSuggestionsWorkspaceView({ mount, state, renderPanel });
+    assert.equal(nodes.find(node => node.getAttribute() === editedId).value, returnedScope === 'owned-vault' ? 'Human text not submitted' : 'Original');
+  });
+}
+
 test("AI suggestions workspace keeps only visible suggestion filters", () => {
   assert.deepEqual(normalizeVisibleSuggestionFilters({
     status: "edited",
@@ -142,7 +167,12 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { priority: 1 } }
-  }), /number format/);
+  }), /有效的数字/);
+
+  elements.aiSuggestionContentEditor.value = "   ";
+  assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
+    getElement: (id) => elements[id], current: { content: { priority: 1 } }
+  }), /有效的数字/);
 
   elements.aiSuggestionContentEditor.value = "false";
   assert.deepEqual(aiSuggestionReviewedContentFromWorkspace({
@@ -154,12 +184,12 @@ test("AI suggestions workspace reads filters and reviewed content from the curre
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { enabled: true } }
-  }), /true\/false format/);
+  }), /true 或 false/);
 
   assert.throws(() => aiSuggestionReviewedContentFromWorkspace({
     getElement: (id) => elements[id],
     current: { content: { title: "Original", summary: "Keep" } }
-  }), /valid JSON/);
+  }), /有效的 JSON/);
 });
 
 test("AI suggestions workspace reads the editor for the suggestion being reviewed", () => {
@@ -276,13 +306,12 @@ test("AI suggestions workspace applies one modal action to grouped suggestions",
     })
   }, {
     settingsAiState,
-    loadAiSuggestionDetail: async (id) => calls.push(["detail", id]),
+    loadAiSuggestionDetail: async (id) => { calls.push(["detail", id]); settingsAiState.suggestionDetail = { item: { id } }; },
     applyAiSuggestionStatus: async (id, status) => calls.push(["status", id, status]),
     render: () => calls.push(["render"])
   });
 
   assert.deepEqual(calls, [
-    ["detail", "suggestion_1"],
     ["status", "suggestion_1", "adopted_as_draft"],
     ["detail", "suggestion_summary"],
     ["status", "suggestion_summary", "adopted_as_draft"],
@@ -292,7 +321,35 @@ test("AI suggestions workspace applies one modal action to grouped suggestions",
   assert.equal(settingsAiState.suggestionDetail, null);
 });
 
-test("AI suggestions workspace binding attaches and detaches the click handler", async () => {
+test("AI filter input survives a later render without starting a query or changing detail", () => {
+  const listeners = new Map();
+  const state = { suggestionFilters: { status: "all", limit: 25 }, suggestions: [{ id: "current" }],
+    selectedSuggestionId: "current", suggestionDetail: { item: { id: "current" } } };
+  const originalItems = state.suggestions, originalDetail = state.suggestionDetail;
+  let calls = 0, renders = 0;
+  const panel = { innerHTML: "", addEventListener: (type, handler) => listeners.set(type, handler),
+    removeEventListener: type => listeners.delete(type) };
+  const select = { ...targetFor({ "#aiSuggestionStatusFilter": {} }), value: "edited" };
+  const dispose = bindAiSuggestionsWorkspaceEvents(panel, { settingsAiState: state,
+    getFilters: () => ({ ...state.suggestionFilters, targetId: "hidden-target" }),
+    refreshAiSuggestions: () => calls++, loadAiSuggestionDetail: () => calls++, render: () => renders++ });
+  listeners.get("change")?.({ target: select });
+  renderAiSuggestionsWorkspaceView({ mount: panel, state, renderPanel: rendered => { select.value = rendered.filters.status; return "updated list"; } });
+  assert.equal(select.value, "edited");
+  assert.equal(state.suggestionFilters.targetId, "");
+  assert.equal(state.suggestionFilters.limit, 25);
+  assert.equal(calls, 0);
+  assert.equal(renders, 0);
+  assert.equal(state.suggestions, originalItems);
+  assert.equal(state.suggestionDetail, originalDetail);
+  assert.equal(state.selectedSuggestionId, "current");
+  listeners.get("change")({ target: { ...targetFor({ "[data-ai-suggestion-content-editor]": {} }), value: "unrelated" } });
+  assert.equal(state.suggestionFilters.status, "edited");
+  dispose();
+  assert.equal(listeners.size, 0);
+});
+
+test("AI suggestions workspace binding attaches and detaches click and change handlers", async () => {
   const listeners = [];
   const panel = {
     addEventListener(type, handler) {
@@ -315,6 +372,26 @@ test("AI suggestions workspace binding attaches and detaches the click handler",
   assert.deepEqual(calls, ["suggestion_4"]);
 
   dispose();
-  assert.equal(listeners[1].type, "remove:click");
-  assert.equal(listeners[1].handler, listeners[0].handler);
+  assert.deepEqual(listeners.map(listener => listener.type), ["click", "change", "remove:click", "remove:change"]);
+  assert.equal(listeners[2].handler, listeners[0].handler);
+  assert.equal(listeners[3].handler, listeners[1].handler);
 });
+
+for (const outcome of ['success', 'declined', 'exception', 'new-selection', 'reopened-same-selection']) {
+  test('opening a review note dismisses only its successfully opened current modal: ' + outcome, async () => {
+    const state = { selectedSuggestionId: 'a', suggestionDetailRequestToken: 4, suggestionDetail: { item: { id: 'a' }, writeBase: { vaultPath: 'original-vault' } }, suggestionDetailSuggestionId: 'a' };
+    const before = structuredClone(state); let renders = 0, entered, release;
+    const began = new Promise(resolve => { entered = resolve; });
+    const gate = new Promise(resolve => { release = resolve; });
+    const run = handleAiSuggestionsWorkspaceClick({ target: targetFor({ '[data-ai-suggestion-open-note]': { 'data-ai-suggestion-open-note': 'note-a' } }) }, {
+      settingsAiState: state, render: () => renders++, openTargetNote: async () => { entered(); await gate; if (outcome === 'exception') throw new Error('Read failed'); return outcome !== 'declined'; }
+    });
+    await began; assert.deepEqual(state, before); assert.equal(renders, 0);
+    if (outcome === 'new-selection') state.selectedSuggestionId = 'b';
+    if (outcome === 'reopened-same-selection') state.suggestionDetailRequestToken++;
+    const current = structuredClone(state); release();
+    if (outcome === 'exception') await assert.rejects(run, /Read failed/); else await run;
+    if (outcome === 'success') { assert.equal(state.selectedSuggestionId, ''); assert.equal(state.suggestionDetail, null); assert.equal(state.suggestionDetailRequestToken, 5); assert.equal(renders, 1); }
+    else { assert.deepEqual(state, current); assert.equal(renders, 0); }
+  });
+}

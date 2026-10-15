@@ -2,6 +2,8 @@ import { checkOriginality, fetchNote, updateNote } from "./prototype-api.js";
 import { parseLinks } from "./prototype-store.js";
 import { applyLoadedNoteToClientState } from "./loaded-note-client-state.js";
 
+const pendingPreparations = new WeakMap();
+
 export function renderWritingEntryPreparation(note, { escapeHtml, isWritingEligibleNote }) {
   if (!note || !["permanent", "original"].includes(note.noteType) || isWritingEligibleNote(note)) return "";
   const reason = note.authorship?.user_confirmed
@@ -19,13 +21,27 @@ export function renderWritingEntryPreparation(note, { escapeHtml, isWritingEligi
 }
 
 export async function prepareWritingEntryNote(noteId, deps) {
+  let pending = pendingPreparations.get(deps.state);
+  if (!pending) pendingPreparations.set(deps.state, pending = new Set());
+  if (pending.has(noteId)) throw new Error("这条笔记正在确认或检查，请等待当前操作完成。");
+  pending.add(noteId);
+  try { return await prepareConfirmedWritingEntryNote(noteId, deps); }
+  finally { pending.delete(noteId); }
+}
+
+async function prepareConfirmedWritingEntryNote(noteId, deps) {
   const { state, editor, mapNoteItem, confirm = message => window.confirm(message),
     read = fetchNote, check = checkOriginality, update = updateNote, getVaultPath = () => "" } = deps;
   const scope = state.noteMoveVaultScope ||= {};
   const vaultPath = getVaultPath();
+  const module = state.module;
+  const projectId = deps.writingState?.project?.id, themeId = deps.writingState?.selectedThemeIndexId;
   const assertCurrent = () => {
     if (getVaultPath() !== vaultPath || state.noteMoveVaultScope !== scope || state.noteMoveVaultSwitching || state.noteMoveVaultUncertain || state.unresolvedNoteMove) {
       throw new Error("笔记库或移动状态已改变，请完成当前操作后重试。");
+    }
+    if (state.module !== module || deps.writingState?.project?.id !== projectId || deps.writingState?.selectedThemeIndexId !== themeId) {
+      throw new Error("写作页面或主题已改变，请重新选择笔记后确认。");
     }
     if ((state.tabs || []).some(tab => tab.noteId === noteId && tab.dirty)) {
       throw new Error("这条笔记还有未保存修改。请先打开笔记保存，再加入写作。");
@@ -35,7 +51,12 @@ export async function prepareWritingEntryNote(noteId, deps) {
   const note = await read(noteId);
   assertCurrent();
   if (!note || note.noteType !== "permanent") throw new Error("请先选择一条永久笔记。");
-  if (!confirm(`确认“${note.title}”已经是你用自己的话写成的判断，而不是直接摘抄？\n检查通过后会加入相关笔记。`)) return false;
+  if (await confirm(`确认“${note.title}”已经是你用自己的话写成的判断，而不是直接摘抄？\n检查通过后会加入相关笔记。`) !== true) return false;
+  assertCurrent();
+  const confirmed = await read(noteId);
+  assertCurrent();
+  const identity = item => JSON.stringify([item?.noteType, item?.title, item?.body, item?.updatedAt, item?.fileRevision, item?.authorship]);
+  if (identity(confirmed) !== identity(note)) throw new Error("笔记在确认期间发生了变化，请重新确认。");
   const literature = await editor.linkedLiteratureForHydratedOriginality(note, parseLinks(note.body));
   assertCurrent();
   const payload = editor.originalityPayloadFromLiterature(note, note.body, literature);
@@ -51,7 +72,7 @@ export async function prepareWritingEntryNote(noteId, deps) {
   }
   const latest = await read(noteId);
   assertCurrent();
-  if (latest.body !== note.body || latest.updatedAt !== note.updatedAt) throw new Error("笔记在检查期间发生了变化，请重新确认。");
+  if (identity(latest) !== identity(note)) throw new Error("笔记在检查期间发生了变化，请重新确认。");
   const updated = await update(noteId, {
     expectedBody: latest.body,
     ...(latest.fileRevision ? { expectedRevision: latest.fileRevision } : {}),

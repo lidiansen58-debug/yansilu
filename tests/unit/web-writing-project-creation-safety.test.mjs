@@ -33,7 +33,8 @@ for (const origin of ["basket", "theme", "import"]) {
           beginWritingEntry: () => { writingState.projectOpenRevision++; writingState.selectedThemeIndexId = ""; },
           createWritingProject: async payload => {
             posts++; await pause("create");
-            assert.equal(payload.expectedVaultPath, "original-vault"); return project;
+            assert.equal(payload.expectedVaultPath, "original-vault");
+            assert.equal(payload.requireEligibleSources, true); return project;
           },
           loadWritingProjectsList: async () => pause("refresh"),
           loadWritingScaffoldVersions: async () => effects.push("scaffolds"),
@@ -87,7 +88,10 @@ for (const origin of ["basket", "theme", "import"]) {
       tone: payload.tone, basket_note_ids: ["n1"], related_index_ids: ["theme-1"] });
     const deps = {
       $: id => fields[id], writingState, state: {}, getVaultPath: () => "original-vault", parseWritingBasketIds: () => ["n1"],
-      createWritingProject: async payload => { entered.resolve(); await waiting.promise; return projectFrom(payload); },
+      createWritingProject: async payload => {
+        assert.equal(payload.requireEligibleSources, true);
+        entered.resolve(); await waiting.promise; return projectFrom(payload);
+      },
       syncWritingProject: async (id, payload) => { assert.equal(id, "project-1"); patches.push(payload); return projectFrom(payload); },
       useThemeIndexAsWritingEntry: async (id, options) => { options.assertCurrent(); options.onEntryApplied(); return { indexCard: { id, title: "Theme" }, noteIds: ["n1"] }; },
       ensureNotesLoaded: async () => {}, beginWritingEntry: () => {}, suggestedWritingProjectTitle: () => "Original Title",

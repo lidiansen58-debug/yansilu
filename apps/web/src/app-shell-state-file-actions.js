@@ -142,22 +142,28 @@ export async function handleNoteDeleteStateChange(payload = {}, deps = {}) {
     state = {},
     usingLocalFallbackData = false,
     deleteNote = async () => {},
+    getVaultPath = () => "",
     removeNoteFromClientState = () => {},
     setStatus = () => {},
     renderAll = () => {}
   } = deps;
-  if (state.noteMoveVaultSwitching || state.noteMoveVaultUncertain) return false;
+  const scope = state.noteMoveVaultScope;
+  const vaultPath = getVaultPath();
+  const isCurrent = () => state.noteMoveVaultScope === scope && getVaultPath() === vaultPath && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+  if (!isCurrent() || (Object.hasOwn(payload, "expectedVaultScope") && payload.expectedVaultScope !== scope)) return false;
   if (state.unresolvedNoteMove && state.unresolvedNoteMove.noteId === payload.noteId) {
     setStatus("移动结果尚未确认，请先重新核查，此笔记暂不能删除。", "warn", { notify: true });
     return false;
   }
   try {
     if (!usingLocalFallbackData) {
-      await deleteNote(payload.noteId);
+      await deleteNote(payload.noteId, { expectedVaultPath: vaultPath });
     }
+    if (!isCurrent()) return false;
     removeNoteFromClientState(payload.noteId);
     setStatus(usingLocalFallbackData ? "已从本地示例中删除笔记" : "已删除笔记并落盘", "ok");
   } catch (error) {
+    if (!isCurrent()) return false;
     setStatus(`删除失败：${String(error?.message || error)}`, "bad");
   }
   renderAll();
@@ -247,17 +253,24 @@ export async function handleDirectoryDeleteStateChange(payload = {}, deps = {}) 
   const {
     state = {},
     deleteDirectory = async () => {},
+    getVaultPath = () => "",
     setStatus = () => {},
     renderAll = () => {}
   } = deps;
+  const scope = state.noteMoveVaultScope;
+  const vaultPath = getVaultPath();
+  const isCurrent = () => state.noteMoveVaultScope === scope && getVaultPath() === vaultPath && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+  if (!isCurrent() || (Object.hasOwn(payload, "expectedVaultScope") && payload.expectedVaultScope !== scope)) return false;
   try {
-    await deleteDirectory(payload.directoryId);
+    await deleteDirectory(payload.directoryId, { expectedVaultPath: vaultPath });
+    if (!isCurrent()) return false;
     state.folders = (state.folders || []).filter((folder) => folder.id !== payload.directoryId);
     if (state.selectedFolderId === payload.directoryId) {
       state.selectedFolderId = state.browserRootId;
     }
     setStatus("目录已删除并落盘", "ok");
   } catch (error) {
+    if (!isCurrent()) return false;
     setStatus(`目录删除失败：${String(error?.message || error)}`, "bad");
   }
   renderAll();

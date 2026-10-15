@@ -14,6 +14,8 @@ export function buildAppShellStateChangeDeps(host = {}) {
   } = host;
 
   return {
+    state: host.state,
+    getVaultPath: host.getVaultPath,
     ...buildAppShellGraphStateChangeDeps(host),
     ...buildAppShellNoteStateChangeDeps(host),
     ...buildAppShellAiWritingStateChangeDeps(host),

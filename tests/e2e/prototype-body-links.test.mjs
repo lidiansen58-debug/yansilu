@@ -102,8 +102,8 @@ for (const mode of ["source", "wysiwyg"]) {
   });
 }
 
-for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "source", 1366], ["literature", "source", 1366], ["original", "wysiwyg", 1366], ["fleeting", "wysiwyg", 390]]) {
-  test(`${kind} body links insert, replace and open the chosen note (${mode}, ${width}px)`, async t => {
+for (const [kind, mode, width, delayedSave] of [["original", "source", 1366], ["fleeting", "source", 1366], ["literature", "source", 1366], ["original", "wysiwyg", 1366], ["fleeting", "wysiwyg", 390], ["fleeting", "source", 1366, true], ["literature", "source", 1366, true]]) {
+  test(`${kind} body links insert, replace and open the chosen note (${mode}, ${width}px)${delayedSave ? " after a late insertion save" : ""}`, async t => {
     if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
     const pw = await optionalPlaywright(t);
     if (!pw) return;
@@ -132,6 +132,18 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
     await page.locator("#linkSearchInput").fill("同名目标");
     await page.locator(`[data-link-note-id="${chosen.id}"]`).click();
     assert.equal(await page.locator("#linkReasonInput").count(), 0);
+    if (delayedSave) await page.evaluate(() => {
+      const editor = window.__prototypeEditor, save = editor.saveActiveNote.bind(editor);
+      let held = false;
+      editor.saveActiveNote = async options => {
+        const result = await save(options);
+        if (options?.trigger === "link-insert" && !held) {
+          held = true;
+          await new Promise(resolve => { window.__releaseBodyLinkSave = resolve; });
+        }
+        return result;
+      };
+    });
     await page.keyboard.press("Enter");
     const token = `[[${chosen.id}|同名目标]]`;
     await waitFor(async () => assert.ok((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(token)));
@@ -141,6 +153,11 @@ for (const [kind, mode, width] of [["original", "source", 1366], ["fleeting", "s
     assert.equal(relationWrites.length, 0);
     // Put the cursor inside the existing token; the same action replaces the whole link.
     await page.evaluate(token => { const e = window.__prototypeEditor, at = e.getEditorValue().indexOf(token) + 3; e.setEditorSelectionRange(at, at); e.focusEditor(); }, token);
+    if (delayedSave) {
+      await page.waitForFunction(() => typeof window.__releaseBodyLinkSave === "function");
+      await page.evaluate(() => window.__releaseBodyLinkSave());
+      await page.waitForFunction(() => !window.__prototypeEditor.isSubmittingLinkInsert);
+    }
     await page.locator("#btnInsertLink").click();
     await page.locator("#linkSearchInput").fill("替换目标");
     await page.locator(`[data-link-note-id="${replacement.id}"]`).click();

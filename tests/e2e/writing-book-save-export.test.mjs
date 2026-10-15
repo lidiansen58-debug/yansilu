@@ -83,7 +83,7 @@ test("browser saves new chapters once and exports the complete book in directory
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator(`#writingProjectsList [data-writing-project-id="${project.id}"]`).first().waitFor({ state: "attached" });
-  await page.locator(`[data-writing-index-card-id="${index.id}"] button`).click();
+  await page.locator(`[data-writing-index-card-id="${index.id}"] button.primary`).click();
   await page.waitForFunction(() => Boolean(document.querySelector('#writingDraftTarget option[value="first"]')));
   await page.locator('[data-writing-tab="draft"]').click();
   const bodies = { first: "# First\n\nBROWSER-CHAPTER-FIRST\n\n", second: "# Second\n\nBROWSER-CHAPTER-SECOND\n" };
@@ -125,7 +125,7 @@ test("browser saves new chapters once and exports the complete book in directory
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator(`#writingProjectsList [data-writing-project-id="${project.id}"]`).first().waitFor({ state: "attached" });
-  await page.locator(`[data-writing-index-card-id="${index.id}"] button`).click();
+  await page.locator(`[data-writing-index-card-id="${index.id}"] button.primary`).click();
   await page.waitForFunction(() => Boolean(document.querySelector('#writingDraftTarget option[value="first"]')));
   await page.locator('[data-writing-tab="draft"]').click();
   for (const chapter of bound) {

@@ -314,6 +314,7 @@ export class EditorRelationLinkController {
       this.close();
       this.setSubmitting(true);
       host.focusEditor();
+      const insertedSelection = host.editorSelection?.();
       const isCurrent = () => host.activeNote()?.id === sourceNoteId && host.state.noteMoveVaultScope === vaultScope;
       const saved = await host.saveActiveNote({ trigger: remove ? "link-remove" : inline ? "inline-link-insert" : "link-insert", skipOriginalityCheck: true, suppressSaveAiSuggestion: true });
       if (!isCurrent()) return;
@@ -322,7 +323,9 @@ export class EditorRelationLinkController {
         host.onStatus("修改已保留在编辑器中，但暂时没有同步成功。", "warn");
         return;
       }
-      if (host.getEditorValue() === insertedBody) {
+      const currentSelection = host.editorSelection?.();
+      const selectionUnchanged = !insertedSelection || (currentSelection?.from === insertedSelection.from && currentSelection?.to === insertedSelection.to);
+      if (host.getEditorValue() === insertedBody && selectionUnchanged && !this.returnContext && !host.currentLinkContext) {
         if (cursor !== null) host.setEditorSelectionRange(cursor, cursor);
         if (!inline) host.scheduleEditorScrollRestore(scroll);
       }

@@ -24,9 +24,9 @@ export function createTemplatePreviewFocus({ getModal, getCloseButton, close }) 
   }
 
   return {
-    open() {
+    open(invoker = null) {
       const modal = getModal();
-      returnFocus = modal?.ownerDocument.activeElement;
+      returnFocus = invoker || modal?.ownerDocument.activeElement;
       const kind = returnFocus?.closest?.("[data-settings-template-kind]")?.dataset.settingsTemplateKind;
       const action = returnFocus?.dataset.settingsTemplateAction;
       returnSelector = ["permanent", "literature"].includes(kind) && action === "preview"

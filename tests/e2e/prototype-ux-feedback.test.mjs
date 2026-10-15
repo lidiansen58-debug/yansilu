@@ -29,7 +29,11 @@ test("UX feedback: an unconfirmed permanent note can be confirmed and added to w
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item.authorship.user_confirmed, false);
   page.once("dialog", dialog => dialog.accept());
   await prepare.click();
-  await page.getByRole("button", { name: "相关笔记 1", exact: true }).waitFor();
+  await waitFor(async () => {
+    const related = page.locator('[data-writing-sidebar-action="related"]');
+    assert.equal(await related.isVisible(), true);
+    assert.equal((await related.textContent()).trim(), "相关笔记 1");
+  });
   const saved = (await fetchJson(apiBase, `/api/v1/notes/${note.id}`)).json.item;
   assert.equal(saved.status, "active");
   assert.equal(saved.authorship.user_confirmed, true);

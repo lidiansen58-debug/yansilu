@@ -36,6 +36,7 @@ test("app shell state change deps groups graph actions from host wiring", () => 
 
 test("app shell state change deps groups note, distillation, and file actions", () => {
   const host = {
+    getVaultPath: () => "E:/confirmed-vault",
     state: { notes: [] },
     editor: { id: "editor" },
     createPrimaryOriginalNote: async () => ({}),
@@ -66,6 +67,8 @@ test("app shell state change deps groups note, distillation, and file actions", 
   assert.equal(deps.confirmNoteDistillation.confirmPermanentNoteDistillation, host.confirmPermanentNoteDistillation);
   assert.equal(deps.noteMove.moveNoteInClientState, host.moveNoteInClientState);
   assert.equal(deps.noteDelete.removeNoteFromClientState, host.removeNoteFromClientState);
+  assert.equal(deps.noteDelete.getVaultPath, host.getVaultPath);
+  assert.equal(deps.directoryDelete.getVaultPath, host.getVaultPath);
   assert.equal(deps.directoryUpdate.syncLoadedNotesForDirectories, host.syncLoadedNotesForDirectories);
 });
 

@@ -1,99 +1,51 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createWritingReadyPermanentNote, optionalPlaywright, fetchJson, startPrototypeStack, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { addWritingSupportNotes, createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
 
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
-
-test("prototype writing flow switches the last step to open current draft after saving", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype saved writing theme resumes the actual draft after reload and opens its note", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page } = stack;
-
-  const target = await createWritingReadyPermanentNote(apiBase, {
-    title: "Draft Continuity Target",
-    body: "# Draft Continuity Target\n\nA durable target note.",
-    thesis: "A supporting target note helps the source note reach project-ready status.",
-    threeLineSummary: [
-      "The target note already has a reusable judgment.",
-      "It matters because the source note should not remain isolated.",
-      "It helps the source note enter writing-center project flow."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This target note is only useful when its relation is explicit."
+  const { page, apiBase, webBase } = stack;
+  const source = (await createWritingReadyPermanentNote(apiBase, {
+    title: "解释与理解", body: "# 解释与理解\n\n解释不清时，应回到材料核对。",
+    thesis: "解释不清时应回到材料核对。", threeLineSummary: ["先尝试解释。", "核对遗漏的依据。", "考虑具体材料与适用条件。"],
+    boundaryOrCounterpoint: "尚未读过材料时，先阅读再解释。"
+  })).json.item;
+  const notes = await addWritingSupportNotes(apiBase, source);
+  const title = "草稿继续写作验收";
+  await createManualWritingTheme(stack, notes, { title });
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  await page.locator("#btnWritingStartDraft").click();
+  await useWritingMarkdown(page);
+  const markdown = `# ${title}\n\n保存后的正文：中文、[[解释与理解]] 与唯一标记 draft-resume-evidence。`;
+  await page.locator("#writingDraftEditor:visible").fill(markdown);
+  await page.locator("#btnWritingSaveDraft").click();
+  let project, saved;
+  await waitFor(async () => {
+    project = await findWritingProject(stack, notes, title);
+    assert.ok(project.draft_note_id);
+    saved = (await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item;
+    assert.match(saved.body, /draft-resume-evidence/);
   });
-
-  const source = await createWritingReadyPermanentNote(apiBase, {
-    title: "Draft Continuity Note",
-    body: "# Draft Continuity Note\n\n[[Draft Continuity Target]]\n\nA confirmed note with one explicit relation and a boundary.",
-    thesis: "Once a draft exists, the writing flow should tell the user to reopen the current draft instead of saving again.",
-    threeLineSummary: [
-      "The note has a reusable judgment.",
-      "It matters because writing-center next-action continuity should stay explicit.",
-      "The last step should switch to reopening the current draft after the first save."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This only makes sense after a scaffold already exists."
-  });
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
-    toNoteId: target.json.item.id,
-    relationType: "supports",
-    rationale: "The target note gives the source note enough structure to justify project creation.",
-    insightQuestion: "What should the user do after the first draft save?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.evaluate((noteItem) => {
-    window.__prototypeState.notes = [noteItem];
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeState.selectedFolderId = "dir_original_default";
-    window.__prototypeState.selectedFileId = noteItem.id;
-  }, source.json.item);
-
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.click("#btnWritingUseCurrent");
-  await page.fill("#writingTitle", "Draft Continuity Project");
-  await page.fill("#writingGoal", "Verify that the final writing step changes to opening the current draft.");
-  await page.fill("#writingAudience", "Researchers");
-  await page.fill("#writingTone", "clear");
-  await page.fill("#writingVersionNote", "First draft note for continuity.");
-  await page.evaluate(() => {
-    const button = document.querySelector("#btnWritingCreateProject");
-    if (!(button instanceof HTMLButtonElement)) throw new Error("Create project button not found");
-    button.disabled = false;
-    button.click();
-  });
-
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /可写主题已确定：wp_/);
-  }, 10000);
-
-  await page.click("#btnWritingCreateScaffold");
-  await waitFor(async () => {
-    const previewText = await page.locator("#writingScaffoldPreview").textContent();
-    assert.match(String(previewText || ""), /文章提纲|Paragraph-Evidence Map/);
-  }, 10000);
-
-  await page.click("#btnWritingSaveDraft");
-  await waitFor(async () => {
-    const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /草稿|打开当前草稿/);
-  }, 10000);
-
-  await waitFor(async () => {
-    const stepFourText = await page.locator("#writingFlowSteps .writing-flow-step").nth(3).textContent();
-    const openDraftText = await page.locator("#btnWritingOpenDraft").textContent();
-    assert.match(String(stepFourText || ""), /打开当前草稿/);
-    assert.match(String(stepFourText || ""), /继续写作/);
-    assert.match(String(openDraftText || ""), /打开当前草稿/);
-  }, 10000);
+  const resume = page.locator(`#writingThemeIndexList [data-writing-project-id="${project.id}"]`);
+  assert.equal(await resume.innerText(), "继续草稿");
+  await resume.click();
+  await page.locator("#writingDraftPanel:visible").waitFor();
+  await useWritingMarkdown(page);
+  assert.equal(await page.locator("#writingDraftEditor").inputValue(), saved.body);
+  await page.locator("#writingMoreMenu > summary").click();
+  await page.locator("#btnWritingOpenDraft").click();
+  await page.waitForFunction(id => window.__prototypeState.module === "explorer" && window.__prototypeState.selectedFileId === id, project.draft_note_id);
+  assert.equal((await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item.body, saved.body);
+  const projects = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items;
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].id, project.id);
+  assert.equal(projects[0].draft_note_id, saved.id);
 });

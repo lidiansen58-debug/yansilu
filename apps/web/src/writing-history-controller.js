@@ -28,7 +28,7 @@ export async function openWritingHistory(deps) {
     writingState.scaffold?.open_questions, writingState.draftMarkdown, writingState.bookChapter]);
   const before = snapshot();
   const view = createWritingHistoryDialog(documentRef);
-  let revision = 0, bundle = null, requestId = "", restoring = false, done = false, offset = 0, hasOlder = false;
+  let revision = 0, bundle = null, requestId = "", confirming = false, restoring = false, done = false, offset = 0, hasOlder = false;
   const current = () => !done && view.dialog.open && getVaultPath() === vault && state.noteMoveVaultScope === scope
     && state.module === module && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain && snapshot() === before;
   const close = () => {
@@ -105,17 +105,29 @@ export async function openWritingHistory(deps) {
     catch (error) { fail(error); }
   });
   view.restore.addEventListener("click", async () => {
-    if (!current() || !bundle || restoring || bundle.item.id === project.scaffold_id) return;
-    if (!documentRef.defaultView.confirm("恢复此提纲？当前提纲会保留为历史版本；未保存的编辑不会带入新版本。文章正文不变。")) return;
-    if (!current()) return;
+    if (!current() || !bundle || confirming || restoring || bundle.item.id === project.scaffold_id) return;
+    const selected = structuredClone(bundle.item), selectedRevision = revision;
+    const sameSelection = () => current() && revision === selectedRevision && bundle?.item?.id === selected.id && view.select.value === selected.id;
+    confirming = true;
+    view.restore.disabled = true;
+    let approved = false;
+    try {
+      approved = await documentRef.defaultView.confirm("恢复此提纲？当前提纲会保留为历史版本；未保存的编辑不会带入新版本。文章正文不变。") === true;
+    } catch (error) {
+      if (sameSelection()) view.status.textContent = `确认未完成：${String(error?.message || error)}`;
+    } finally {
+      confirming = false;
+      if (current()) view.restore.disabled = !bundle || bundle.item.id === project.scaffold_id;
+    }
+    if (!approved || !sameSelection()) return;
     restoring = true;
     for (const button of view.dialog.querySelectorAll("button, select")) button.disabled = true;
     view.status.textContent = "正在恢复提纲…";
     try {
       requestId ||= createWritingRestorationId(documentRef.defaultView.crypto);
-      const restored = await restoreWritingHistoryWithReadback(deps, project.id, { sourceScaffoldId: bundle.item.id, restorationId: requestId,
+      const restored = await restoreWritingHistoryWithReadback(deps, project.id, { sourceScaffoldId: selected.id, restorationId: requestId,
         expectedScaffoldId: project.scaffold_id, expectedScaffoldUpdatedAt: scaffold.updated_at,
-        expectedProjectUpdatedAt: project.updated_at, expectedSourceUpdatedAt: bundle.item.updated_at, expectedVaultPath: vault }, current);
+        expectedProjectUpdatedAt: project.updated_at, expectedSourceUpdatedAt: selected.updated_at, expectedVaultPath: vault }, current);
       if (!current()) { restoring = false; close(); return; }
       if (restored?.id !== requestId || restored.writing_project?.id !== project.id || restored.writing_project.scaffold_id !== requestId || !Array.isArray(restored.sections)) throw new Error("恢复结果未能确认，请重试以核对已保存的版本。");
       let warning = "";

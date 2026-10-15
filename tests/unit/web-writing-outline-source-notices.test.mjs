@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { renderWritingScaffoldPreviewDom } from "../../apps/web/src/writing-scaffold-preview-panel.js";
-import { handleWritingOutlineSourceClick } from "../../apps/web/src/writing-outline-source-notices.js";
+import { handleWritingOutlineSourceClick, writingOutlineSourceNotices } from "../../apps/web/src/writing-outline-source-notices.js";
 import { installWritingDraftActionEventHandlers } from "../../apps/web/src/writing-panel-events.js";
 import { createSearchNoteOpener } from "../../apps/web/src/search-note-opener.js";
 import { escapeHtml } from "../../apps/web/src/editor-render-utils.js";
@@ -50,6 +50,47 @@ test("missing files are labeled without a broken open action and passing checks 
   assert.doesNotMatch(f.preview(), /data-writing-outline-source-note/);
   check.status = "pass";
   assert.doesNotMatch(f.preview(), /来源核对/);
+});
+
+for (const [id, phrase] of [["confirmed_distillation", "观点尚未确认"], ["distillation_quality", "观点说明需要完善"]]) {
+  test(`${id} offers a plain-language source action without changing the outline`, async () => {
+    const f = fixture();
+    f.writingState.scaffold.preflight.checks = [{ id, status: "warning", targetNoteIds: ["source", "source"], message: "Internal distillation diagnostic" }];
+    const outline = structuredClone(f.writingState.scaffold);
+    const html = f.preview();
+    assert.ok(html.includes(`1 条相关笔记的${phrase}`));
+    assert.equal((html.match(/data-writing-outline-source-note=/g) || []).length, 1);
+    assert.doesNotMatch(html, /Internal distillation diagnostic/);
+    await handleWritingOutlineSourceClick(f.event, f.deps);
+    assert.deepEqual(f.calls, ["source"]);
+    assert.deepEqual(f.writingState.scaffold, outline);
+    f.writingState.scaffold.preflight.checks[0].status = "pass";
+    assert.doesNotMatch(f.preview(), /来源核对/);
+    f.calls.length = 0;
+    await handleWritingOutlineSourceClick(f.event, f.deps);
+    assert.deepEqual(f.calls, []);
+  });
+}
+
+test("quality notices avoid duplicate source actions while retaining other affected notes", () => {
+  const f = fixture();
+  f.writingState.scaffold.preflight.checks.push(
+    { id: "confirmed_distillation", status: "warning", targetNoteIds: ["source", "second"] },
+    { id: "distillation_quality", status: "warning", targetNoteIds: ["source", "second", "third"] }
+  );
+  const notices = writingOutlineSourceNotices(f.writingState);
+  assert.deepEqual(notices.map(notice => notice.targets.map(target => target.id)), [["source"], ["second"], ["third"]]);
+  assert.match(notices[1].message, /^1 条相关笔记的观点尚未确认/);
+  assert.match(notices[2].message, /^1 条相关笔记的观点说明需要完善/);
+});
+
+test("missing quality sources remain visible without an unusable action", () => {
+  const f = fixture();
+  f.writingState.scaffold.evidence_notes[0].status = "missing";
+  f.writingState.scaffold.preflight.checks = [{ id: "distillation_quality", status: "warning", targetNoteIds: ["source"] }];
+  assert.match(f.preview(), /观点说明需要完善/);
+  assert.match(f.preview(), /来源文件缺失/);
+  assert.doesNotMatch(f.preview(), /data-writing-outline-source-note/);
 });
 
 test("source click hydrates historical evidence outside the basket then opens it", async () => {
@@ -124,3 +165,21 @@ test("delegated source clicks do not trigger outline mutation or autosave", asyn
   assert.deepEqual(f.calls, ["source"]);
   assert.equal(f.writingState.outlineSaveQueue, undefined);
 });
+
+for (const id of ["basket_notes_missing_thesis", "basket_notes_missing_three_line_summary"]) {
+  test(`${id} uses the current scaffold note title and opens without changing the outline`, async () => {
+    const f = fixture();
+    f.writingState.project.basket_notes = [{ id: "source", title: "Old title" }];
+    f.writingState.scaffold.evidence_notes = [];
+    f.writingState.scaffold.basket_notes = [{ id: "source", title: "Current <title>", note_type: "permanent" }];
+    f.writingState.scaffold.preflight.checks = [{ id, status: "warning", message: "请补齐笔记内容。", targetNoteIds: ["source"] }];
+    const outline = structuredClone(f.writingState.scaffold);
+    const html = f.preview();
+    assert.match(html, /请补齐笔记内容/);
+    assert.match(html, /核对：Current &lt;title&gt;/);
+    assert.doesNotMatch(html, /Old title/);
+    await handleWritingOutlineSourceClick(f.event, f.deps);
+    assert.deepEqual(f.calls, ["source"]);
+    assert.deepEqual(f.writingState.scaffold, outline);
+  });
+}

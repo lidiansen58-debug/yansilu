@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { installAppRailEventBindings } from '../../apps/web/src/app-rail-event-bindings.js';
 import { installQuickActionEventBindings } from '../../apps/web/src/quick-action-event-bindings.js';
+import { syncDirectoryTreeNotes } from '../../apps/web/src/directory-tree-note-sync.js';
 
 function deferred() {
   let resolve;
@@ -45,13 +46,14 @@ for (const [action, root] of [['quick-fleeting', 'dir_fleeting_default'], ['quic
   for (const phase of ['preview', 'refresh']) {
     test(`${action} supersedes a graph open pending ${phase}`, async () => {
       const read = deferred();
+      const started = deferred();
       let refreshes = 0;
       const app = navigationHarness({ rail: {
-        previewOllamaLocalAiBootstrapFromUi:() => phase === 'preview' ? read.promise : Promise.resolve(),
-        refreshDirectoryGraph:() => { refreshes++; return phase === 'refresh' ? read.promise : Promise.resolve(); }
+        previewOllamaLocalAiBootstrapFromUi:() => { if (phase === 'preview') { started.resolve(); return read.promise; } return Promise.resolve(); },
+        refreshDirectoryGraph:() => { refreshes++; if (phase === 'refresh') { started.resolve(); return read.promise; } return Promise.resolve(); }
       } });
       const pending = app.click('graph');
-      await Promise.resolve();
+      await started.promise;
       await app.click(action);
       assert.equal(app.guard(), 0);
       read.resolve();
@@ -67,8 +69,10 @@ for (const [action, root] of [['quick-fleeting', 'dir_fleeting_default'], ['quic
 
 test('a pending quick entry cannot overwrite later module feedback or render', async () => {
   const read = deferred();
-  const app = navigationHarness({ quick: { syncNotesForDirectoryTree:() => read.promise } });
+  const started = deferred();
+  const app = navigationHarness({ quick: { syncNotesForDirectoryTree:() => { started.resolve(); return read.promise; } } });
   const pending = app.click('quick-fleeting');
+  await started.promise;
   await app.click('writing');
   read.resolve();
   await pending;
@@ -78,12 +82,36 @@ test('a pending quick entry cannot overwrite later module feedback or render', a
   assert.deepEqual(app.selections, []);
 });
 
+test('a superseded quick entry cannot commit its directory response before its final navigation check', async () => {
+  const read = deferred(), started = deferred();
+  const app = navigationHarness({ quick: {
+    syncNotesForDirectoryTree: (root, options) => syncDirectoryTreeNotes(root, {
+      state: app.state, descendantDirectoryIds: () => [root], folderById: () => ({}),
+      fetchDirectoryNotes: () => { started.resolve(); return read.promise; },
+      mapNoteItem: note => ({...note, folderId: root}),
+      upsertNotesForDirectory: (_root, notes) => { app.state.notes = notes; }, ...options
+    })
+  } });
+  app.state.notes = [{id: 'kept', folderId: 'dir_fleeting_default', body: '当前仍在使用的正文'}];
+  const before = structuredClone(app.state.notes);
+  const pending = app.click('quick-fleeting');
+  await started.promise;
+  await app.click('writing');
+  read.resolve([{id: 'stale'}]);
+  await pending;
+  assert.equal(app.state.module, 'writing');
+  assert.deepEqual(app.state.notes, before);
+  assert.deepEqual(app.renders, []);
+});
+
 test('a newer quick entry owns completion even while both entries use explorer', async () => {
   const read = deferred();
+  const started = deferred();
   const app = navigationHarness({ quick: {
-    syncNotesForDirectoryTree:root => root === 'dir_fleeting_default' ? read.promise : Promise.resolve()
+    syncNotesForDirectoryTree:root => { if (root === 'dir_fleeting_default') { started.resolve(); return read.promise; } return Promise.resolve(); }
   } });
   const pending = app.click('quick-fleeting');
+  await started.promise;
   await app.click('quick-literature');
   read.resolve();
   await pending;
@@ -96,8 +124,10 @@ test('a newer quick entry owns completion even while both entries use explorer',
 for (const change of ['scope', 'switching', 'uncertain']) {
   test(`quick entry completion is ignored when vault ${change} changes`, async () => {
     const read = deferred();
-    const app = navigationHarness({ quick: { syncNotesForDirectoryTree:() => read.promise } });
+    const started = deferred();
+    const app = navigationHarness({ quick: { syncNotesForDirectoryTree:() => { started.resolve(); return read.promise; } } });
     const pending = app.click('quick-literature');
+    await started.promise;
     if (change === 'scope') app.state.noteMoveVaultScope = {};
     else app.state[change === 'switching' ? 'noteMoveVaultSwitching' : 'noteMoveVaultUncertain'] = true;
     read.resolve();
@@ -109,9 +139,10 @@ for (const change of ['scope', 'switching', 'uncertain']) {
 
 test('a guarded permanent entry does not cancel the active graph opening', async () => {
   const read = deferred();
-  const app = navigationHarness({ rail: { refreshDirectoryGraph:() => read.promise } });
+  const started = deferred();
+  const app = navigationHarness({ rail: { refreshDirectoryGraph:() => { started.resolve(); return read.promise; } } });
   const pending = app.click('graph');
-  await Promise.resolve();
+  await started.promise;
   await app.click('quick-original');
   assert.equal(app.guard(), 2800);
   read.resolve();
@@ -123,13 +154,14 @@ test('a guarded permanent entry does not cancel the active graph opening', async
 
 test('a new graph opening after a quick entry cannot revive the older graph continuation', async () => {
   const reads = [deferred(), deferred()];
+  const started = [deferred(), deferred()];
   let requests = 0;
-  const app = navigationHarness({ rail: { refreshDirectoryGraph:() => reads[requests++].promise } });
+  const app = navigationHarness({ rail: { refreshDirectoryGraph:() => { const index = requests++; started[index].resolve(); return reads[index].promise; } } });
   const old = app.click('graph');
-  await Promise.resolve();
+  await started[0].promise;
   await app.click('quick-fleeting');
   const current = app.click('graph');
-  await Promise.resolve();
+  await started[1].promise;
   app.state.module = 'writing';
   reads[0].resolve();
   await old;

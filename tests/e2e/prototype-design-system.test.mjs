@@ -44,7 +44,7 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
   page.on("pageerror", error => errors.push(error.message));
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator(`#writingProjectsList [data-writing-project-id="${project.id}"]`).first().waitFor({ state: "attached" });
-  await page.locator(`[data-writing-index-card-id="${index.id}"] button`).click();
+  await page.locator(`[data-writing-index-card-id="${index.id}"] button.primary`).click();
   await page.waitForFunction(() => document.querySelector('#writingDraftTarget option[value="first"]'));
   await page.locator('[data-writing-tab="draft"]').click();
   await selectWritingChapter(page, "first");

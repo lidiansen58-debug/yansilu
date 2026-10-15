@@ -5,6 +5,35 @@ import {
   refreshDirectoryGraphForRuntime
 } from "../../apps/web/src/graph-refresh-controller.js";
 
+for (const phase of ["notes", "graph", "error"]) {
+  test(`graph refresh ignores an obsolete import during ${phase}`, async () => {
+    const graphState = { item: { nodes: ["keep"] }, conflicts: "keep", reviewQueue: "keep" };
+    let current = true, finish, graphReads = 0, applied = 0, renders = 0;
+    const pending = new Promise(resolve => { finish = resolve; });
+    const work = refreshDirectoryGraphForRuntime({ graphState, isCurrent: () => current,
+      syncNotesForDirectoryTree: async (_id, options) => {
+        assert.equal(options.isCurrent(), true);
+        if (phase === "notes") await pending;
+      },
+      fetchDirectoryGraph: async () => {
+        graphReads++;
+        await pending;
+        if (phase === "error") throw new Error("old error");
+        return { nodes: ["obsolete"] };
+      },
+      upsertGraphNodeSummaries: () => applied++, renderAll: () => renders++
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    current = false; finish();
+    assert.equal(await work, false);
+    assert.equal(graphReads, phase === "notes" ? 0 : 1);
+    assert.equal(applied, 0); assert.equal(renders, 0);
+    assert.deepEqual(graphState.item, { nodes: ["keep"] });
+    assert.equal(graphState.conflicts, "keep"); assert.equal(graphState.reviewQueue, "keep");
+    assert.equal(graphState.error, ""); assert.equal(graphState.loading, false);
+  });
+}
+
 test("graph refresh syncs the network scope and repaints the full shell after success", async () => {
   const calls = [];
   const graphState = {};

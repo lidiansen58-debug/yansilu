@@ -270,10 +270,31 @@ test("graph route runtime saves a first-class theme index and transfers writing 
     "open-writing",
     {
       statusMessage: "已从可写主题打开写作：关系如何变成写作入口",
-      preserveFocusedCandidateScope: true,
+      focusedCandidateNoteIds: ["n1", "n2", "n3"],
+      focusedCandidateScopeLabel: "已确认主题材料",
       entryReason: "从图谱可写主题继续写作",
       entrySourceLabel: "可写主题"
     }
   ]);
   assert.equal(calls.find((call) => call[0] === "system")[1].workflowRoute.indexCardId, "idx-1");
+});
+
+test("a confirmed theme replaces an older writing candidate scope with only the selected materials", async () => {
+  let candidateIds = ["b", "unrelated"], scopeLabel = "旧范围";
+  const selected = ["a", "c", "d"], requested = ["a", "b", "c", "d"];
+  const { runtime, saved } = themeHarness({
+    isWritingEligibleNote: () => true,
+    requestGraphThemeConfirmation: async () => ({ title: "已确认主题", centralQuestion: "哪些材料支持判断？", noteIds: selected }),
+    useThemeIndexAsWritingEntry: async () => {},
+    openWritingModule: async options => {
+      assert.equal(options.preserveFocusedCandidateScope, undefined);
+      candidateIds = options.focusedCandidateNoteIds;
+      scopeLabel = options.focusedCandidateScopeLabel;
+    }
+  });
+  await runtime.createGraphThemeIndexFromNoteIds(requested);
+  assert.deepEqual(saved[0].noteIds, selected);
+  assert.deepEqual(candidateIds, selected);
+  assert.equal(scopeLabel, "已确认主题材料");
+  assert.deepEqual(requested, ["a", "b", "c", "d"]);
 });

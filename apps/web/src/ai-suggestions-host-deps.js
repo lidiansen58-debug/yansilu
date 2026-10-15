@@ -1,3 +1,5 @@
+import { openAiSuggestionTargetNote } from "./ai-suggestion-note-opening.js";
+
 export function createAiSuggestionsWorkspaceHostDeps(deps = {}) {
   const {
     settingsState = { ai: {} },
@@ -5,8 +7,6 @@ export function createAiSuggestionsWorkspaceHostDeps(deps = {}) {
     refreshAiSuggestions = async () => {},
     loadAiSuggestionDetail = async () => {},
     applyAiSuggestionStatus = async () => {},
-    activateModule = () => {},
-    openNoteById = () => {},
     render = () => {},
     setStatus = () => {}
   } = deps;
@@ -18,17 +18,7 @@ export function createAiSuggestionsWorkspaceHostDeps(deps = {}) {
     loadAiSuggestionDetail,
     applyAiSuggestionStatus,
     render,
-    openTargetNote: async (noteId) => {
-      const cleanNoteId = String(noteId || "").trim();
-      if (!cleanNoteId) {
-        setStatus("这条建议还没有指向目标笔记", "warn");
-        return false;
-      }
-      activateModule("explorer");
-      openNoteById(cleanNoteId, { preferTitleSelection: false });
-      setStatus("已打开目标笔记，你可以继续审阅这条已采纳的草稿", "ok");
-      return true;
-    },
+    openTargetNote: noteId => openAiSuggestionTargetNote(deps, noteId),
     refreshStatusMessage: "AI 建议已刷新",
     setStatus
   };

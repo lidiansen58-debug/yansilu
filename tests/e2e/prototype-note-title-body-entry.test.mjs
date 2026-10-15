@@ -21,7 +21,8 @@ test(`a new ${kind} note accepts title and body in ${mode} mode`, async t => {
   await page.waitForFunction(() => {
     const editor = window.__prototypeEditor;
     const range = editor?.editorSelection();
-    return range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
+    return !window.__prototypeState.pendingNoteCreation
+      && range && editor.getEditorValue().slice(range.from, range.to) === "未命名笔记";
   });
   const original = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
   if (kind === "original") assert.match(original, /\n## 核心观点\n/);
@@ -46,6 +47,14 @@ test(`a new ${kind} note accepts title and body in ${mode} mode`, async t => {
     (await fetchJson(apiBase, `/api/v1/notes/${noteId}`)).json.item.body,
     /^# 今天的观察\n\n先把想法记下来，再慢慢整理。(?:\n|$)/
   ));
+  await page.waitForFunction(id => {
+    const editor = window.__prototypeEditor;
+    return editor.activeNote()?.id === id && !editor.savingPromise && !editor.activeTab()?.dirty;
+  }, noteId);
+  assert.match(await page.evaluate(() => window.__prototypeEditor.getEditorValue()),
+    /^# 今天的观察\n\n先把想法记下来，再慢慢整理。(?:\n|$)/);
+  assert.match((await fetchJson(apiBase, `/api/v1/notes/${noteId}`)).json.item.body,
+    /^# 今天的观察\n\n先把想法记下来，再慢慢整理。(?:\n|$)/);
   await page.screenshot({ path: `output/note-core-autosave/title-to-body-${kind}-${mode}.png`, fullPage: true });
 });
 }

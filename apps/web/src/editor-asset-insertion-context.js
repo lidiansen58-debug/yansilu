@@ -1,8 +1,16 @@
+function directoryForMarkdownPath(value = "") {
+  const path = String(value ?? "").replace(/\\/g, "/");
+  if (!path) return null;
+  return path.slice(0, path.lastIndexOf("/") + 1);
+}
+
 export function captureAssetInsertionContext(host, value) {
   const tab = host.activeTab();
   const note = host.activeNote();
   const noteId = note?.id || "";
-  const markdownPath = note?.markdownPath || "";
+  // A title save can rename the file; asset links depend on its directory.
+  const directory = directoryForMarkdownPath(note?.markdownPath);
+  const folderId = note?.folderId || "";
   const vaultPath = host.vaultScope?.() || "";
   const vaultScope = host.state?.noteMoveVaultScope;
   return {
@@ -13,7 +21,8 @@ export function captureAssetInsertionContext(host, value) {
       return Boolean(noteId && tab)
         && host.activeTab() === tab
         && host.activeNote()?.id === noteId
-        && (host.activeNote()?.markdownPath || "") === markdownPath
+        && directoryForMarkdownPath(host.activeNote()?.markdownPath) === directory
+        && (host.activeNote()?.folderId || "") === folderId
         && (host.vaultScope?.() || "") === vaultPath
         && state.noteMoveVaultScope === vaultScope
         && !state.noteMoveVaultSwitching

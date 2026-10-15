@@ -1,4 +1,6 @@
 import test from "node:test";
+import { runCurrentWritingProjectFlow, runCurrentWritingEntryAnalysisReset, runCurrentWritingThemeEdit, runCurrentColdThemeEntry } from "./prototype-current-writing-main-flow-helpers.mjs";
+import { runCurrentGraphLocalRelation, runCurrentGraphThemeSubset } from "./prototype-current-graph-main-flow-helpers.mjs";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -6,6 +8,18 @@ import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { snapshotDemoNoteInventory } from "./prototype-demo-inventory-helpers.mjs";
+import { runVisibleWritingReadinessFlow } from "./prototype-writing-readiness-flow-helpers.mjs";
+import { runVisibleRelationCreateFlow, runVisibleRelationEditFlow } from "./prototype-visible-relation-flow-helpers.mjs";
+import { runAiReviewedLifecycle, runAiReviewReopenContinuity, runAiReviewConflict } from "./prototype-ai-review-flow-helpers.mjs";
+import { adoptWhileTyping } from "./prototype-ai-adoption-input-helpers.mjs";
+import { runAiMixedGroupReview } from "./prototype-ai-mixed-review-helpers.mjs";
+import { runAiFilterWhileRefreshing } from "./prototype-ai-filter-input-helpers.mjs";
+import { runAiReturnToEditor, runAiStructuredInputValidation } from "./prototype-ai-review-editor-validation-helpers.mjs";
+import { runAiRejectedReview, runAiPendingContinuity, runAiEditedContinuity } from "./prototype-ai-review-continuity-helpers.mjs";
+import { runAiAdoptedReadOnly } from "./prototype-ai-review-adoption-helpers.mjs";
+import { runAiStaleReview } from "./prototype-ai-review-stale-helpers.mjs";
+import { assertDesktopBridgeCalls, installReadyDesktopBridge } from "./prototype-desktop-bridge-helpers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -55,6 +69,11 @@ async function waitFor(assertFn, timeoutMs = 6000, intervalMs = 120) {
 async function openOriginalNoteBox(page) {
   await page.locator('[data-action="quick-original"]').click();
   await page.locator("#editorWorkspace").waitFor({ state: "visible", timeout: 3000 });
+}
+
+async function openPermanentRelations(page) {
+  if (!(await page.locator("#relatedPanel").isVisible())) await page.locator("#btnShowRelated").click();
+  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
 }
 
 async function waitForWritingThemeProjectActionReady(page) {
@@ -570,6 +589,39 @@ test("prototype current AI suggestions modal guards closed detail and duplicate 
   }, 8000);
 });
 
+test("prototype AI review confirmation preserves the draft and newer note when writeback conflicts", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Confirmation conflict target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await markSuggestionEditedViaApi(stack.apiBase, fixture, "Human review before a conflicting edit.");
+  await runAiReviewConflict(stack, fixture);
+});
+
+test("prototype AI mixed suggestion group retains edited review while its sibling stays pending", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Mixed review target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await markSuggestionEditedViaApi(stack.apiBase, fixture, "Already reviewed thesis alongside pending summary.");
+  await runAiMixedGroupReview(stack, fixture);
+});
+
+test("prototype AI filter choice survives a pending list refresh response", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Filter during loading target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await markSuggestionEditedViaApi(stack.apiBase, fixture, "Edited viewpoint selected before list loading completes.");
+  await runAiFilterWhileRefreshing(stack, fixture);
+});
+
 test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -582,36 +634,29 @@ test("prototype desktop updater check no-ops cleanly when no update is available
   const stack = await startPrototypeStack(t, playwright, {
     enterNotes: false,
     beforeGoto: async (page, { apiBase }) => {
-      await page.addInitScript((apiBase) => {
-        window.__updaterCommands = [];
-        window.__confirmMessages = [];
-        window.confirm = (message) => {
-          window.__confirmMessages.push(message);
-          return false;
-        };
-        window.__TAURI__ = {
-          core: {
-            async invoke(command, args) {
-              if (command === "get_desktop_service_status") return { overall: "healthy", services: { api: { status: "healthy", baseUrl: apiBase } } };
-              if (command === "get_desktop_api_base") return apiBase;
-              window.__updaterCommands.push({ command, args });
-              if (command === "plugin:updater|check") return { available: false };
-              throw new Error(`unexpected updater command: ${command}`);
-            }
-          }
-        };
-      }, apiBase);
+      await installReadyDesktopBridge(page, apiBase);
     }
   });
   if (!stack) return;
 
   const { page } = stack;
   await waitFor(async () => {
-    const commands = await page.evaluate(() => window.__updaterCommands || []);
-    assert.deepEqual(commands.map((item) => item.command), ["plugin:updater|check"]);
-    const confirms = await page.evaluate(() => window.__confirmMessages || []);
-    assert.deepEqual(confirms, []);
+    await assertDesktopBridgeCalls(page, ["plugin:updater|check"]);
   }, 7000);
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await page.locator('[data-settings-item="version-update"]').click();
+  await page.locator("#settingsUpdateCard").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#settingsUpdateStatusBadge").innerText(), "已是最新");
+  assert.equal(await page.locator("#settingsUpdateError").isVisible(), false);
+  for (const id of ["settingsInstallUpdate", "settingsRelaunchUpdate", "settingsOpenUpdateDownload"]) {
+    assert.equal(await page.locator(`#${id}`).isVisible(), false);
+  }
+  await page.locator("#settingsCheckUpdate").click();
+  await waitFor(async () => {
+    await assertDesktopBridgeCalls(page, ["plugin:updater|check", "plugin:updater|check"]);
+    assert.equal(await page.locator("#settingsCheckUpdate").isEnabled(), true);
+  });
+  assert.equal(await page.locator("#settingsUpdateStatusBadge").innerText(), "已是最新");
 });
 
 async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
@@ -1341,6 +1386,78 @@ test("prototype editor inserts Chinese text at the clicked permanent-note field 
   }, 7000);
 });
 
+test("delayed initial positioning preserves the clicked permanent-note paragraph during Chinese typing", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.evaluate(() => {
+    const set = window.setTimeout.bind(window), clear = window.clearTimeout.bind(window);
+    let next = -1;
+    window.__delayedPositionCallbacks = new Map();
+    window.setTimeout = (callback, delay, ...args) => {
+      if (typeof callback === "function" && [32, 96].includes(Number(delay))) {
+        const id = next--;
+        window.__delayedPositionCallbacks.set(id, () => callback(...args));
+        return id;
+      }
+      return set(callback, delay, ...args);
+    };
+    window.clearTimeout = id => window.__delayedPositionCallbacks.delete(id) || clear(id);
+  });
+  await page.locator("#btnNewNote").click();
+  await ensureNoteMode(page);
+  await waitForActiveNoteBodyLoaded(page);
+  await waitForEditableNoteSurface(page);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /## 核心观点\n\n写成一句可被反驳、可被引用、值得保留的判断。/);
+    assert.doesNotMatch(editorValue, /^> 写成一句/m);
+    assert.doesNotMatch(editorValue, /^- 来自哪条文献/m);
+  }, 7000);
+
+  const coreClaimParagraph = page.locator(
+    "#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p",
+    { hasText: "写成一句可被反驳、可被引用、值得保留的判断。" }
+  );
+  await waitFor(async () => {
+    assert.equal(await coreClaimParagraph.count(), 1);
+  }, 7000);
+
+  await coreClaimParagraph.click();
+  const initialTitle = (await page.locator("#editorBody").inputValue()).split("\n")[0];
+  await page.keyboard.type("中文观点不会跑到");
+  const queued = await page.evaluate(() => {
+    const callbacks = [...window.__delayedPositionCallbacks.values()];
+    window.__delayedPositionCallbacks.clear();
+    callbacks.forEach(callback => callback());
+    return callbacks.length;
+  });
+  assert.ok(queued >= 2, "Initial positioning callbacks must actually be delayed");
+  await page.keyboard.type("末尾");
+  assert.equal((await page.locator("#editorBody").inputValue()).split("\n")[0], initialTitle);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const insertedAt = editorValue.indexOf("中文观点不会跑到末尾");
+    const whyTrueAt = editorValue.indexOf("## 为什么成立");
+    const boundaryAt = editorValue.indexOf("## 边界 / 反例");
+    assert.ok(insertedAt > editorValue.indexOf("## 核心观点"), editorValue);
+    assert.ok(insertedAt > 0 && insertedAt < whyTrueAt, editorValue);
+    assert.ok(boundaryAt > insertedAt, editorValue);
+    assert.doesNotMatch(editorValue.slice(boundaryAt), /中文观点不会跑到末尾/);
+  }, 7000);
+});
+
 test("prototype note browser stays minimal and creates literature notes in the literature root", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -1648,40 +1765,47 @@ test("prototype graph surfaces a continuous isolated-note handling queue", async
   });
   assert.equal(created.status, 201, JSON.stringify(created.json));
 
+  const target = await createWritingReadyPermanentNote(apiBase, {
+    title: "Queue Relation Target",
+    body: "# Queue Relation Target\n\nA reusable target for an explicit relation.",
+    thesis: "A relation must preserve its source and a clear explanation.",
+    threeLineSummary: ["Keep the source.", "Choose a target.", "Save the explanation."],
+    boundaryOrCounterpoint: "An isolated note may also remain independent."
+  });
+  const remaining = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    title: "Queue Isolated Next",
+    body: "# Queue Isolated Next\n\nAnother independent note to handle after the first."
+  });
+  assert.equal(remaining.status, 201, JSON.stringify(remaining.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-module="graph"]').click();
   await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
 
-  const strip = page.locator(".graph-isolated-queue-strip");
-  await strip.waitFor({ timeout: 10000 });
-  assert.match(String(await strip.textContent()), /笔记待关联/);
-
-  await strip.locator('[data-graph-open-workbench-entry="organize"]').click();
-  await page.locator(".graph-workbench-panel .graph-isolated-queue").waitFor({ timeout: 5000 });
-
-  await strip.locator("[data-graph-select-isolated]").click();
-  await page.locator(".graph-selection-panel").waitFor({ timeout: 5000 });
-  assert.match(String(await page.locator(".graph-selection-panel").textContent()), /未入星系|孤立笔记/);
-  assert.equal(await page.locator(".graph-selection-panel .graph-isolated-queue.is-compact").count(), 0);
-  assert.equal(await page.locator(".graph-selection-panel [data-graph-isolated-relation-form]").count(), 1);
-  const workflowTabs = page.locator(".graph-selection-panel [data-graph-isolated-tab]");
-  await waitFor(async () => {
-    assert.equal(await workflowTabs.count(), 2);
-    assert.equal(await workflowTabs.first().getAttribute("aria-selected"), "true");
-  }, 4000);
-  await workflowTabs.nth(1).click();
-  assert.equal(await workflowTabs.nth(1).getAttribute("aria-selected"), "true");
-  assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="manual"]').isVisible(), true);
-  await workflowTabs.nth(1).focus();
-  await page.keyboard.press("ArrowRight");
-  assert.equal(await workflowTabs.first().getAttribute("aria-selected"), "true");
-  assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="ai"]').isVisible(), true);
-  await page.locator("[data-graph-reading-lens]").first().evaluate((button) => button.click());
-  const workflowTabsAfterRender = page.locator(".graph-selection-panel [data-graph-isolated-tab]");
-  await waitFor(async () => {
-    assert.equal(await workflowTabsAfterRender.first().getAttribute("aria-selected"), "true");
-    assert.equal(await page.locator('.graph-selection-panel [data-graph-target-panel="ai"]').isVisible(), true);
-  }, 4000);
+  await page.locator('[data-graph-task-view="relations"]').click();
+  const workbench = page.locator(".graph-workbench-panel");
+  await workbench.waitFor({ timeout: 5000 });
+  assert.match(String(await workbench.textContent()), /Queue Isolated One/);
+  await workbench.locator(`[data-graph-isolated-note="${created.json.item.id}"]`).click();
+  const workspace = page.locator("[data-permanent-relation-workspace]");
+  await workspace.waitFor({ state: "visible", timeout: 5000 });
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.noteId), created.json.item.id);
+  await workspace.locator("[data-permanent-relation-target-search]").fill("Queue Relation Target");
+  await workspace.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
+  await workspace.locator('[data-permanent-relation-type-choice="supports"]').click();
+  await workspace.locator('textarea[name="rationale"]').fill("The first note supports the target by preserving a clear source and explanation.");
+  await workspace.locator('button[type="submit"]').click();
+  await workspace.locator(".permanent-relation-result").waitFor();
+  const saved = await fetchJson(apiBase, `/api/v1/notes/${created.json.item.id}/relations`);
+  assert.ok(saved.json.item.outgoingLinks.some(link => link.toNoteId === target.json.item.id && link.relationType === "supports"));
+  await workspace.locator('[data-permanent-relation-action="complete"]').click();
+  await workspace.waitFor({ state: "hidden" });
+  await workbench.locator(`[data-graph-isolated-note="${remaining.json.item.id}"]`).click();
+  await workspace.waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.noteId), remaining.json.item.id);
+  assert.equal(await workspace.locator('textarea[name="rationale"]').inputValue(), "");
+  assert.equal(await page.evaluate(() => window.__prototypeState.module), "graph");
 });
 
 
@@ -1878,6 +2002,7 @@ test("prototype main-path card refreshes relation state and does not leak stale 
     const response = await route.fetch();
     await route.fulfill({ response });
   });
+  await page.locator("#btnHideRelated").click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
   await page.waitForFunction(() => window.__prototypeEditor.semanticRelationsState === "loading");
   assert.equal(await page.evaluate(() => window.__prototypeEditor.currentSemanticRelations), null);
@@ -1940,8 +2065,7 @@ test("prototype permanent relation workspace saves manually, refreshes before sa
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Workspace Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-
+  await openPermanentRelations(page);
   await page.locator('#relatedPanel [data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]:visible').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2071,7 +2195,7 @@ test("prototype permanent relation workspace saves a searched relation in place"
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "AI Relation Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
   await page.locator('#relatedPanel [data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]:visible').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2142,7 +2266,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Sidebar Route Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
   await page.locator('[data-permanent-relation-action="open"][data-permanent-relation-mode="manual"]').click();
 
   const workspace = page.locator("[data-permanent-relation-workspace]");
@@ -2164,6 +2288,7 @@ test("prototype right sidebar relation entry saves through overlay and appears i
 
   await page.locator('[data-permanent-relation-action="complete"]').click();
   await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
+  await page.locator("#btnHideRelated").click();
   await page.locator('.rail-btn[data-module="graph"]').click();
   await waitFor(async () => {
     await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 2000 });
@@ -2174,172 +2299,28 @@ test("prototype right sidebar relation entry saves through overlay and appears i
   }, 10000);
 });
 
-test("prototype main-path writing readiness matches writing center basket status for the same note", async (t) => {
+test("prototype visible writing accepts confirmed material and retains missing structure reminders", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
   }
-
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const note = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    title: "Readiness Basket Note",
-    body: "# Readiness Basket Note\n\nA confirmed note with no explicit boundary yet.",
-    thesis: "A durable note should be allowed into the basket before it is ready for project creation.",
-    threeLineSummary: [
-      "The note already has a reusable judgment.",
-      "It matters because basket entry should happen earlier than project creation.",
-      "It should still wait for stronger structure before stronger actions."
-    ],
-    distillationStatus: "confirmed",
-    authorship: {
-      user_confirmed: true,
-      ai_assisted: false
-    }
-  });
-  assert.equal(note.status, 201, JSON.stringify(note.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Basket Note" }).click();
-  await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-
-  await waitFor(async () => {
-    const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(text || ""), /设计写作项目/);
-  }, 10000);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
-  await page.click("#btnWritingUseCurrent");
-
-  await waitFor(async () => {
-    const strip = await page.locator("#writingStatusStrip").textContent();
-    assert.match(String(strip || ""), /保存/);
-    assert.match(String(strip || ""), /设计写作项目/);
-  }, 10000);
-
-  const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
-  assert.match(String(createProjectText || ""), /先创建写作项目/);
-
-  const strongModelText = await page.locator("#btnWritingStrongModelAnalysis").textContent();
-  assert.match(String(strongModelText || ""), /先准备/);
+  await runVisibleWritingReadinessFlow(stack, { prepared: false });
 });
 
-test("prototype main-path project-ready state matches writing center project readiness", async (t) => {
+test("prototype visible writing preserves prepared sources through theme and outline creation", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
   }
-
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const target = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    title: "Readiness Project Target",
-    body: "# Readiness Project Target\n\nA durable target note.",
-    thesis: "A target note helps the source note become structurally ready for project creation.",
-    threeLineSummary: [
-      "The target note already has a reusable judgment.",
-      "It matters because the source note should not remain isolated.",
-      "It helps the source note move beyond basket-only readiness."
-    ],
-    distillationStatus: "confirmed",
-    authorship: {
-      user_confirmed: true,
-      ai_assisted: false
-    },
-    boundaryOrCounterpoint: "This target note is only useful when its relation is explicit."
-  });
-  assert.equal(target.status, 201, JSON.stringify(target.json));
-
-  const source = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    title: "Readiness Project Note",
-    body: "# Readiness Project Note\n\n[[Readiness Project Target]]\n\nA confirmed note with one explicit relation and a boundary.",
-    thesis: "A durable note should become project-ready once boundary and relation are both explicit.",
-    threeLineSummary: [
-      "The note has a reusable judgment.",
-      "It matters because project creation should happen after basket entry, not before.",
-      "It should still wait for richer theme signals before strong-model analysis."
-    ],
-    distillationStatus: "confirmed",
-    authorship: {
-      user_confirmed: true,
-      ai_assisted: false
-    },
-    boundaryOrCounterpoint: "This readiness only makes sense after at least one explicit relation is added."
-  });
-  assert.equal(source.status, 201, JSON.stringify(source.json));
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
-    toNoteId: target.json.item.id,
-    relationType: "supports",
-    rationale: "The target note strengthens the source note enough to justify project creation.",
-    insightQuestion: "What is still missing before this turns into strong-model-ready material?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Project Note" }).click();
-  await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-
-  await waitFor(async () => {
-    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /创建项目/);
-  }, 10000);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
-  await page.click("#btnWritingUseCurrent");
-
-  await waitFor(async () => {
-    const state = await page.evaluate(() => {
-      const cards = Array.from(document.querySelectorAll("#writingStatusStrip .writing-status-card")).map((card) => ({
-        label: card.querySelector("span")?.textContent || "",
-        value: card.querySelector("strong")?.textContent || "",
-        note: card.querySelector("small")?.textContent || ""
-      }));
-      const cardByLabel = (label) => cards.find((card) => card.label === label) || null;
-      const createProject = document.querySelector("#btnWritingCreateProject");
-      const strongModel = document.querySelector("#btnWritingStrongModelAnalysis");
-      return {
-        projectCard: cardByLabel("项目"),
-        strongModelCard: cardByLabel("强模型"),
-        createProjectText: createProject?.textContent || "",
-        createProjectDisabled: Boolean(createProject?.disabled),
-        strongModelText: strongModel?.textContent || "",
-        strongModelDisabled: Boolean(strongModel?.disabled)
-      };
-    });
-
-    assert.equal(state.projectCard?.value, "已达到");
-    assert.match(String(state.projectCard?.note || ""), /写作项目/);
-    assert.equal(state.strongModelCard?.value, "先准备");
-    assert.match(String(state.strongModelCard?.note || ""), /强模型准备/);
-    assert.equal(state.createProjectDisabled, false);
-    assert.equal(state.strongModelDisabled, true);
-    assert.match(String(state.createProjectText || ""), /创建写作项目/);
-    assert.match(String(state.strongModelText || ""), /先准备/);
-  }, 10000);
+  await runVisibleWritingReadinessFlow(stack, { prepared: true });
 });
 
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
@@ -2388,13 +2369,13 @@ test("prototype related inspector renders explicit semantic relations", async (t
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Relation Target`n`nThis target note collects the claim that still needs supporting evidence."
+    body: "# Relation Target\n\nThis target note collects the claim that still needs supporting evidence."
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Relation Source`n`nThis source note should justify the target claim through an explicit support relation."
+    body: "# Relation Source\n\nThis source note should justify the target claim through an explicit support relation."
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
@@ -2411,303 +2392,36 @@ test("prototype related inspector renders explicit semantic relations", async (t
   await openOriginalNoteBox(page);
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Source" }).click();
   await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
+  await openPermanentRelations(page);
 
   await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
+    const relatedText = await page.locator("#relatedPanel").innerText();
     assert.match(String(relatedText || ""), /Relation Source/);
-    assert.match(String(relatedText || ""), /supports/);
+    assert.match(String(relatedText || ""), /支持/);
     assert.match(String(relatedText || ""), /Relation Target/);
-    assert.match(String(relatedText || ""), /support/);
     assert.match(String(relatedText || ""), /concrete supporting reason/);
-    assert.match(String(relatedText || ""), /strong enough to trust/);
   }, 10000);
+  const saved = await fetchJson(apiBase, `/api/v1/notes/${source.json.item.id}/relations`);
+  const displayedRelation = saved.json.item.outgoingLinks.find(link => link.id === relation.json.item.id);
+  assert.equal(displayedRelation?.relationType, "supports");
+  assert.match(displayedRelation?.insightQuestion || "", /strong enough to trust/);
 });
 
-test("prototype related inspector can create an explicit semantic relation", async (t) => {
+for (const [title, run] of [
+  ["prototype related inspector can create an explicit semantic relation", stack => runVisibleRelationCreateFlow(stack)],
+  ["prototype related inspector searches unloaded SQLite relation targets", stack => runVisibleRelationCreateFlow(stack, { unloaded: true })],
+  ["prototype related inspector can edit and delete an explicit semantic relation", stack => runVisibleRelationEditFlow(stack)]
+]) test(title, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
   }
-
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const target = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    body: "# Writing Target`n`nThis note is the target that still needs a clearly supported relation before drafting.",
-    thesis: "A draft should treat supporting evidence as an explicit relation instead of an implied shortcut.",
-    threeLineSummary: [
-      "The target starts in a state where the support path is still missing.",
-      "Its value comes from making the relation and evidence visible.",
-      "The source relation should keep the draft grounded in the note state."
-    ],
-    distillationStatus: "confirmed",
-    authorship: {
-      user_confirmed: true,
-      ai_assisted: false
-    },
-    boundaryOrCounterpoint: "Only treat the target as stable when the support relation is explicit and reviewable."
-  });
-  assert.equal(target.status, 201, JSON.stringify(target.json));
-
-  const source = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    body: "# Writing Source`n`nThis note should provide the evidence that makes the target relation explicit.",
-    thesis: "A clear source boundary helps later writing keep the support path honest.",
-    threeLineSummary: [
-      "The source note should remain inspectable before drafting.",
-      "The relation should be justified instead of guessed from proximity.",
-      "A transparent support path makes later drafting more reliable."
-    ],
-    distillationStatus: "confirmed",
-    authorship: {
-      user_confirmed: true,
-      ai_assisted: false
-    },
-    boundaryOrCounterpoint: "Only collapse the relation into draft language after the support path is explicit."
-  });
-  assert.equal(source.status, 201, JSON.stringify(source.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Writing Source" }).click();
-  await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-  await waitFor(async () => {
-    assert.ok((await page.locator('#resultArea [data-relation-action="open-create"]').count()) > 0);
-  }, 10000);
-  await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll('#resultArea [data-relation-action="open-create"]'));
-    const button = buttons.find((item) => item instanceof HTMLElement && item.offsetParent !== null) || buttons.at(-1);
-    if (!button) throw new Error("Relation create action not found.");
-    button.click();
-  });
-
-  const workspace = page.locator("[data-permanent-relation-workspace]");
-  await workspace.waitFor({ state: "visible" });
-  const workspaceText = await workspace.textContent();
-  assert.match(String(workspaceText || ""), /关系|relation/i);
-  assert.match(String(workspaceText || ""), /为什么|理由|reason|rationale/i);
-
-  await page.locator("[data-permanent-relation-target-search]").fill("Writing Target");
-  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
-  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("supports");
-  await page.locator('[data-permanent-relation-field="rationale"]').fill("This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.");
-  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
-
-  await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /Writing Target/);
-    assert.match(String(relatedText || ""), /explicit supporting reason/);
-    assert.match(String(relatedText || ""), /支持|supports/i);
-  }, 10000);
-
-  await page.locator('[data-permanent-relation-action="complete"]').click();
-  await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "detached" });
-
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await waitFor(async () => {
-    const summary = await page.locator("#graphSummary").textContent();
-    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
-    assert.ok(nodeCount >= 2, summary || "");
-    assert.ok(edgeCount >= 1, summary || "");
-    const graphText = await page.locator("#graphCanvas").textContent();
-    assert.match(String(graphText || ""), /Writing Source/);
-    assert.match(String(graphText || ""), /Writing Target/);
-  }, 10000);
-
-  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-  assert.equal(relations.status, 200, JSON.stringify(relations.json));
-  assert.equal(relations.json.item.outgoingLinks.length, 1);
-  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-  assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
-  assert.equal(relations.json.item.outgoingLinks[0].rationale, "This source note gives the target one explicit supporting reason, with a boundary the draft can keep visible.");
+  await run(stack);
 });
-
-test("prototype related inspector searches unloaded SQLite relation targets", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  const childDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Relation Search Child",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "relation-search-child"),
-    maxNotes: 500
-  });
-  assert.equal(childDirectory.status, 201, JSON.stringify(childDirectory.json));
-
-  const target = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: childDirectory.json.item.id,
-    body: "# Remote Relation Target\n\nThis target lives in a child directory that the current note list has not loaded."
-  });
-  assert.equal(target.status, 201, JSON.stringify(target.json));
-
-  const source = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# Relation Search Source\n\nThis note should find a target through SQLite search."
-  });
-  assert.equal(source.status, 201, JSON.stringify(source.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Search Source" }).click();
-  await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-  await waitFor(async () => {
-    assert.ok((await page.locator('#resultArea [data-relation-action="open-create"]').count()) > 0);
-  }, 10000);
-  await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll('#resultArea [data-relation-action="open-create"]'));
-    const button = buttons.find((item) => item instanceof HTMLElement && item.offsetParent !== null) || buttons.at(-1);
-    if (!button) throw new Error("Relation create action not found.");
-    button.click();
-  });
-  await page.locator("[data-permanent-relation-workspace]").waitFor({ state: "visible" });
-  await page.locator("[data-permanent-relation-target-search]").fill("Remote Relation Target");
-
-  await waitFor(async () => {
-    const options = await page.locator("[data-permanent-relation-manual-target]").allTextContents();
-    assert.ok(options.some((item) => item.includes("Remote Relation Target")), options.join(" | "));
-  }, 10000);
-
-  await page.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`).click();
-  await page.locator('[data-permanent-relation-field="relationType"]').selectOption("bridges");
-  await page.locator('[data-permanent-relation-field="rationale"]').fill("SQLite search can connect the current note to a target that was not loaded in the file list.");
-  await page.locator("[data-permanent-relation-form] button[type='submit']").click();
-
-  await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /Remote Relation Target/);
-    assert.match(String(relatedText || ""), /SQLite search can connect/);
-  }, 10000);
-
-  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-  assert.equal(relations.status, 200, JSON.stringify(relations.json));
-  assert.equal(relations.json.item.outgoingLinks.length, 1);
-  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-  assert.equal(relations.json.item.outgoingLinks[0].relationType, "bridges");
-});
-
-test("prototype related inspector can edit and delete an explicit semantic relation", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const target = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# 关系编辑目标\n\n用于测试关系编辑的目标笔记。"
-  });
-  assert.equal(target.status, 201, JSON.stringify(target.json));
-
-  const source = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# 关系编辑来源\n\n用于测试一条需要修改的关系。"
-  });
-  assert.equal(source.status, 201, JSON.stringify(source.json));
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
-    toNoteId: target.json.item.id,
-    relationType: "supports",
-    rationale: "原始关系理由用于编辑测试",
-    insightQuestion: "原始问题是什么？",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "关系编辑来源" }).click();
-  await ensureNoteMode(page);
-  await page.locator("#btnShowRelated").click();
-  await page.locator("#relatedPanel").waitFor({ state: "visible" });
-  await waitFor(async () => {
-    assert.ok((await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').count()) > 0);
-  }, 10000);
-  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
-  await waitFor(async () => {
-    assert.ok((await page.locator('#relatedPanel [data-relation-action="open-edit"]:visible').count()) > 0);
-  }, 10000);
-  await page.locator('#relatedPanel [data-relation-action="open-edit"]:visible').click();
-
-  const editForm = page.locator("[data-edit-relation-form]:visible");
-  await editForm.waitFor({ state: "visible" });
-  const editFormText = await editForm.textContent();
-  assert.ok(String(editFormText || "").trim().length > 0);
-  assert.match(String(editFormText || ""), /为什么要关联/);
-  assert.match(String(editFormText || ""), /继续追问/);
-
-  await editForm.locator('select[name="relationType"]').selectOption("qualifies");
-  await editForm.locator('select[name="status"]').selectOption("draft");
-  await editForm.locator('textarea[name="rationale"]').fill("编辑后的关系理由应说明为什么这条关系成立。");
-  await editForm.locator('textarea[name="insightQuestion"]').fill("这条关系还缺什么？");
-  const editQualityText = await editForm.locator("[data-relation-quality]").textContent();
-  assert.match(String(editQualityText || ""), /理由质量/);
-  await editForm.locator('button[type="submit"]').click();
-
-  await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /关系已更新/);
-    assert.match(String(relatedText || ""), /限定/);
-    assert.match(String(relatedText || ""), /草稿/);
-    assert.match(String(relatedText || ""), /编辑后的关系理由/);
-    assert.match(String(relatedText || ""), /这条关系还缺什么/);
-  }, 10000);
-
-  const updatedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-  assert.equal(updatedRelations.status, 200, JSON.stringify(updatedRelations.json));
-  assert.equal(updatedRelations.json.item.outgoingLinks[0].relationType, "qualifies");
-  assert.equal(updatedRelations.json.item.outgoingLinks[0].status, "draft");
-  assert.equal(updatedRelations.json.item.outgoingLinks[0].rationale, "编辑后的关系理由应说明为什么这条关系成立。");
-
-  page.once("dialog", async (dialog) => {
-    assert.match(dialog.message(), /删除/);
-    await dialog.accept();
-  });
-  await waitFor(async () => {
-    assert.ok((await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').count()) > 0);
-  }, 10000);
-  await page.locator('#relatedPanel [data-permanent-workspace-tab="relations"]:visible').click();
-  await waitFor(async () => {
-    assert.ok((await page.locator('#relatedPanel [data-relation-action="delete"]:visible').count()) > 0);
-  }, 10000);
-  await page.locator('#relatedPanel [data-relation-action="delete"]:visible').click();
-
-  await waitFor(async () => {
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /关系已删除/);
-    assert.doesNotMatch(String(relatedText || ""), /编辑后的关系理由/);
-  }, 10000);
-
-  const deletedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-  assert.equal(deletedRelations.status, 200, JSON.stringify(deletedRelations.json));
-  assert.deepEqual(deletedRelations.json.item.outgoingLinks, []);
-});
-
 test("prototype editor focus mode switches into a low-distraction writing chrome", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -4299,15 +4013,40 @@ test("prototype editor can insert image and attachment", async (t) => {
 
   await page.locator("#btnNewNote").click();
   await ensurePlaceholderTitleSelection(page);
+  await page.waitForFunction(() => !window.__prototypeState.pendingNoteCreation);
   await page.keyboard.type("Asset Insert Note");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Body");
 
+  const assetResponses = [];
+  page.on("response", response => {
+    if (response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/assets")) {
+      assetResponses.push({ status: response.status(), timing: response.request().timing() });
+    }
+  });
+  await page.evaluate(() => {
+    const editor = window.__prototypeEditor;
+    window.__assetInsertionObservation = { tab: editor.activeTab(), scope: window.__prototypeState.noteMoveVaultScope,
+      id: editor.activeNote()?.id, path: editor.activeNote()?.markdownPath, folder: editor.activeNote()?.folderId, body: editor.getEditorValue() };
+  });
   await page.setInputFiles("#assetImageInput", pngPath);
-  await waitFor(async () => {
-    const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /tiny\.png/);
-  }, 10000);
+  try {
+    await waitFor(async () => {
+      const value = await page.locator("#editorBody").inputValue();
+      assert.match(value, /tiny\.png/);
+    }, 10000);
+  } catch (error) {
+    const observation = await page.evaluate(() => {
+      const editor = window.__prototypeEditor, before = window.__assetInsertionObservation;
+      return { before: { id: before.id, path: before.path, folder: before.folder, body: before.body },
+        after: { id: editor.activeNote()?.id, path: editor.activeNote()?.markdownPath, folder: editor.activeNote()?.folderId, body: editor.getEditorValue() },
+        sameTab: editor.activeTab() === before.tab, sameScope: window.__prototypeState.noteMoveVaultScope === before.scope,
+        uploadPending: editor.assetUploadPending, saving: Boolean(editor.savingPromise), mirror: document.querySelector("#editorBody")?.value,
+        status: document.querySelector("#statusText")?.textContent };
+    });
+    error.message += `\nAsset insertion observation: ${JSON.stringify({ observation, assetResponses })}`;
+    throw error;
+  }
 
   await page.setInputFiles("#assetFileInput", txtPath);
   await waitFor(async () => {
@@ -5071,9 +4810,12 @@ test("prototype falls back to default literature template when stored template i
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 出处/);
+    assert.match(value, /- 标题：/);
+    assert.match(value, /- 页码 \/ 定位：/);
+    assert.match(value, /- 链接 \/ 文件：/);
     assert.match(value, /## 原文/);
-    assert.match(value, /## 转述/);
+    assert.match(value, /## 我的理解/);
     assert.doesNotMatch(value, /## Research Notes/);
   }, 5000);
   const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
@@ -5084,7 +4826,10 @@ test("prototype falls back to default literature template when stored template i
     const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
     assert.equal(selectedFileId, originalUntitledNoteId);
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 出处/);
+    assert.match(value, /- 标题：/);
+    assert.match(value, /- 页码 \/ 定位：/);
+    assert.match(value, /- 链接 \/ 文件：/);
     assert.doesNotMatch(value, /## Research Notes/);
   }, 5000);
 });
@@ -5548,7 +5293,7 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
 
-  await page.click("#btnCloseImportOperationResult");
+  await page.locator("#btnImportConfirm").waitFor({ state: "visible" });
   await page.click("#btnImportConfirm");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
@@ -5559,26 +5304,28 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
 
   const confirmResultText = await page.locator("#importResult").textContent();
   assert.match(confirmResultText || "", /"sources":\s*2/);
-  assert.match(confirmResultText || "", /"literatureNotes":\s*2/);
-  assert.match(confirmResultText || "", /"permanentNotes":\s*0/);
+  assert.match(confirmResultText || "", /"literatureNotes":\s*1/);
+  assert.match(confirmResultText || "", /"permanentNotes":\s*1/);
   assert.match(confirmResultText || "", /"selectedCandidates":\s*4/);
 
   const importedLiteratureNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
     assert.equal(result.status, 200);
-    assert.equal(result.json.total, 2);
+    assert.equal(result.json.total, 1);
     return result;
   }, 7000);
   const importedPermanentNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
-    assert.equal(result.json.total, 0);
+    assert.equal(result.json.total, 1);
     return result;
   }, 7000);
 
   assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "中文阅读卡片"));
-  assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "Spacing Note"));
-  assert.equal(importedPermanentNotes.json.total, 0);
+  const importedJudgment = importedPermanentNotes.json.items.find((item) => item.title === "Spacing Note");
+  assert.ok(importedJudgment, "an existing permanent note must keep its note type");
+  const importedFile = await fs.readFile(path.join(stack.vaultPath, importedJudgment.markdownPath), "utf8");
+  assert.match(importedFile, /status:\s*['"]?draft['"]?/);
 
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
@@ -5685,332 +5432,8 @@ test("prototype export panel exports markdown files through real API", async (t)
   assert.match(exportedContent, /exported from the browser UI/);
 });
 
-test("prototype writing panel creates project and draft scaffold through real API", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  await page.addInitScript(() => {
-    window.__copiedTexts = [];
-    window.__downloads = [];
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (text) => {
-          window.__copiedTexts.push(String(text || ""));
-        }
-      }
-    });
-    const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
-    URL.createObjectURL = (blob) => {
-      window.__downloads.push({ size: blob.size, type: blob.type });
-      return originalCreateObjectUrl(blob);
-    };
-  });
-
-  const writingDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Writing UI Scope",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "writing-ui-scope"),
-    maxNotes: 500
-  });
-  assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
-  const writingDirectoryId = writingDirectory.json.item.id;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, {
-    directoryId: writingDirectoryId,
-    title: "Writing UI claim",
-    body: "# Writing UI claim\n\nThe writing panel should start from permanent notes.",
-    thesis: "The writing panel should start from permanent notes.",
-    threeLineSummary: [
-      "Use permanent notes as the stable writing substrate.",
-      "Keep writing-entry setup visible in the browser UI.",
-      "Preserve note-level evidence inside the scaffold flow."
-    ],
-    boundaryOrCounterpoint: "The UI still depends on authorship confirmation and active status."
-  });
-
-  const noteB = await createWritingReadyPermanentNote(apiBase, {
-    directoryId: writingDirectoryId,
-    title: "Evidence UI map",
-    body: "# Evidence UI map\n\nThe scaffold should retain an evidence map.",
-    thesis: "The scaffold should retain an evidence map.",
-    threeLineSummary: [
-      "Browser-generated scaffolds need visible evidence anchors.",
-      "The writing flow should keep note provenance inspectable.",
-      "The scaffold should organize claims without flattening the source map."
-    ],
-    boundaryOrCounterpoint: "A scaffold is not the final draft and still needs human judgment."
-  });
-  const seededRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The evidence map supports the central writing claim and should appear in project scaffolding.",
-    insightQuestion: "How should the scaffold keep claim-evidence links visible?",
-    status: "confirmed"
-  });
-  assert.equal(seededRelation.status, 201, JSON.stringify(seededRelation.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Writing UI claim" }).waitFor();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Evidence UI map" }).waitFor();
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.fill("#writingTitle", "Writing UI Project");
-  await page.fill("#writingGoal", "Turn two permanent notes into a browser-generated scaffold.");
-  await page.fill("#writingAudience", "Researchers");
-  await page.fill("#writingTone", "clear");
-  await page.fill("#writingVersionNote", "First scaffold note from browser flow.");
-  await page.click("#btnWritingAddVisible");
-  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id];
-  await page.waitForFunction(
-    (ids) => {
-      const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "").split(/\s+/);
-      return ids.every((id) => basketIds.includes(id));
-    },
-    targetBasketIds
-  );
-  const extraBasketIds = (await page.locator("#writingBasketNoteIds").inputValue())
-    .split(/\s+/)
-    .filter((id) => id && !targetBasketIds.includes(id));
-  for (const noteId of extraBasketIds) {
-    await page.locator(`#writingBasketList [data-writing-action="remove"][data-writing-note-id="${noteId}"]`).click();
-  }
-  await page.waitForFunction(
-    (ids) => {
-      const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "")
-        .split(/\s+/)
-        .filter(Boolean);
-      return basketIds.length === ids.length && ids.every((id) => basketIds.includes(id));
-    },
-    targetBasketIds
-  );
-
-  const basketText = await page.locator("#writingBasketList").textContent();
-  assert.match(basketText || "", /Writing UI claim/);
-  assert.match(basketText || "", /Evidence UI map/);
-
-  await page.click("#btnWritingCreateProject");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes('"stage": "writing_project"') && text.includes('"writingProjectId": "wp_');
-  });
-  await page.locator('#writingResult .result-card[data-result-stage="writing_project"]').waitFor();
-
-  const projectResultText = await page.locator("#writingResult").textContent();
-  assert.match(projectResultText || "", /项目已创建|writing_project/);
-  assert.match(projectResultText || "", /Writing UI claim/);
-  assert.match(projectResultText || "", /Evidence UI map/);
-  await waitFor(async () => {
-    const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
-  }, 10000);
-
-  await page.click("#btnWritingCreateScaffold");
-  await page.locator('#writingResult .result-card[data-result-stage="draft_scaffold"]').waitFor();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingScaffoldPreview")?.textContent || "";
-    return text.includes("文章提纲：ds_");
-  });
-
-  const scaffoldResultText = await page.locator("#writingResult").textContent();
-  assert.match(scaffoldResultText || "", /"draftScaffoldId":\s*"ds_/);
-  assert.match(scaffoldResultText || "", /Writing UI claim/);
-  assert.match(scaffoldResultText || "", /Evidence UI map/);
-
-  const scaffoldPreviewText = await page.locator("#writingScaffoldPreview").textContent();
-  assert.ok(String(scaffoldPreviewText || "").trim().length > 0);
-  assert.match(scaffoldPreviewText || "", /文章提纲：ds_/);
-  assert.match(scaffoldPreviewText || "", /章节结构/);
-  assert.match(scaffoldPreviewText || "", /待处理的反方与漏洞/);
-  await waitFor(async () => {
-    const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
-  }, 10000);
-
-  await page.click("#btnWritingCopyScaffold");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes("writing_copy_scaffold");
-  });
-  const copiedTexts = await page.evaluate(() => window.__copiedTexts || []);
-  assert.ok(copiedTexts.length >= 1);
-  assert.match(copiedTexts.at(-1), /段落-证据对照表/);
-
-  await page.click("#btnWritingExportScaffold");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes("writing_export_scaffold");
-  });
-  const exportMeta = await page.evaluate(() => window.__lastWritingExport__ || null);
-  assert.ok(exportMeta);
-  assert.match(exportMeta.fileName || "", /_scaffold\.md/);
-
-  const firstScaffoldCardId = await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-id]').first().getAttribute("data-writing-scaffold-id");
-  await page.click("#btnWritingCreateScaffold");
-  await page.waitForFunction((firstId) => {
-    const cards = [...document.querySelectorAll("#writingScaffoldVersionsList [data-writing-scaffold-id]")];
-    return cards.length >= 2 && cards.some((card) => card.getAttribute("data-writing-scaffold-id") !== firstId);
-  }, firstScaffoldCardId);
-
-  const scaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
-  assert.match(scaffoldVersionText || "", /ds_/);
-  assert.match(scaffoldVersionText || "", /First scaffold note from browser flow/);
-
-  await page.evaluate(() => {
-    window.__promptResponse__ = "Edited scaffold note from browser flow.";
-    window.prompt = () => window.__promptResponse__;
-  });
-  await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="edit-note"]').first().click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("已更新文章提纲版本说明");
-  });
-  const editedScaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
-  assert.match(editedScaffoldVersionText || "", /Edited scaffold note from browser flow/);
-
-  await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="open"]').nth(1).click();
-  await page.waitForFunction((firstId) => {
-    const summary = document.querySelector("#writingScaffoldPreview")?.textContent || "";
-    return summary.includes(firstId);
-  }, firstScaffoldCardId);
-
-  await page.fill("#writingVersionNote", "Draft note saved from browser flow.");
-  await page.click("#btnWritingSaveDraft");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingDraftVersionsList")?.textContent || "";
-    return text.includes("v1");
-  });
-
-  const draftVersionsTextV1 = await page.locator("#writingDraftVersionsList").textContent();
-  assert.match(draftVersionsTextV1 || "", /v1/);
-  assert.match(draftVersionsTextV1 || "", /当前版本/);
-  assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
-
-  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
-  const openDraftText = await page.locator("#btnWritingOpenDraft").textContent();
-  assert.match(openDraftText || "", /打开当前草稿/);
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("当前阶段：");
-  });
-
-  const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.match(writingSummaryText || "", /当前阶段：/);
-  assert.ok(String(writingSummaryText || "").trim().length > 0);
-  const scaffoldPreviewAfterDraft = await page.locator("#writingScaffoldPreview").textContent();
-  assert.match(scaffoldPreviewAfterDraft || "", /下一步：打开当前草稿/);
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingProjectsList")?.textContent || "";
-    return text.includes("可写主题") && text.includes("Evidence UI map");
-  });
-  const projectsListText = await page.locator("#writingProjectsList").textContent();
-  assert.match(projectsListText || "", /Evidence UI map/);
-  assert.match(projectsListText || "", /可写主题|文章提纲|当前草稿/);
-
-  await page.locator("#btnWritingOpenDraft").click({ force: true });
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-  const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /# .*草稿/);
-  assert.match(editorValue, /文章提纲：ds\\?_/);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));
-  await page.fill("#writingVersionNote", "Second draft note saved from browser flow.");
-  await page.click("#btnWritingSaveDraft");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingDraftVersionsList")?.textContent || "";
-    return text.includes("v2");
-  });
-  const draftVersionsTextV2 = await page.locator("#writingDraftVersionsList").textContent();
-  assert.match(draftVersionsTextV2 || "", /v2/);
-  assert.match(draftVersionsTextV2 || "", /Second draft note saved from browser flow/);
-
-  await page.evaluate(() => {
-    window.__promptResponse__ = "Edited draft note from browser flow.";
-    window.prompt = () => window.__promptResponse__;
-  });
-  await page.locator('#writingDraftVersionsList [data-writing-draft-action="edit-note"]').first().click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("已更新草稿版本说明");
-  });
-  const editedDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
-  assert.match(editedDraftVersionsText || "", /Edited draft note from browser flow/);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));
-  await page.locator("#btnWritingOpenDraft").click({ force: true });
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => {
-    const buttons = [...document.querySelectorAll('#writingDraftVersionsList [data-writing-draft-action="open"]')];
-    return buttons.length >= 1 && buttons.every((button) => button instanceof HTMLElement && button.offsetParent !== null);
-  });
-  await page.locator('#writingDraftVersionsList [data-writing-draft-action="open"]').last().click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => {
-    const buttons = [...document.querySelectorAll('#writingDraftVersionsList [data-writing-draft-action="set-current"]')];
-    return buttons.length >= 1 && buttons.every((button) => button instanceof HTMLElement && button.offsetParent !== null);
-  });
-  await page.locator('#writingDraftVersionsList [data-writing-draft-action="set-current"]').last().click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-  const reboundDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
-  assert.match(reboundDraftVersionsText || "", /v1/);
-  assert.match(reboundDraftVersionsText || "", /当前版本/);
-
-  await page.locator("#btnWritingOpenDraft").click({ force: true });
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
-  });
-  const reboundEditorValue = await page.locator("#editorBody").inputValue();
-  assert.match(reboundEditorValue, /# .*草稿/);
-  assert.doesNotMatch(reboundEditorValue, /second scaffold/i);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingProjectsList [data-writing-project-id] .writing-note-actions button').first().click();
-  await page.waitForFunction(() => {
-    const title = document.querySelector("#writingTitle")?.value || "";
-    return title.includes("主题") && title.includes("Evidence UI map");
-  });
-  await waitFor(async () => {
-    const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.doesNotMatch(statusStripText || "", /读取失败/);
-    assert.match(statusStripText || "", /主题|可写主题/);
-    assert.match(statusStripText || "", /相关笔记|可写主题|文章提纲|开始草稿/);
-  }, 10000);
+test("prototype writing panel creates project and draft scaffold through real API", async t => {
+  await runCurrentWritingProjectFlow(t);
 });
 
 test("paper workspace browser flow preserves draft, selection, failure, and permanent-note continuity across reload", async (t) => {
@@ -7639,311 +7062,16 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             }, 4000);
 	        });
   
-  test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright, {
-    beforeGoto: async (page) => {
-      await page.addInitScript(() => {
-        window.confirm = () => true;
-      });
-      await page.route("**/api/v1/writing/ai-analysis", async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            item: {
-              request: {
-                requestType: "writing_strong_model_analysis",
-                model: { model: "mock-strong-model" }
-              },
-              result: {
-                summary: { artifactCount: 2 },
-                artifacts: [
-                  { type: "WritingMove", status: "pending_review" },
-                  { type: "EvidenceGap", status: "pending_review" }
-                ]
-              }
-            }
-          })
-        });
-      });
-    }
-  });
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  const writingDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Writing Entry Reset Scope",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "writing-entry-reset-scope"),
-    maxNotes: 500
-  });
-  assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
-  const writingDirectoryId = writingDirectory.json.item.id;
-
-  const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: writingDirectoryId,
-    status: "active",
-    body: "# Entry reset claim\n\nA fresh writing entry should invalidate previous analysis."
-  });
-  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
-
-  const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: writingDirectoryId,
-    status: "active",
-    body: "# Entry reset evidence\n\nSwitching inputs should clear old strong-model summaries."
-  });
-  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Entry reset claim" }).click();
-  await page.locator('.rail-btn[data-module="writing"]').click();
-
-  await page.click("#btnWritingUseCurrent");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("已选择 1 条相关笔记");
-  });
-
-  await page.click("#btnWritingStrongModelAnalysis");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingStrongModelSummary")?.textContent || "";
-    return text.includes("已关联一组 2 条写作材料");
-  });
-
-  await page.click("#btnWritingAddVisible");
-  await page.waitForFunction(() => {
-    const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
-    const summaryText = document.querySelector("#writingStrongModelSummary")?.textContent || "";
-    return basketText.includes("已选择 2 条相关笔记") && summaryText.includes("尚未准备 AI 写作分析");
-  });
-
-  const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
-  assert.match(strongModelSummary || "", /尚未准备强模型请求/);
+test("prototype writing entry switch clears stale strong-model analysis summary", async t => {
+  await runCurrentWritingEntryAnalysisReset(t);
 });
 
-test("prototype writing center can save a theme index, edit central question, and create a project from theme", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, {
-    body: "# Theme Browser Claim\n\nA theme should carry a central question, not just grouped notes.",
-    thesis: "A theme should carry a central question, not just grouped notes.",
-    threeLineSummary: [
-      "A theme should carry a central question.",
-      "That makes grouped notes serve one reusable problem.",
-      "It helps writing start from a theme instead of a blank page."
-    ],
-    boundaryOrCounterpoint: "A loose cluster can exist temporarily, but it should not stay forever without a question."
-  });
-
-  const noteB = await createWritingReadyPermanentNote(apiBase, {
-    body: "# Theme Browser Tension\n\nA second note adds the tension the theme still needs.",
-    thesis: "A mature theme needs tension, not only support.",
-    threeLineSummary: [
-      "A mature theme needs tension, not only support.",
-      "That keeps the theme from turning into a storage bucket.",
-      "It gives the later writing project a sharper structure."
-    ],
-    boundaryOrCounterpoint: "Some themes start narrow, but they still need an explicit question and growing tension."
-  });
-
-  const noteC = await createWritingReadyPermanentNote(apiBase, {
-    body: "# Theme Browser Reader Path\n\nA third note turns the theme into a reader-facing outline path.",
-    thesis: "A writing theme becomes useful when it can suggest a reader path.",
-    threeLineSummary: [
-      "A writing theme needs a reader path.",
-      "That path helps the outline start from the notes instead of a blank page.",
-      "It gives the later draft a concrete opening move."
-    ],
-    boundaryOrCounterpoint: "A theme can start from two notes, but a third note makes the outline path easier to explain."
-  });
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The first theme note gives the second one a structural support edge before project creation.",
-    insightQuestion: "What central question now organizes these two notes as one theme?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  const readerPathRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteB.json.item.id)}/relations`, {
-    toNoteId: noteC.json.item.id,
-    relationType: "extends",
-    rationale: "The reader path note turns the theme tension into a concrete outline entry.",
-    insightQuestion: "What outline path should these permanent notes suggest next?",
-    confidence: 1
-  });
-  assert.equal(readerPathRelation.status, 201, JSON.stringify(readerPathRelation.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator("#writingBasketNoteIds").waitFor({ state: "visible" });
-  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id, noteC.json.item.id];
-  await page.fill("#writingBasketNoteIds", targetBasketIds.join("\n"));
-
-  await page.evaluate(() => {
-    const answers = ["Browser Theme Index", "A theme saved from the browser flow."];
-    window.prompt = () => answers.shift() ?? "";
-  });
-  await page.click("#btnWritingSaveThemeIndex");
-
-  let themeCard = null;
-  await waitFor(async () => {
-    const indexCards = await fetchJson(apiBase, "/api/v1/index-cards?directoryId=dir_original_default&indexType=topic&includeDescendants=true&limit=20");
-    assert.equal(indexCards.status, 200, JSON.stringify(indexCards.json));
-    themeCard = indexCards.json.items.find((item) => item.title === "Browser Theme Index");
-    assert.ok(themeCard);
-  }, 10000);
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Browser Theme Index" }).click();
-  await page.waitForFunction(() => {
-    const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
-    return value.includes("Browser Theme Index");
-  }, null, { timeout: 10000 });
-  await waitForWritingThemeProjectActionReady(page);
-  await page.waitForFunction(() => {
-    const hint = document.querySelector("#writingThemeIndexesHint")?.textContent || "";
-    return !hint.includes("正在读取写作材料");
-  }, null, { timeout: 10000 });
-
-  await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these permanent notes before writing begins?");
-  await page.fill("#writingThemeDetailThesis", "A theme becomes useful when it organizes notes around one reusable question.");
-  await page.fill("#writingThemeDetailSummary1", "This theme is about turning mature notes into one reusable question.");
-  await page.fill("#writingThemeDetailSummary2", "That matters because writing should begin from theme-level structure, not loose grouping.");
-  await page.fill("#writingThemeDetailSummary3", "It gives the next writing project a sharper starting point.");
-  await page.click('[data-writing-theme-action="save"]');
-  await waitFor(async () => {
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已保存主题：Browser Theme Index/);
-  }, 10000);
-
-  await page.click('[data-writing-theme-action="create-project"]');
-
-  await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /\"stage\": \"writing_project\"/);
-  }, 10000);
-
-  const projects = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
-  assert.equal(projects.status, 200, JSON.stringify(projects.json));
-  const themedProject = projects.json.items.find((item) => item.title.includes("Browser Theme Index"));
-  assert.ok(themedProject);
-  assert.deepEqual(themedProject.related_index_ids, [themeCard.id]);
+test("prototype writing center can save a theme index, edit central question, and create a project from theme", async t => {
+  await runCurrentWritingThemeEdit(t);
 });
 
-test("prototype writing center can create a project from a theme index after its notes were only preloaded as directory stubs", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const noteA = await createWritingReadyPermanentNote(apiBase, {
-    body: "# Cold Start Theme Claim\n\nA cold-start theme should still hydrate its member notes before gating project creation.",
-    thesis: "Cold-start theme readiness should not depend on whether notes were already opened in the UI.",
-    threeLineSummary: [
-      "Cold-start theme readiness should not depend on UI preload order.",
-      "That matters because theme entry is supposed to be a real writing shortcut.",
-      "The UI should hydrate the needed notes before it decides whether project creation is allowed."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This only works if the theme reuses the same readiness semantics as the writing basket."
-  });
-
-  const noteB = await createWritingReadyPermanentNote(apiBase, {
-    body: "# Cold Start Theme Tension\n\nA second mature note adds enough relation structure for project creation.",
-    thesis: "A second mature note gives the theme enough structure to become project-ready.",
-    threeLineSummary: [
-      "A second mature note gives the theme enough structure.",
-      "That matters because project creation should depend on structure, not cache state.",
-      "It keeps the theme entry path consistent with the writing basket."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "A theme with only one isolated note should still stop before project creation."
-  });
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The second note gives the first enough explicit structure to justify project creation.",
-    insightQuestion: "What question now organizes these notes as one reusable writing entry?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-
-  const coldTheme = await postJson(apiBase, "/api/v1/index-cards", {
-    directoryId: "dir_original_default",
-    indexType: "topic",
-    title: "Cold Start Theme Index",
-    summary: "A theme index created entirely through the API before the browser loads any note bodies.",
-    thesis: "Theme entry should hydrate its own context before deciding whether project creation is allowed.",
-    threeLineSummary: [
-      "Theme entry should hydrate its own context.",
-      "That keeps project gating tied to note quality instead of cache timing.",
-      "It makes cold-start theme entry behave like the rest of the writing flow."
-    ],
-    centralQuestion: "How should a cold-start theme decide whether it can create a writing project?",
-    items: [
-      { noteId: noteA.json.item.id, shortLabel: "claim", rationale: "Sets the cold-start claim." },
-      { noteId: noteB.json.item.id, shortLabel: "tension", rationale: "Adds the missing structure." }
-    ]
-  });
-  assert.equal(coldTheme.status, 201, JSON.stringify(coldTheme.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Cold Start Theme Claim" }).waitFor();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Cold Start Theme Tension" }).waitFor();
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Cold Start Theme Index" }).click();
-  await page.waitForFunction(() => {
-    const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
-    return value.includes("Cold Start Theme Index");
-  }, null, { timeout: 10000 });
-
-  await waitForWritingThemeProjectActionReady(page);
-
-  await page.click('[data-writing-theme-action="create-project"]');
-
-  await waitFor(async () => {
-    const resultText = await page.locator("#writingResult").textContent();
-    assert.match(String(resultText || ""), /\"stage\": \"writing_project\"/);
-  }, 10000);
-
-  const projects = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
-  assert.equal(projects.status, 200, JSON.stringify(projects.json));
-  const themedProject = projects.json.items.find((item) => item.title.includes("Cold Start Theme Index"));
-  assert.ok(themedProject);
-  assert.deepEqual(themedProject.related_index_ids, [coldTheme.json.item.id]);
+test("prototype writing center can create a project from a theme index after its notes were only preloaded as directory stubs", async t => {
+  await runCurrentColdThemeEntry(t);
 });
 
 test("prototype graph panel renders directory wikilinks and opens graph nodes", async (t) => {
@@ -8413,184 +7541,12 @@ test("prototype graph AI connect suggests a relation from notes without relation
   assert.equal(await page.locator("[data-create-relation-form]").count(), 0);
 });
 
-test("prototype graph local candidate save removes isolated state and updates graph", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Graph Local Candidate Scope",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "graph-local-candidate-scope"),
-    maxNotes: 500
-  });
-  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
-  const graphDirectoryId = graphDirectory.json.item.id;
-
-  const source = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Aaa Local Source\n\nThis note is isolated for now, but it shares #graphlocalbridge with one nearby note."
-  });
-  const target = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Bbb Local Target\n\nThis note also carries #graphlocalbridge so the graph can suggest a local connection."
-  });
-  assert.equal(source.status, 201, JSON.stringify(source.json));
-  assert.equal(target.status, 201, JSON.stringify(target.json));
-
-  const graphBefore = await fetchJson(
-    apiBase,
-    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true`
-  );
-  assert.equal(graphBefore.status, 200, JSON.stringify(graphBefore.json));
-  assert.equal(graphBefore.json.item.totalEdges, 0);
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
-  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).waitFor({ timeout: 7000 });
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).click();
-
-  const composer = page.locator("[data-permanent-relation-workspace]");
-  await composer.waitFor({ state: "visible" });
-  const search = composer.locator("[data-permanent-relation-target-search]");
-  const choose = composer.locator(`[data-permanent-relation-manual-target="${target.json.item.id}"]`);
-  await search.fill("Bbb");
-  await choose.click();
-  await composer.locator('[data-permanent-relation-type-choice="supports"]').click();
-  await composer.locator('textarea[name="rationale"]').fill("两条笔记都在说明同一个测试主题，需要放入同一张关系网。");
-  await search.fill("No stale target");
-  await waitFor(async () => {
-    assert.equal(await composer.locator('button[type="submit"]').isDisabled(), true);
-    assert.equal(await page.evaluate(() => window.__prototypeEditor.permanentRelationWorkspaceState.selectedTargetNoteId), "");
-    const read = await fetchJson(apiBase, `/api/v1/notes/${source.json.item.id}/relations`);
-    assert.equal(read.json.item.outgoingLinks.length, 0);
-  });
-  await search.fill("Bbb");
-  await choose.click();
-  await composer.locator('button[type="submit"]').click();
-  await composer.locator(".permanent-relation-result").waitFor();
-  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
-  assert.equal(relations.status, 200, JSON.stringify(relations.json));
-  assert.equal(relations.json.item.outgoingLinks.length, 1);
-  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
-  assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
-
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await waitFor(async () => {
-    const summary = await page.locator("#graphSummary").textContent();
-    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
-    assert.ok(nodeCount >= 2, summary || "");
-    assert.ok(edgeCount >= 1, summary || "");
-  }, 10000);
-
-  await waitFor(async () => {
-    const hasIsolatedKey = await page.locator(`#graphCanvas .graph-map-node[data-node-id="${source.json.item.id}"]`).evaluate((node) =>
-      node.hasAttribute("data-graph-isolated-key")
-    );
-    assert.equal(hasIsolatedKey, false);
-    assert.equal(await page.locator(".graph-isolated-queue-strip").count(), 0);
-    assert.equal(await page.locator(`#graphCanvas .graph-map-node[data-node-id="${target.json.item.id}"]`).count(), 1);
-    const savedEdgeCount = await page.locator(`#graphCanvas .graph-map-edge-group[data-edge-from="${source.json.item.id}"][data-edge-to="${target.json.item.id}"], #graphCanvas .graph-map-edge-group[data-edge-from="${target.json.item.id}"][data-edge-to="${source.json.item.id}"]`).count();
-    assert.equal(savedEdgeCount, 1);
-  }, 7000);
-
-  assert.match(await composer.textContent(), /Bbb Local Target/);
+test("prototype graph local candidate save removes isolated state and updates graph", async t => {
+  await runCurrentGraphLocalRelation(t);
 });
 
-test("prototype graph relation workspace creates a theme index from linked notes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
-
-  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
-    title: "Graph Theme Index Scope",
-    parentDirectoryId: "dir_original_default",
-    directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "original", "graph-theme-index-scope"),
-    maxNotes: 500
-  });
-  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
-  const graphDirectoryId = graphDirectory.json.item.id;
-
-  const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Theme Index Source\n\nThis permanent note can become the center of a small theme network."
-  });
-  const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Theme Index Target\n\nThis permanent note supports the same theme network."
-  });
-  const noteC = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: graphDirectoryId,
-    body: "# Theme Index Bridge\n\nThis permanent note bridges the same theme network."
-  });
-  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
-  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
-  assert.equal(noteC.status, 201, JSON.stringify(noteC.json));
-
-  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteB.json.item.id,
-    relationType: "supports",
-    rationale: "The target note supports the source note as part of one theme network.",
-    insightQuestion: "What central question does this small network answer?",
-    confidence: 1
-  });
-  assert.equal(relation.status, 201, JSON.stringify(relation.json));
-  const bridgeRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
-    toNoteId: noteC.json.item.id,
-    relationType: "bridges",
-    rationale: "The bridge note keeps the theme network coherent.",
-    insightQuestion: "What bridge does this network need?",
-    confidence: 1
-  });
-  assert.equal(bridgeRelation.status, 201, JSON.stringify(bridgeRelation.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openOriginalNoteBox(page);
-  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
-  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.waitForSelector(`#graphCanvas .graph-map-node[data-node-id="${noteA.json.item.id}"]`, { timeout: 7000 });
-  await page.locator(`#graphCanvas .graph-map-node[data-node-id="${noteA.json.item.id}"]`).click();
-
-  await waitFor(async () => {
-    const workspaceText = await page.locator(".graph-relation-workspace").textContent();
-    assert.match(String(workspaceText || ""), /现有关联/);
-    assert.match(String(workspaceText || ""), /创建主题草稿/);
-  }, 7000);
-
-  await page.locator('[data-graph-create-theme-index]:not([disabled]):visible').first().click();
-  await waitFor(async () => {
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已创建主题草稿/);
-  }, 7000);
-
-  const indexes = await fetchJson(
-    apiBase,
-    `/api/v1/index-cards?directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true&indexType=topic&limit=12`
-  );
-  assert.equal(indexes.status, 200, JSON.stringify(indexes.json));
-  assert.ok((indexes.json.items || []).some((item) => String(item.title || "").includes("可写主题")));
+test("prototype graph relation workspace creates a theme index from linked notes", async t => {
+  await runCurrentGraphThemeSubset(t);
 });
 
 test("prototype graph followup remembers relation template preference after reload", async (t) => {
@@ -8868,10 +7824,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.equal(startupState.selectedFolderId, "dir_yansilu_usage_notes");
   }, 15000);
 
-  const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
-  assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
-  const firstSeedDirectoryTotal = Number(firstSeedDirectory.json.total || 0);
-  assert.ok(firstSeedDirectoryTotal >= 17);
+  const firstInventory = await snapshotDemoNoteInventory(apiBase);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
@@ -8910,31 +7863,29 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   await page.click('.rail-btn[data-module="writing"]');
   await page.locator('[data-writing-sidebar-action="topics"]').click();
-  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button').click();
+  await page.locator('[data-writing-index-card-id="THEME-INDEX-TO-WRITING"] button.primary').click();
   await waitFor(async () => {
     const writingState = await page.evaluate(() => ({
       title: document.querySelector("#writingTitle")?.value || "",
       goal: document.querySelector("#writingGoal")?.value || "",
-      audience: document.querySelector("#writingAudience")?.value || "",
       basketSummary: document.querySelector("#writingBasketSummary")?.textContent || ""
     }));
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
-    assert.ok(String(writingState.audience || "").trim().length > 0);
     assert.match(writingState.basketSummary, /\d+ 条|相关笔记/);
   }, 15000);
 
   const project = await fetchJson(apiBase, "/api/v1/writing-projects/WRITE-SMART-NOTES-DEMO");
   assert.equal(project.status, 200, JSON.stringify(project.json));
+  assert.match(project.json.item.intent, /解释核心方法/);
+  assert.match(project.json.item.desired_reader_takeaway, /可追溯提纲/);
   assert.equal(project.json.item.scaffold_id, "DRAFT-SMART-NOTES-DEMO");
 
   const scaffold = await fetchJson(apiBase, "/api/v1/draft-scaffolds/DRAFT-SMART-NOTES-DEMO");
   assert.equal(scaffold.status, 200, JSON.stringify(scaffold.json));
   assert.ok(scaffold.json.item.sections.length > 0);
 
-  const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
-  assert.equal(secondSeedDirectory.status, 200, JSON.stringify(secondSeedDirectory.json));
-  assert.equal(secondSeedDirectory.json.total, firstSeedDirectoryTotal);
+  assert.deepEqual(await snapshotDemoNoteInventory(apiBase), firstInventory);
 });
 
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {
@@ -9169,7 +8120,10 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   assert.match(markdownAfter, /^# Renamed note title/m);
 });
 
-test("prototype explorer reveal note uses tauri opener when desktop shell is available", async (t) => {
+for (const [revealMode, title] of [
+  ["opener", "prototype explorer reveal note uses tauri opener when desktop shell is available"],
+  ["command", "prototype explorer reveal note prefers the desktop command for a Chinese Markdown path"]
+]) test(title, async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -9178,31 +8132,29 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
 
-  const stack = await startPrototypeStack(t, playwright);
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: (page, { apiBase }) => installReadyDesktopBridge(page, apiBase, { revealMode })
+  });
   if (!stack) return;
   const { apiBase, page, vaultPath, webBase } = stack;
 
   const note = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Reveal source note\n\nThis note should ask the desktop shell to reveal its Markdown file."
+    body: `# ${revealMode === "command" ? "定位中文笔记" : "Reveal source note"}\n\nThis note should ask the desktop shell to reveal its Markdown file.`
   });
   assert.equal(note.status, 201, JSON.stringify(note.json));
 
   const expectedMarkdownPath = path.join(vaultPath, note.json.item.markdownPath.replaceAll("/", path.sep));
+  const beforeFile = await fs.readFile(expectedMarkdownPath);
+  const beforeNote = (await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item;
+  if (revealMode === "command") assert.match(expectedMarkdownPath, /定位中文笔记/);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.evaluate(() => {
-    window.__tauriRevealCalls = [];
-    window.__TAURI__ = {
-      opener: {
-        async revealItemInDir(targetPath) {
-          window.__tauriRevealCalls.push(targetPath);
-        }
-      }
-    };
-  });
+  await waitForPrototypeReady(page);
+  await waitFor(async () => assertDesktopBridgeCalls(page, ["plugin:updater|check"]));
+  await openOriginalNoteBox(page);
 
-  const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Reveal source note" });
+  const noteRow = page.locator(`.explorer-item[data-kind="file"][data-id="${note.json.item.id}"]`);
   await noteRow.waitFor();
   await openContextAction(page, noteRow, "reveal-note");
 
@@ -9212,7 +8164,11 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
   }, 7000);
 
   const revealCalls = await page.evaluate(() => window.__tauriRevealCalls || []);
-  assert.deepEqual(revealCalls.map((item) => path.resolve(item)), [path.resolve(expectedMarkdownPath)]);
+  assert.deepEqual(revealCalls.map((item) => path.resolve(item)), revealMode === "opener" ? [path.resolve(expectedMarkdownPath)] : []);
+  const commands = await assertDesktopBridgeCalls(page, ["plugin:updater|check", "open_in_explorer"]);
+  assert.equal(path.resolve(commands.find(call => call.command === "open_in_explorer").args.path), path.resolve(expectedMarkdownPath));
+  assert.deepEqual(await fs.readFile(expectedMarkdownPath), beforeFile);
+  assert.deepEqual((await fetchJson(apiBase, `/api/v1/notes/${note.json.item.id}`)).json.item, beforeNote);
 });
 
 test("prototype explorer note context move and delete update disk state", async (t) => {
@@ -9377,7 +8333,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
 
   assert.equal(await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
 
-  await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='adopted_as_draft']").click();
+  const pendingHumanBody = await adoptWhileTyping({ page, apiBase, fixture });
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -9401,11 +8357,22 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   await waitFor(async () => {
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
     assert.equal(note.status, 200);
-    assert.equal(note.json.item.thesis, editedThesis);
+    const diagnostics = note.json.item.thesis !== editedThesis ? await page.evaluate(() => ({
+      status: document.querySelector('#statusText')?.textContent,
+      forms: [...document.querySelectorAll('[data-note-distillation-form]')].map(form => ({
+        valid: form.checkValidity(), fields: [...form.querySelectorAll('input,textarea')].map(field => ({ name: field.name, value: field.value, required: field.required, valid: field.validity.valid, hidden: !field.getClientRects().length }))
+      }))
+    })) : null;
+    assert.equal(note.json.item.thesis, editedThesis, JSON.stringify(diagnostics));
   }, 10000);
 
   await page.waitForFunction(thesis => window.__prototypeEditor.activeNote()?.thesis === thesis, editedThesis);
+  const savedViewpointNote = (await fetchJson(apiBase, `/api/v1/notes/${fixture.noteId}`)).json.item;
+  const humanParagraphs = pendingHumanBody.slice(pendingHumanBody.indexOf('\n\n') + 2);
+  assert.ok(savedViewpointNote.body.includes(humanParagraphs), "viewpoint save retains original and pending human paragraphs verbatim");
+  assert.equal((await page.locator('#editorBody').inputValue()).trimEnd(), savedViewpointNote.body.trimEnd());
   await page.locator('[data-permanent-workspace-tab="viewpoint"]').click();
+  await page.locator('[data-note-association-next="edit"]').click();
   if (!await page.locator('.viewpoint-optional-details').evaluate(details => details.open)) {
     await page.locator('.viewpoint-optional-details > summary').click();
   }
@@ -9433,218 +8400,40 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
     assert.equal(note.status, 200);
     assert.equal(note.json.item.thesis, editedThesis);
+    assert.deepEqual(note.json.item, savedViewpointNote);
   }, 10000);
 });
 
-test("prototype AI inbox returns review to the editor context for final processing", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox returns review to the editor context for final processing", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox return-to-editor target",
-    body: "The inbox should route the final review back into the permanent note editor context."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-
-  await waitFor(async () => {
-    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
-    assert.notEqual(reviewedCount, "0");
-  }, 8000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await item.waitFor();
-  await item.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.noteId)));
-    assert.match(String(detailText || ""), /Open target note|打开目标笔记/);
-  }, 8000);
-
-  await page.locator("#aiInboxPanel .ai-inbox-detail-pane button", { hasText: /Open target note|打开目标笔记/ }).click();
-
-  await waitFor(async () => {
-    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "explorer");
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已回到笔记/);
-  }, 8000);
-
-  await waitFor(async () => {
-    const bodyValue = await page.locator("#editorBody").inputValue();
-    assert.match(String(bodyValue || ""), /Inbox return-to-editor target/);
-    const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /关联 AI 建议|当前笔记的 AI 建议/);
-    assert.match(String(relatedText || ""), /标记已编辑/);
-  }, 10000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='edited']");
-    if (!button) throw new Error("missing embedded edit suggestion action");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-  }, 10000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector("#relatedPanel [data-note-ai-suggestion-action='confirmed']");
-    if (!button) throw new Error("missing embedded confirm suggestion action");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 10000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox return-to-editor target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReturnToEditor(stack, fixture);
 });
 
-test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox reviewed detail target",
-    body: "This adopted draft should be edited and confirmed from the reviewed AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-  const editedThesis = "Inbox browser review changed this thesis before final confirmation.";
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await waitFor(async () => {
-    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
-    assert.notEqual(reviewedCount, "0");
-  }, 8000);
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-  await waitFor(async () => {
-    const present = await page.evaluate((artifactId) => Boolean(document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`)), fixture.artifactId);
-    assert.equal(present, true);
-  }, 8000);
-  await page.evaluate((artifactId) => {
-    const item = document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`);
-    if (!item) throw new Error(`missing reviewed inbox item: ${artifactId}`);
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fixture.artifactId);
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="confirmed"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
-    assert.equal(suggestion.json.canonical.latest_review_event.event_type, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Confirmed|已确认/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(editedThesis)));
-  }, 8000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox reviewed detail target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReviewedLifecycle(stack, fixture);
 });
-
-test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox invalid reviewed JSON target",
-    body: "This adopted draft should reject invalid reviewed JSON from the AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  let patchCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") patchCount += 1;
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill("{not valid json}");
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /must be valid JSON/i);
-  }, 8000);
-
-  assert.equal(patchCount, 0);
-  const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-  assert.equal(suggestion.status, 200);
-  assert.equal(suggestion.json.item.status, "adopted_as_draft");
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox invalid reviewed JSON target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiStructuredInputValidation(stack, fixture);
 });
 
 test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable", async (t) => {
@@ -9748,630 +8537,88 @@ test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable"
   assert.equal(detail.json.canonical.suggestion.status, "rejected");
 });
 
-test("prototype AI inbox reviewed reopen continuity keeps canonical detail aligned after refresh and tab switches", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox reviewed reopen continuity keeps canonical detail aligned after refresh and tab switches", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { page, webBase, apiBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox reviewed reopen continuity target",
-    body: "Reopening the same reviewed inbox item should keep detail aligned after refresh and tab switches."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  await page.locator("#btnAiInboxRefresh").click();
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="pending"]').click();
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
-    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
-    assert.doesNotMatch(String(detailText || ""), /Review safety/);
-    assert.doesNotMatch(String(detailText || ""), /正在读取建议详情/);
-  }, 8000);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox reviewed reopen continuity target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiReviewReopenContinuity(stack, fixture);
+});
+test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const first = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox filtered first target" });
+  const second = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox filtered final target" });
+  await runAiPendingContinuity(stack, first, second);
 });
 
-test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox guards stale detail selection and duplicate reviewed submit", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const firstFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity first target",
-    body: "Rejecting this pending inbox item should move detail to another visible pending item."
-  });
-  const secondFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity second target",
-    body: "This pending inbox item should stay visible after the first one is rejected."
-  });
-  const loneFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox filtered continuity lone target",
-    body: "Rejecting the last filtered pending inbox item should clear list and detail."
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-
-  const firstItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${firstFixture.artifactId}"]`);
-  await firstItem.waitFor();
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, firstFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstFixture.noteId)));
-    assert.match(String(detailText || ""), /Reject/);
-  }, 8000);
-
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(firstFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(firstFixture.noteId)));
-    const switchedToRemainingSuggestion =
-      new RegExp(escapeRegExp(secondFixture.noteId)).test(String(detailText || "")) ||
-      new RegExp(escapeRegExp(loneFixture.noteId)).test(String(detailText || ""));
-    assert.equal(switchedToRemainingSuggestion, true);
-  }, 8000);
-
-  await waitFor(async () => {
-    assert.equal(await firstItem.count(), 0);
-    const activeRows = await page.locator("#aiInboxPanel .ai-inbox-list-pane .ai-inbox-item.is-active").count();
-    assert.equal(activeRows >= 1, true);
-  }, 8000);
-
-  await filterAiInboxBySourceNote(page, loneFixture.noteId);
-
-  const loneItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${loneFixture.artifactId}"]`);
-  await waitFor(async () => {
-    assert.equal(await loneItem.count(), 1);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, loneFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.suggestionId)));
-    assert.match(String(detailText || ""), /Reject/);
-  }, 8000);
-
-  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(loneFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const loneReviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${loneFixture.artifactId}"]`);
-  await waitFor(async () => {
-    assert.equal(await loneReviewedItem.count(), 1);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, loneFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected|已拒绝/);
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneFixture.suggestionId)));
-    assert.doesNotMatch(String(detailText || ""), /AI inbox review failed/);
-    assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-decision="archived"]').count(), 0);
-  }, 8000);
-
-  const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(loneFixture.artifactId)}?canonical=true`);
-  assert.equal(detail.status, 200);
-  assert.equal(detail.json.canonical.artifact.status, "ignored");
-  assert.equal(detail.json.canonical.suggestion.status, "rejected");
+  const slow = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox stale slow target" });
+  const fast = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox stale current target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, slow);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fast);
+  await runAiStaleReview(stack, slow, fast);
 });
 
-test("prototype AI inbox guards stale detail selection and duplicate reviewed submit", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype AI inbox shows inline no-op UX for already adopted reviewed field suggestions without resubmitting", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const slowFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox stale selection slow target",
-    body: "The first inbox detail request should resolve too late and must not overwrite the second reviewed selection."
-  });
-  const fastFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox stale selection fast target",
-    body: "The second inbox detail request should win and stay visible in reviewed AI inbox detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, slowFixture);
-  await adoptSuggestionAsDraftViaApi(apiBase, fastFixture);
-
-  let delayedSlowDetail = false;
-  await page.route(`${apiBase}/api/v1/ai/inbox/${slowFixture.artifactId}?canonical=true`, async (route) => {
-    if (!delayedSlowDetail) {
-      delayedSlowDetail = true;
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    }
-    await route.continue();
-  });
-
-  let editRequestCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fastFixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") {
-      editRequestCount += 1;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-
-  await page.evaluate(() => {
-    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
-    if (!button) throw new Error("missing reviewed tab");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  });
-
-  const slowItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${slowFixture.artifactId}"]`);
-  const fastItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fastFixture.artifactId}"]`);
-  await slowItem.waitFor();
-  await fastItem.waitFor();
-
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, slowFixture.artifactId);
-  await page.evaluate((artifactId) => {
-    document
-      .querySelector(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${artifactId}"]`)
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fastFixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fastFixture.suggestionId)));
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(slowFixture.suggestionId)));
-  }, 8000);
-
-  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: "Duplicate inbox click should still submit once." }, null, 2));
-  const editButton = page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]');
-  const firstClick = editButton.click({ force: true });
-
-  await waitFor(async () => {
-    assert.equal(await editButton.isDisabled(), true);
-  }, 4000);
-
-  await editButton.click({ force: true, timeout: 250 }).catch(() => {});
-  await firstClick;
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fastFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(
-      suggestion.json.item.history.filter((entry) => entry.toStatus === "edited").length,
-      1
-    );
-  }, 8000);
-
-  assert.equal(editRequestCount, 1);
+  const fixture = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Inbox no-op reviewed adopt target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fixture);
+  await runAiAdoptedReadOnly(stack, fixture);
 });
 
-test("prototype AI inbox shows inline no-op UX for already adopted reviewed field suggestions without resubmitting", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const fixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Inbox no-op reviewed adopt target",
-    body: "Triggering adopt again from reviewed detail should no-op inline instead of resubmitting."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
-
-  let adoptPostCount = 0;
-  await page.route(`${apiBase}/api/v1/ai/inbox/${fixture.artifactId}/adopt-field-suggestion?canonical=true`, async (route, request) => {
-    if (request.method() === "POST") adoptPostCount += 1;
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openAiInboxModule(page);
-  await filterAiInboxBySourceNote(page, fixture.noteId);
-  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
-
-  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
-  await reviewedItem.waitFor();
-  await reviewedItem.click();
-
-  await waitFor(async () => {
-    const button = page.locator(`#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-adopt-field="${fixture.artifactId}"]`);
-    assert.equal(await button.isDisabled(), true);
-  }, 8000);
-
-  await page.evaluate((artifactId) => {
-    const button = document.querySelector(`#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-adopt-field="${artifactId}"]`);
-    if (!button) throw new Error("missing adopt-field button");
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-  }, fixture.artifactId);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /This field suggestion is already (Adopted as draft|已采纳为草稿)\./);
-    assert.equal(await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-action-notice="true"]').count(), 1);
-  }, 8000);
-
-  assert.equal(adoptPostCount, 0);
-  const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
-  assert.equal(suggestion.status, 200);
-  assert.equal(suggestion.json.item.status, "adopted_as_draft");
+  const editable = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings editable target" });
+  const rejected = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings rejected target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, editable);
+  await runAiReviewedLifecycle(stack, editable);
+  await runAiRejectedReview(stack, rejected, { refresh: true });
 });
 
-test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions guards stale detail selection and duplicate review submits", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const editableFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings editable target",
-    body: "This suggestion should be edited and then confirmed from settings."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, editableFixture);
-
-  const rejectFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings reject target",
-    body: "This suggestion should be rejected from settings."
-  });
-  const editedThesis = "Settings browser review produced the final user-owned thesis.";
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  await filterAiSuggestionsByTarget(page, editableFixture.noteId);
-  const editableRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${editableFixture.suggestionId}"]`);
-  await editableRow.waitFor();
-  await editableRow.click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
-  const firstConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]');
-  await waitFor(async () => {
-    assert.equal(await firstConfirmButton.isEnabled(), true);
-  }, 8000);
-  await firstConfirmButton.click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
-  }, 8000);
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail.is-busy").count(), 0);
-  }, 8000);
-
-  await waitFor(async () => {
-    await page.locator("#aiSuggestionStatusFilter").selectOption("all");
-    await page.locator("#aiSuggestionTargetIdFilter").fill("");
-    assert.equal(await page.locator("#aiSuggestionStatusFilter").inputValue(), "all");
-    assert.equal(await page.locator("#aiSuggestionTargetIdFilter").inputValue(), "");
-  }, 8000);
-  await page.locator("#btnAiSuggestionsApplyFilters").click();
-  const rejectRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${rejectFixture.suggestionId}"]`);
-  await rejectRow.waitFor();
-  await rejectRow.click();
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="rejected"]').click();
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(rejectFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "rejected");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Rejected|已拒绝/);
-  }, 8000);
+  const slow = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings stale slow target" });
+  const fast = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings stale current target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, slow);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, fast);
+  await runAiStaleReview(stack, slow, fast);
 });
 
-test("prototype settings AI suggestions guards stale detail selection and duplicate review submits", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
+test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
-
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const slowFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings stale selection slow target",
-    body: "The first detail request should resolve too late and must not overwrite the second selection."
-  });
-  const fastFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings stale selection fast target",
-    body: "The second detail request should win and stay visible."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, slowFixture);
-  await adoptSuggestionAsDraftViaApi(apiBase, fastFixture);
-
-  let delayedSlowDetail = false;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${slowFixture.suggestionId}?canonical=true`, async (route) => {
-    if (!delayedSlowDetail) {
-      delayedSlowDetail = true;
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    }
-    await route.continue();
-  });
-
-  let editRequestCount = 0;
-  await page.route(`${apiBase}/api/v1/ai-suggestions/${fastFixture.suggestionId}?canonical=true`, async (route, request) => {
-    if (request.method() === "PATCH") {
-      editRequestCount += 1;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    await route.continue();
-  });
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  const slowRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${slowFixture.suggestionId}"]`);
-  const fastRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${fastFixture.suggestionId}"]`);
-  await slowRow.waitFor();
-  await fastRow.waitFor();
-
-  await slowRow.click();
-  await fastRow.click();
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fastFixture.noteId)));
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(slowFixture.noteId)));
-  }, 8000);
-
-  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: "Duplicate click should still submit once." }, null, 2));
-  const editButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]');
-  const firstClick = editButton.click();
-
-  await waitFor(async () => {
-    assert.equal(await editButton.isDisabled(), true);
-  }, 4000);
-
-  await editButton.click({ timeout: 250 }).catch(() => {});
-  await firstClick;
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fastFixture.suggestionId)}?canonical=true`);
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "edited");
-    assert.equal(
-      suggestion.json.item.history.filter((entry) => entry.toStatus === "edited").length,
-      1
-    );
-  }, 8000);
-
-  assert.equal(editRequestCount, 1);
-});
-
-test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const firstEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity first edited target",
-    body: "Confirming this edited suggestion should move selection to the next filtered suggestion."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, firstEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, firstEditedFixture, "First edited fixture should leave the edited filter after confirm.");
-
-  const secondEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity second edited target",
-    body: "This edited suggestion should become the next visible detail after the first one is confirmed."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, secondEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, secondEditedFixture, "Second edited fixture should stay visible in the edited filter.");
-
-  const loneEditedFixture = await createAiFieldSuggestionFixture(apiBase, {
-    title: "Settings filtered continuity lone edited target",
-    body: "Confirming the last edited suggestion should clear the filtered list and detail."
-  });
-  await adoptSuggestionAsDraftViaApi(apiBase, loneEditedFixture);
-  await markSuggestionEditedViaApi(apiBase, loneEditedFixture, "Lone edited fixture should empty the edited filter after confirm.");
-
-  await reloadPrototype(page, webBase);
-  await openSettingsModule(page, "automation");
-
-  await filterAiSuggestionsByStatus(page, "edited");
-  const firstEditedRow = page.locator(
-    `#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${firstEditedFixture.suggestionId}"]`
-  );
-  await firstEditedRow.waitFor();
-  await firstEditedRow.click({ force: true });
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
-    assert.match(String(detailText || ""), /Confirm|确认/);
-    assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
-  }, 8000);
-
-  const loneConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]:visible');
-  await waitFor(async () => {
-    assert.equal(await loneConfirmButton.isEnabled(), true);
-  }, 8000);
-  await loneConfirmButton.click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(
-      apiBase,
-      `/api/v1/ai-suggestions/${encodeURIComponent(firstEditedFixture.suggestionId)}?canonical=true`
-    );
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
-    const switchedToRemainingSuggestion =
-      new RegExp(escapeRegExp(secondEditedFixture.noteId)).test(String(detailText || "")) ||
-      new RegExp(escapeRegExp(loneEditedFixture.noteId)).test(String(detailText || ""));
-    assert.equal(switchedToRemainingSuggestion, true);
-  }, 8000);
-
-  await waitFor(async () => {
-    assert.equal(await firstEditedRow.count(), 0);
-    const activeRows = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane .ai-inbox-item.is-active").count();
-    assert.equal(activeRows >= 1, true);
-  }, 8000);
-
-  await filterAiSuggestionsByTarget(page, loneEditedFixture.noteId);
-  const loneEditedRow = page.locator(
-    `#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${loneEditedFixture.suggestionId}"]`
-  );
-
-  await waitFor(async () => {
-    const listText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane").textContent();
-    assert.match(String(listText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-    assert.doesNotMatch(String(listText || ""), new RegExp(escapeRegExp(secondEditedFixture.noteId)));
-    assert.equal(await loneEditedRow.count(), 1);
-  }, 8000);
-
-  await loneEditedRow.first().click({ force: true });
-
-  await waitFor(async () => {
-    const className = await loneEditedRow.first().getAttribute("class");
-    assert.match(String(className || ""), /is-active/);
-  }, 8000);
-
-  await waitFor(async () => {
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-  }, 8000);
-
-  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]').click({ force: true });
-
-  await waitFor(async () => {
-    const suggestion = await fetchJson(
-      apiBase,
-      `/api/v1/ai-suggestions/${encodeURIComponent(loneEditedFixture.suggestionId)}?canonical=true`
-    );
-    assert.equal(suggestion.status, 200);
-    assert.equal(suggestion.json.item.status, "confirmed");
-  }, 8000);
-
-  await waitFor(async () => {
-    const listText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-list-pane").textContent();
-    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(listText || ""), /No AI suggestions match these filters|没有符合这些筛选条件的待确认建议/);
-    assert.match(String(detailText || ""), /Pick a suggestion to inspect its target, content, and review history|选择一条建议后/);
-    assert.doesNotMatch(String(detailText || ""), /Loading suggestion detail/);
-    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(loneEditedFixture.noteId)));
-  }, 8000);
+  const first = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings edited first target" });
+  const second = await createAiFieldSuggestionFixture(stack.apiBase, { title: "Settings edited final target" });
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, first);
+  await adoptSuggestionAsDraftViaApi(stack.apiBase, second);
+  await markSuggestionEditedViaApi(stack.apiBase, first, "第一条人工修改应确认后离开筛选。");
+  await markSuggestionEditedViaApi(stack.apiBase, second, "最后一条确认后应清空已修改列表。");
+  await runAiEditedContinuity(stack, first, second);
 });

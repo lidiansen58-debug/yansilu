@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="./writing-workspace.css" />
   <link rel="stylesheet" href="./main-flow-workspace.css" />
   <link rel="stylesheet" href="./graph-workspace.css" />
+  <link rel="stylesheet" href="./offline-help-dialog.css" />
 </head>
 <body>
   <a class="skip-link" href="#editorWorkspace">跳到正文</a>
@@ -937,6 +938,9 @@
 
                                 <label for="settingsAiSecretRef">API Key</label>
                                 <input id="settingsAiSecretRef" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴服务商提供的 API Key" />
+                                <div class="settings-field-note hidden" id="settingsAiClearRemoteKeyRow">
+                                  <button class="mini-btn" id="settingsAiClearRemoteKey" type="button">移除已保存的 Key</button>
+                                </div>
 
                                 <label for="settingsAiRemoteRuntimeModel">模型名称</label>
                                 <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="服务商提供的模型名称或模型 ID" />
@@ -1075,7 +1079,7 @@
                       <section class="settings-card" id="settingsDesktopHelpCard">
                         <div class="settings-card-head">
                           <div>
-                            <a href="./help/quick-start.html" target="_blank" rel="noopener">完整使用指南与常见问题</a>
+                            <button id="settingsOpenOfflineHelp" class="settings-help-guide-link" type="button" aria-haspopup="dialog">完整使用指南与常见问题</button>
                           </div>
                         </div>
                         <div class="settings-help-topic-list settings-help-task-list">
@@ -1232,6 +1236,13 @@
       </div>
     </main>
   </div>
+  <dialog id="offlineHelpDialog" class="offline-help-dialog" aria-labelledby="offlineHelpTitle">
+    <div class="offline-help-head">
+      <h2 id="offlineHelpTitle">使用指南</h2>
+      <button id="offlineHelpClose" class="mini-btn" type="button">关闭指南</button>
+    </div>
+    <iframe id="offlineHelpFrame" title="研思录完整使用指南" sandbox="allow-same-origin"></iframe>
+  </dialog>
   <div id="contextMenu" class="ctx-menu hidden"></div>
   <div class="asset-preview-mask hidden" id="assetPreviewMask" role="dialog" aria-modal="true" aria-labelledby="assetPreviewTitle">
     <div class="asset-preview-card">

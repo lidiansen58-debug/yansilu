@@ -1,5 +1,7 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { cancelEditorInitialPosition } from "./editor-initial-position.js";
 import { syncNoteMoveReadOnly } from "./note-move-recovery.js";
+import { captureEditorConfirmationGuard, confirmEditorDiscard, confirmEditorDraftRestore } from "./editor-confirmation-context.js";
 import { typeFromFolder } from "./prototype-store.js";
 import {
   authorshipSeedFromBody,
@@ -119,17 +121,16 @@ const editorPaneStateMethods = {
   },
 
   confirmDiscardTab(tab) {
-    if (!tab?.dirty) return true;
-    return window.confirm(`“${tab.title || "未命名笔记"}”还有未同步的修改，关闭后会丢失这些更改。是否继续？`);
+    return confirmEditorDiscard(this, tab ? [tab] : [], `“${tab?.title || "未命名笔记"}”还有未同步的修改，关闭后会丢失这些更改。是否继续？`);
   },
 
   confirmDiscardDirtyTabs(message = "") {
+    this.updateActiveTabFromEditor?.();
     const dirty = this.dirtyTabs();
-    if (!dirty.length) return true;
     const text =
       message ||
         `还有 ${dirty.length} 个打开的笔记带着未同步的修改，继续操作会丢失这些更改。是否继续？`;
-    return window.confirm(text);
+    return confirmEditorDiscard(this, this.state.tabs, text, { allTabs: true });
   },
 
   draftKey(noteId) {
@@ -290,7 +291,7 @@ const editorPaneStateMethods = {
     }
   },
 
-  maybeRestoreDraft(tab, note) {
+  async maybeRestoreDraft(tab, note) {
     if (!tab || !note || tab.dirty) return;
     const draft = this.readDraft(note.id);
     if (!draft || draft.body === note.body) {
@@ -298,9 +299,11 @@ const editorPaneStateMethods = {
       return;
     }
     const updatedAt = draft.updatedAt ? `（${new Date(draft.updatedAt).toLocaleString()}）` : "";
-    const shouldRestore = window.confirm(`检测到“${note.title || "未命名笔记"}”有上次未完成的编辑内容${updatedAt}，是否恢复？`);
+    const shouldRestore = await confirmEditorDraftRestore(this, tab, note, draft,
+      `检测到“${note.title || "未命名笔记"}”有上次未完成的编辑内容${updatedAt}，是否恢复？取消将保留草稿，稍后可再恢复。`);
+    if (shouldRestore === null) return false;
     if (!shouldRestore) {
-      this.clearDraft(note.id);
+      this.onStatus("本次暂不恢复，草稿仍保留。", "warn");
       return;
     }
     tab.body = draft.body;
@@ -316,7 +319,12 @@ const editorPaneStateMethods = {
     };
     this.syncPlaceholderTitleArmed(tab);
     tab.saveUiState = this.defaultSaveUiState(tab);
+    if (this.activeTab() === tab) {
+      this.fillEditorFromTab();
+      this.scheduleAutoSave();
+    }
     this.onStatus("已恢复上次未完成的编辑内容", "warn");
+    return true;
   },
 
   syncTabMetadataFromNote(noteId) {
@@ -333,6 +341,7 @@ const editorPaneStateMethods = {
     this.closeTransientPanels({ closeInspector: true });
     const tabId = `tab_${noteId}`;
     let t = this.state.tabs.find((x) => x.id === tabId);
+    const isNewTab = !t;
     if (!t) {
       t = {
         id: tabId,
@@ -348,7 +357,6 @@ const editorPaneStateMethods = {
         placeholderTitleArmed: noteUsesPlaceholderTitle(titleFromBody(n.body))
       };
       this.state.tabs.push(t);
-      this.maybeRestoreDraft(t, n);
       this.syncPlaceholderTitleArmed(t);
     }
     t.preferPlainEditor = options.preferPlainEditor === true;
@@ -360,16 +368,19 @@ const editorPaneStateMethods = {
     this.state.activeTabId = tabId;
     this.fillEditorFromTab();
     if (t.dirty) this.scheduleAutoSave();
+    if (isNewTab) void this.maybeRestoreDraft(t, n);
   },
 
-  closeTab(tabId) {
-    const idx = this.state.tabs.findIndex((t) => t.id === tabId);
-    if (idx < 0) return;
-    const tab = this.state.tabs[idx];
-    if (!this.confirmDiscardTab(tab)) return false;
+  async closeTab(tabId) {
+    this.updateActiveTabFromEditor?.();
+    const tab = this.state.tabs.find(t => t.id === tabId);
+    if (!tab) return false;
+    const isCurrent = captureEditorConfirmationGuard(this, [tab]);
+    if (!await this.confirmDiscardTab(tab) || !isCurrent()) return false;
+    const idx = this.state.tabs.indexOf(tab);
     const closingActiveTab = this.state.activeTabId === tabId;
     if (closingActiveTab) this.clearAutoSaveTimer();
-    this.clearDraft(tab.noteId);
+    if (tab.dirty) this.clearDraft(tab.noteId);
     this.state.tabs.splice(idx, 1);
     if (closingActiveTab) {
       this.state.activeTabId = this.state.tabs[idx]?.id || this.state.tabs[idx - 1]?.id || null;
@@ -380,8 +391,10 @@ const editorPaneStateMethods = {
     return true;
   },
 
-  closeAllTabs() {
-    if (!this.confirmDiscardDirtyTabs()) return false;
+  async closeAllTabs() {
+    this.updateActiveTabFromEditor?.();
+    const isCurrent = captureEditorConfirmationGuard(this, this.state.tabs, { allTabs: true });
+    if (!await this.confirmDiscardDirtyTabs() || !isCurrent()) return false;
     this.clearAutoSaveTimer();
     for (const tab of this.dirtyTabs()) this.clearDraft(tab.noteId);
     this.state.tabs = [];
@@ -476,6 +489,7 @@ const editorPaneStateMethods = {
   },
 
   fillEditorFromTab() {
+    cancelEditorInitialPosition(this);
     syncNoteMoveReadOnly(this.state);
     const t = this.activeTab();
     if (!t) {

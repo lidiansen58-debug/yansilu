@@ -32,7 +32,7 @@ test("graph visual map layout state derives layout visible edges and focused con
 
   assert.equal(state.normalizedFocusedNoteId, "b");
   assert.equal(state.layout.width, 1000);
-  assert.deepEqual(state.layout.options, { focusedNoteId: "b" });
+  assert.deepEqual(state.layout.options, { focusedNoteId: "b", zoomKey: "fit" });
   assert.deepEqual([...state.adjacencyMap.get("b")].sort(), ["a", "c"]);
   assert.deepEqual(state.visibleEdges.map((item) => item.edge.id), ["e1", "e2"]);
   assert.deepEqual(state.visibleEdges.map((item) => item.connectsFocus), [true, true]);

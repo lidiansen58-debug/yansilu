@@ -1,3 +1,5 @@
+import { graphSmallLabelHalfWidth } from "./graph-small-node-spacing.js";
+
 export function graphSelectionUsesOverlay(selectionKind = "", selectionNodeNeedsRelationWorkflow = false) {
   return (
     selectionKind === "isolated" ||
@@ -48,7 +50,8 @@ export function buildGraphVisualMapShellProps({
   if (smallGraph && zoom.key === "fit") {
     const xs = layout.nodes.map(node => node.x), ys = layout.nodes.map(node => node.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-    const width = Math.max(480, maxX - minX + 280), height = Math.max(440, maxY - minY + 180);
+    const horizontalInset = Math.max(140, ...layout.nodes.map(node => graphSmallLabelHalfWidth(node) + 8));
+    const width = Math.max(480, maxX - minX + horizontalInset * 2), height = Math.max(440, maxY - minY + 180);
     viewBox = `${(minX + maxX - width) / 2} ${(minY + maxY - height) / 2} ${width} ${height}`;
   }
 

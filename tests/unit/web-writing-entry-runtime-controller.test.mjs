@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { loadWritingThemeIndexesForRuntime } from "../../apps/web/src/writing-theme-index-loader.js";
 
 import {
   createWritingEntryRuntimeController
@@ -8,6 +9,77 @@ import {
 function fieldValues(values = {}) {
   return (id) => ({ value: values[id] || "" });
 }
+
+test("plain writing entry uses the same empty-folder Vault fallback as a theme refresh", async () => {
+  const queries = [], writingState = { projectFilters: {} };
+  const controller = createWritingEntryRuntimeController(() => ({ writingState,
+    writingThemeIndexScopeDirectoryId: () => "usage-notes",
+    listIndexCards: async query => { queries.push(query); return query.directoryId ? [] : [{ id: "vault-theme" }]; }
+  }));
+  await controller.openWritingModule({ statusMessage: "" });
+  assert.deepEqual(queries.map(query => query.directoryId), ["usage-notes", undefined]);
+  assert.deepEqual(writingState.themeIndexes, [{ id: "vault-theme" }]);
+  assert.equal(writingState.loadingThemeIndexes, false);
+});
+
+test("an entry still hydrating cannot claim ownership after a newer theme refresh", async () => {
+  let releaseHydration, queries = 0;
+  const writingState = { projectFilters: {}, themeIndexes: ["keep"] };
+  const controller = createWritingEntryRuntimeController(() => ({ writingState,
+    ensureNotesLoaded: () => new Promise(resolve => { releaseHydration = resolve; }),
+    writingThemeIndexScopeDirectoryId: () => "old-folder",
+    listIndexCards: async () => { queries++; return [{ id: "stale" }]; }
+  }));
+  const old = controller.openWritingModule({ statusMessage: "" });
+  await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "new-folder",
+    listIndexCards: async () => [{ id: "fresh" }], renderWritingPanel: () => {} });
+  releaseHydration(); await old;
+  assert.deepEqual(writingState.themeIndexes, [{ id: "fresh" }]);
+  assert.equal(queries, 0);
+  assert.equal(writingState.loadingThemeIndexes, false);
+});
+
+for (const order of ["older first", "newer first"]) {
+  test(`writing entry and a newer theme refresh share request ownership: ${order}`, async () => {
+    let releaseOld, releaseNew;
+    const writingState = { projectFilters: {}, themeIndexes: ["keep"] };
+    const controller = createWritingEntryRuntimeController(() => ({ writingState,
+      writingThemeIndexScopeDirectoryId: () => "old-folder",
+      listIndexCards: () => new Promise(resolve => { releaseOld = resolve; })
+    }));
+    const old = controller.openWritingModule({ statusMessage: "" });
+    await new Promise(resolve => setImmediate(resolve));
+    const newer = loadWritingThemeIndexesForRuntime({ writingState, directoryId: "new-folder",
+      listIndexCards: () => new Promise(resolve => { releaseNew = resolve; }), renderWritingPanel: () => {} });
+    if (order === "older first") {
+      releaseOld([{ id: "stale" }]); await old;
+      assert.deepEqual(writingState.themeIndexes, ["keep"]);
+      assert.equal(writingState.loadingThemeIndexes, true);
+      releaseNew([{ id: "fresh" }]); await newer;
+    } else {
+      releaseNew([{ id: "fresh" }]); await newer;
+      releaseOld([{ id: "stale" }]); await old;
+    }
+    assert.deepEqual(writingState.themeIndexes, [{ id: "fresh" }]);
+    assert.equal(writingState.loadingThemeIndexes, false);
+  });
+}
+
+test("a newer theme refresh prevents an older writing entry from starting its fallback", async () => {
+  let release, calls = 0;
+  const writingState = { projectFilters: {} };
+  const controller = createWritingEntryRuntimeController(() => ({ writingState,
+    writingThemeIndexScopeDirectoryId: () => "old-folder",
+    listIndexCards: () => { calls++; return new Promise(resolve => { release = resolve; }); }
+  }));
+  const old = controller.openWritingModule({ statusMessage: "" });
+  await new Promise(resolve => setImmediate(resolve));
+  await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "new-folder",
+    listIndexCards: async () => [{ id: "fresh" }], renderWritingPanel: () => {} });
+  release([]); await old;
+  assert.equal(calls, 1);
+  assert.deepEqual(writingState.themeIndexes, [{ id: "fresh" }]);
+});
 
 test("new writing entries cannot replace unsaved or saving drafts", () => {
   for (const draftSaveState of ["dirty", "error", "saving"]) {

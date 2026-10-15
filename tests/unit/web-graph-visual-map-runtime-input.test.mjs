@@ -14,10 +14,12 @@ test("graph visual map layout input normalizes focus and boolean layout flags", 
     relationFilterEdges: [{ id: "e2" }],
     filterActive: "yes",
     focusedNoteId: " n1 ",
+    zoomKey: " DETAIL ",
     structureFallback: 1
   });
 
   assert.equal(input.focusedNoteId, "n1");
+  assert.equal(input.zoomKey, "detail");
   assert.equal(input.filterActive, false);
   assert.equal(input.structureFallback, false);
   assert.deepEqual(input.nodes, [{ id: "n1" }]);

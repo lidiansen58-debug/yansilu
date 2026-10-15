@@ -1,3 +1,4 @@
+import { prepareAppNavigation } from "./app-navigation-intent.js";
 export function sidebarFlowNoteHasNetworkSignal(note = null, deps = {}) {
   const {
     parseLinks = () => [],
@@ -172,8 +173,8 @@ export async function handleSidebarFlowAction(event, deps = {}) {
   const button = event?.target?.closest?.("[data-sidebar-flow-action]");
   if (!button) return false;
   const action = String(button.dataset?.sidebarFlowAction || button.getAttribute?.("data-sidebar-flow-action") || "").trim();
-  const dismissed = dismissSafeOverlaysForNavigation();
-  if (dismissed && dismissed.ok === false) return false;
+  const isCurrentNavigation = await prepareAppNavigation(state, dismissSafeOverlaysForNavigation);
+  if (!isCurrentNavigation) return false;
   if (action === "continue-distillation") {
     activateModule("distillation");
     await openDistillationModule();

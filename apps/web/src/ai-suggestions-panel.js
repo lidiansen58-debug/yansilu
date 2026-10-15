@@ -334,14 +334,16 @@ function renderSuggestionEditor(item = {}, actionLoading = false, useLegacyId = 
   const status = String(item.status || "").trim();
   if (status !== "adopted_as_draft" && status !== "edited") return "";
   const id = useLegacyId ? "aiSuggestionContentEditor" : `aiSuggestionContentEditor-${domIdPart(item.id)}`;
+  const plainContent = typeof item.content === "string" || singleContentEntry(item.content);
+  const editorContent = plainContent ? readableContent(item.content) : JSON.stringify(item.content, null, 2) ?? "";
   return `
     <textarea
       id="${attr(id)}"
       data-ai-suggestion-content-editor="${attr(item.id)}"
       rows="8"
-      placeholder="可以直接改这段文字。"
+      placeholder="${plainContent ? "可以直接改这段文字。" : "按原有格式修改内容。"}"
       ${actionLoading ? "disabled" : ""}
-    >${escapeHtml(readableContent(item.content))}</textarea>
+    >${escapeHtml(editorContent)}</textarea>
   `;
 }
 
@@ -595,7 +597,7 @@ function renderDetail(state = {}) {
   const displayStatus = display.status || String(item.status || "").trim();
   const displayItem = { ...item, status: displayStatus };
   const displayGroupItems = groupItems.map((entry) => String(entry.id || "") === String(item.id || "") ? displayItem : entry);
-  const canHandleAsGroup = displayGroupItems.some((entry) => String(entry.status || "").trim() === "suggested");
+  const canHandleAsGroup = displayStatus === "suggested";
   return `
     <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
@@ -627,6 +629,7 @@ function renderDetail(state = {}) {
           }).join("")}
       ${renderTrace(activeDetail)}
       ${canHandleAsGroup ? renderGroupActions(displayGroupItems, actionLoading) : ""}
+      ${canHandleAsGroup ? renderActionError(actionError) : ""}
       ${renderDraftEditingGuide(displayItem)}
       ${renderHistory(activeDetail)}
     </article>

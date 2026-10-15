@@ -66,6 +66,16 @@ test("small-map overview frames actual coordinates but read zoom and dense maps 
   assert.equal(buildGraphVisualMapShellProps({ runtimeState: runtime({ layout, zoom: { key: "fit" }, denseGalaxyMode: true }) }).viewBox, "0 0 1080 560");
 });
 
+test("small-map framing reserves complete mobile long titles at both canvas edges", () => {
+  const nodes = [{ id: "a", title: "这是用于验证小图标题布局的长标题", x: 52, y: 100 },
+    { id: "b", title: "这是另一条用于验证小图标题的长标题", x: 1028, y: 300 }];
+  const props = buildGraphVisualMapShellProps({ runtimeState: runtime({
+    layout: { nodes, width: 1080, height: 560, smallGraph: true }, zoom: { key: "fit" }
+  }) });
+  const [x, , width] = props.viewBox.split(" ").map(Number);
+  assert.ok(nodes.every(node => node.x - 16 * 13 - 3 >= x && node.x + 16 * 13 + 3 <= x + width));
+});
+
 test("graph visual shell props route isolated selections into overlay", () => {
   const props = buildGraphVisualMapShellProps({
     runtimeState: runtime({ activeSelection: { kind: "isolated", noteId: "n1" } }),

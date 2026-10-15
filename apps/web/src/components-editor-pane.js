@@ -1,4 +1,6 @@
 import { escapeHtml } from "./editor-render-utils.js";
+import { beginEditorInitialPosition } from "./editor-initial-position.js";
+import { syncRichEditorValue } from "./editor-rich-render-sync.js";
 import { createNoteSaveShortcutHandler } from "./editor-save-shortcuts.js";
 import { aiErrorMessage } from "./ai-error-message.js";
 import { beginNoteAnalysisRequest, prepareNoteAnalysisRequest, isCurrentNoteAnalysisRequest, cancelRelationAnalysisRequest, discardNoteAnalysisRequest } from "./note-analysis-request.js";
@@ -12,6 +14,7 @@ import { bodyLinkRangeAtSelection } from "./editor-body-links.js";
 import { markdownCharacterIsEscaped, selectionTouchesMarkdownCode } from "./markdown-code-context.js";
 import { literatureSourceCompletion } from "./literature-source-readiness.js";
 import { distillationPanelHasFocus } from "./distillation-editor-result.js";
+import { captureNoteAiAdoptionBaseline } from "./note-ai-adoption-baseline.js";
 import {
   countExplicitSemanticRelations,
   deriveNoteWritingReadiness
@@ -814,16 +817,7 @@ export class EditorPane {
         this.suppressEditorChange = false;
       }
     }
-    if (this.richEditor && this.richEditor.getValue() !== text) {
-      this.suppressEditorChange = true;
-      try {
-        this.suppressRichEditorChange = true;
-        this.richEditor.setValue(text);
-      } finally {
-        this.suppressRichEditorChange = false;
-        this.suppressEditorChange = false;
-      }
-    }
+    syncRichEditorValue(this, text);
     this.scheduleRichAssetRefresh();
   }
 
@@ -994,7 +988,9 @@ export class EditorPane {
   }
 
   resetEditorViewportToStart() {
+    const isCurrent = beginEditorInitialPosition(this, "viewport");
     const reset = () => {
+      if (!isCurrent()) return;
       this.editorScrollNodes().forEach((node) => {
         if (!node) return;
         node.scrollTop = 0;
@@ -1535,7 +1531,7 @@ export class EditorPane {
       const { createWysiwygMarkdownEditor } = await import("/vendor/toastui-editor.bundle.js");
       this.richEditor = createWysiwygMarkdownEditor({
         parent: this.els.wysiwygHost,
-        doc: this.els.body.value || "",
+        doc: "",
         initialMode: "wysiwyg",
         onChange: (value) => {
           if (this.suppressRichEditorChange || this.suppressEditorChange) return;
@@ -1651,6 +1647,7 @@ export class EditorPane {
         if (files.length) void this.insertAssetFiles(files, { sourceLabel: "拖入" });
       });
       this.setEditorValue(this.els.body.value || "");
+      this.renderPreviewVisibility();
       this.scheduleRichAssetRefresh();
     } catch (error) {
       this.onStatus(`所见即所得编辑器加载失败，暂时保留源代码模式：${String(error?.message || error)}`, "warn");
@@ -1870,16 +1867,7 @@ export class EditorPane {
     const tab = this.activeTab();
     const text = String(tab?.body || this.getEditorValue() || "");
     this.setUnderlyingEditorValue(text);
-    if (this.richEditor?.editor && typeof this.richEditor.editor.setMarkdown === "function") {
-      this.suppressEditorChange = true;
-      try {
-        this.suppressRichEditorChange = true;
-        this.richEditor.editor.setMarkdown(text, false);
-      } finally {
-        this.suppressRichEditorChange = false;
-        this.suppressEditorChange = false;
-      }
-    }
+    if (!this.isSourceMode()) syncRichEditorValue(this, text, { force: true });
     this.resetEditorViewportToStart();
   }
 
@@ -2203,6 +2191,7 @@ export class EditorPane {
     const mode = this.pendingEditorFocus;
     this.pendingEditorFocus = null;
     if (!mode) return;
+    const isCurrent = beginEditorInitialPosition(this, "focus");
     if (this.isLiteratureWorkspaceActive()) {
       if (mode === "select-placeholder-title") {
         const titleInput = this.els.literatureTitle;
@@ -2214,6 +2203,7 @@ export class EditorPane {
       return;
     }
     const applyPlaceholderSelection = () => {
+      if (!isCurrent()) return false;
       const markdownRange = this.placeholderTitleSelectionRange();
       if (!markdownRange) return false;
       if (this.isWysiwygMode()) {
@@ -2227,26 +2217,11 @@ export class EditorPane {
       this.setEditorSelectionRange(markdownRange.from, markdownRange.to);
       return true;
     };
-    const apply = () => {
-      if (mode === "select-placeholder-title") {
-        if (applyPlaceholderSelection()) {
-          if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
-            window.setTimeout(() => {
-              applyPlaceholderSelection();
-            }, 32);
-            window.setTimeout(() => {
-              applyPlaceholderSelection();
-            }, 96);
-          }
-          return;
-        }
-      }
-      this.focusEditor();
-    };
     const scheduleApply = (attempt = 0) => {
       const run = () => {
+        if (!isCurrent()) return;
         if (mode !== "select-placeholder-title") {
-          apply();
+          this.focusEditor();
           return;
         }
         if (applyPlaceholderSelection()) {
@@ -5554,6 +5529,7 @@ export class EditorPane {
     const isCurrent = () => this.noteAiSuggestionsState === actionState && this.state.noteMoveVaultScope === scope && this.isActiveNoteId(noteId) && !this.state.vaultSwitching && !this.state.vaultSwitchUncertain;
     this.renderEmbeddedAiWorkspaceMount(noteId);
     try {
+      const adoptionBaseline = cleanAction === "adopted_as_draft" ? captureNoteAiAdoptionBaseline(this, note) : null;
       let latest = null;
       if (!cleanArtifactId || cleanAction === "edited" || cleanAction === "confirmed") {
         latest = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
@@ -5562,11 +5538,14 @@ export class EditorPane {
       if (!cleanArtifactId) cleanArtifactId = String(latest?.sourceArtifactId || currentSuggestion?.sourceArtifactId || "").trim();
       if (cleanAction === "adopted_as_draft") {
         if (!cleanArtifactId) throw new Error("这条建议缺少来源内容，暂时不能采纳为草稿。");
-        await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true });
+        await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true,
+          expectedRevision: adoptionBaseline.noteRevision, expectedVaultPath: adoptionBaseline.vaultPath || undefined });
         if (!isCurrent()) return;
         const refreshed = await fetchNote(noteId);
         if (!isCurrent()) return;
-        if (refreshed) this.permanentNoteDistillation().applyAdoptedNote(note, refreshed);
+        if (refreshed && this.permanentNoteDistillation().applyAdoptedNote(note, refreshed, adoptionBaseline) === false) {
+          throw new Error("AI 草稿已采纳，但当前编辑存在变化。请保留输入并重新打开笔记核对。");
+        }
       } else {
         const payload = {
           canonical: true,
@@ -6289,7 +6268,7 @@ export class EditorPane {
     this.els.tabs.addEventListener("click", async (e) => {
       const closeBtn = e.target.closest("button[data-close-tab]");
       if (closeBtn) {
-        if (this.closeTab(closeBtn.dataset.closeTab)) {
+        if (await this.closeTab(closeBtn.dataset.closeTab)) {
           this.onStatus("已关闭标签页", "ok");
         }
         return;
@@ -6323,7 +6302,7 @@ export class EditorPane {
           return;
         }
         if (action === "close-all") {
-          if (this.closeAllTabs()) {
+          if (await this.closeAllTabs()) {
             this.onStatus("已关闭全部标签页", "ok");
           }
           return;

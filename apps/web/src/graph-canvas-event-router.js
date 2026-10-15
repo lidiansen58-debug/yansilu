@@ -122,7 +122,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     if (earlySelectionClose) {
       consumeGraphClick();
       if (typeof dismissSafeOverlaysForEscape === "function") {
-        dismissSafeOverlaysForEscape(event);
+        await dismissSafeOverlaysForEscape(event);
       } else {
         graphState.selection = null;
         renderGraphPanel();
@@ -315,7 +315,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
     const selectionClose = event.target.closest("[data-graph-selection-close]");
     if (selectionClose) {
       if (typeof dismissSafeOverlaysForEscape === "function") {
-        dismissSafeOverlaysForEscape(event);
+        await dismissSafeOverlaysForEscape(event);
       } else {
         graphState.selection = null;
         renderGraphPanel();
@@ -764,7 +764,7 @@ export function bindGraphCanvasEvents(graphCanvas = null, deps = {}) {
   graphCanvas?.addEventListener("keydown", async (event) => {
     if (event.key === "Escape" && graphState.selection) {
       if (typeof dismissSafeOverlaysForEscape === "function") {
-        dismissSafeOverlaysForEscape(event);
+        await dismissSafeOverlaysForEscape(event);
       } else {
         graphState.selection = null;
         renderGraphPanel();

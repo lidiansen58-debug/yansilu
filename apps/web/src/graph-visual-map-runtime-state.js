@@ -57,6 +57,7 @@ export function buildGraphVisualMapRuntimeState({
   } = deps;
 
   const layoutState = buildGraphVisualMapLayoutState(buildGraphVisualMapLayoutInput({
+    zoomKey: graphState.zoom,
     nodes,
     edges,
     relationFilterEdges,

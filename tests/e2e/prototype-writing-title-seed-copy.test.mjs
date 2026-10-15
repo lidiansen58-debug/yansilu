@@ -1,71 +1,38 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, putJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, fetchJson } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme, findWritingProject } from "./prototype-writing-flow-helpers.mjs";
+import { createWritingSourceFixture, captureWritingSources } from "./prototype-writing-topic-repair-flow-helpers.mjs";
 
-async function ensureNoteMode(page) {
-  const alreadyNoteMode = await page.evaluate(() =>
-    document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg")
-  ).catch(() => false);
-  if (alreadyNoteMode) return;
-  const modeButton = page.locator("#btnModeToggle");
-  if (!(await modeButton.isVisible().catch(() => false))) return;
-  await modeButton.click();
-  await page.waitForFunction(() => {
-    const split = document.querySelector("#markdownSplit");
-    const host = document.querySelector("#wysiwygHost");
-    if (!split || !host) return false;
-    return split.classList.contains("editor-mode-wysiwyg") && window.getComputedStyle(host).display !== "none";
-  });
-}
-
-test("prototype writing title seed uses 项目 wording when current note enters the basket", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
+test("the article title starts from its theme without a project suffix and preserves the user's rename on resume", async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t);
+  if (!pw) return;
+  const stack = await startPrototypeStack(t, pw);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const note = await createWritingReadyPermanentNote(apiBase, {
-    title: "Title Seed Note",
-    body: "# Title Seed Note\n\nA confirmed note used to verify the default project title seed.",
-    thesis: "The default writing title seed should use 项目 wording once the note enters the basket.",
-    threeLineSummary: [
-      "The default writing title seed should use 项目 wording.",
-      "That matters because users see the seed before they decide whether to rename it.",
-      "It should stay aligned with the rest of the create-project wording."
-    ],
-    distillationStatus: "confirmed",
-    boundaryOrCounterpoint: "This only matters when the field is still blank and the system is choosing a default."
-  });
-
-  await page.goto(`${webBase}/prototype?note=${encodeURIComponent(note.json.item.id)}`, { waitUntil: "networkidle" });
-  await page.waitForFunction(
-    (noteId) => Array.isArray(window.__prototypeState?.notes) && window.__prototypeState.notes.some((item) => item?.id === noteId),
-    note.json.item.id
-  );
-  await page.evaluate((noteId) => {
-    window.__prototypeState.selectedFileId = noteId;
-    window.__prototypeState.browserRootId = "dir_original_default";
-    window.__prototypeEditor?.openNoteTab?.(noteId, { preferTitleSelection: false });
-  }, note.json.item.id);
-  await ensureNoteMode(page);
-
+  const { page, apiBase, webBase } = stack, notes = await createWritingSourceFixture(stack), title = "第一章 怎样检验理解";
+  await createManualWritingTheme(stack, notes, { title });
+  const assertSourcesUnchanged = await captureWritingSources(stack, notes);
+  assert.equal(await page.getByLabel("文章题目", { exact: true }).inputValue(), title);
+  assert.equal(await page.locator("#writingWorkspaceTitle").innerText(), title);
+  assert.equal(await page.getByText(title, { exact: true }).filter({ visible: true }).count(), 1);
+  assert.doesNotMatch(await page.locator("#writingPanel").innerText(), /写作项目|未命名写作项目|第一章 怎样检验理解 项目/);
+  const renamed = "理解检验：第一版";
+  await page.getByLabel("文章题目", { exact: true }).fill(renamed);
+  await page.locator("#btnWritingCreateScaffold").click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  const project = await findWritingProject(stack, notes, renamed);
+  assert.equal(await page.locator("#writingWorkspaceTitle").innerText(), renamed);
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
-  await page.click("#btnWritingUseCurrent");
-
-  await waitFor(async () => {
-    const titleValue = await page.inputValue("#writingTitle");
-    assert.equal(titleValue, "Title Seed Note 项目");
-
-    const panelText = await page.locator("#writingPanel").textContent();
-    assert.doesNotMatch(String(panelText || ""), /Title Seed Note 写作项目/);
-    assert.doesNotMatch(String(panelText || ""), /未命名写作项目/);
-  }, 10000);
+  const card = page.locator(`[data-writing-index-card-id="${project.related_index_ids[0]}"]`);
+  assert.match(await card.innerText(), new RegExp(title));
+  await card.locator(`button[data-writing-project-id="${project.id}"]`).click();
+  await page.locator("#writingScaffoldPanel:visible").waitFor();
+  assert.equal(await page.locator("#writingWorkspaceTitle").innerText(), renamed);
+  await page.locator('[data-writing-tab="theme"]').click();
+  assert.equal(await page.getByLabel("文章题目", { exact: true }).inputValue(), renamed);
+  assert.equal((await fetchJson(apiBase, `/api/v1/index-cards/${project.related_index_ids[0]}`)).json.item.title, title);
+  assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items.length, 1);
+  await assertSourcesUnchanged();
 });

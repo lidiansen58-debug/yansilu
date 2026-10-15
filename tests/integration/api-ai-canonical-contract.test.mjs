@@ -166,7 +166,8 @@ test("AI canonical contracts keep inbox detail, suggestion detail, and review ac
     "item",
     "latest_review_event",
     "review_events",
-    "trace"
+    "trace",
+    "write_base"
   ]);
   assert.deepEqual(sortedKeys(rejected.json.canonical.artifact), [
     "agent_run_id",
@@ -205,8 +206,15 @@ test("AI canonical contracts keep inbox detail, suggestion detail, and review ac
     "item",
     "latest_review_event",
     "review_events",
-    "trace"
+    "trace",
+    "write_base"
   ]);
+  assert.deepEqual(sortedKeys(suggestionDetail.json.canonical.write_base), ["fileRevision", "noteId", "suggestionRevision", "vaultPath"]);
+  assert.equal(suggestionDetail.json.canonical.write_base.noteId, note.json.item.id);
+  assert.equal(suggestionDetail.json.canonical.write_base.vaultPath, vaultPath);
+  assert.match(suggestionDetail.json.canonical.write_base.fileRevision, /^[a-f0-9]{64}$/);
+  assert.match(suggestionDetail.json.canonical.write_base.suggestionRevision, /^[a-f0-9]{64}$/);
+  assert.deepEqual(suggestionDetail.json.canonical.write_base, rejected.json.canonical.write_base);
   assert.equal(suggestionDetail.json.artifact.id, artifact.id);
   assert.equal(suggestionDetail.json.canonical.artifact.id, artifact.id);
   assert.deepEqual(sortedKeys(suggestionDetail.json.canonical.item.history[0]), [

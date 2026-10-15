@@ -1,4 +1,5 @@
 import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
+import { confirmExplorerDelete } from "./explorer-delete-confirmation.js";
 
 function folderIconSvg(isRoot = false, state = "") {
   const cleanState = String(state || "").trim();
@@ -647,10 +648,7 @@ export class ExplorerPane {
         this.onStatus(f.hidden ? "目录已隐藏" : "目录已显示", "ok");
       }
       if (action === "delete") {
-        if (f.isDefault) return this.onStatus("默认根目录不可删除", "bad");
-        const ok = confirm(`确认删除目录“${f.name}”及其直属笔记吗？`);
-        if (!ok) return;
-        await this.onStateChange("directory-delete", { directoryId: f.id });
+        return confirmExplorerDelete(this, target);
       }
       this.onStateChange("folder-context-action");
       return;
@@ -731,9 +729,7 @@ export class ExplorerPane {
         await this.revealLocalPath(notePath, "Markdown 文件位置");
       }
       if (action === "delete") {
-        const ok = confirm(`确认删除笔记“${n.title}”吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
-        if (!ok) return;
-        await this.onStateChange("note-delete", { noteId: n.id });
+        return confirmExplorerDelete(this, target);
       }
       this.onStateChange("file-context-action");
     }

@@ -2032,6 +2032,7 @@ test("graph density hint is temporary and does not stay on the map", () => {
   let timeoutDelay = 0;
   let clearedTimer = null;
   let renderCount = 0;
+  let hintRemoved = 0;
   const graphState = {
     lastLoadedDirectoryId: "dir-a",
     lastLoadedAt: "loaded-1"
@@ -2040,6 +2041,10 @@ test("graph density hint is temporary and does not stay on the map", () => {
     graphState,
     now: () => currentTime,
     window: {
+      document: { querySelectorAll: selector => {
+        assert.equal(selector, "#graphCanvas .graph-density-hint");
+        return [{ remove: () => { hintRemoved += 1; } }];
+      } },
       setTimeout: (callback, delay) => {
         timeoutCallback = callback;
         timeoutDelay = delay;
@@ -2069,7 +2074,8 @@ test("graph density hint is temporary and does not stay on the map", () => {
   timeoutCallback();
   assert.equal(graphState.densityHintVisibleUntil, 0);
   assert.equal(graphState.densityHintTimer, 0);
-  assert.equal(renderCount, 1);
+  assert.equal(renderCount, 0);
+  assert.equal(hintRemoved, 1);
 
   graphState.densityHintTimer = 77;
   assert.equal(shouldShowGraphDensityHintForRuntime({ dense: false, filterActive: false }, deps), false);
@@ -2261,12 +2267,13 @@ test("note box and graph tree sync all notes under the selected root", async () 
   const settingsEventSource = readSettingsEventBindings();
   const calls = [];
 
-  assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId\) \{/);
+  assert.match(source, /async function syncNotesForDirectoryTree\(rootDirectoryId, \{ isCurrent = \(\) => true \} = \{\}\) \{/);
   assert.match(source, /return syncDirectoryTreeNotes\(rootDirectoryId, \{[\s\S]*state, descendantDirectoryIds, folderById, fetchDirectoryNotes, mapNoteItem, upsertNotesForDirectory/);
+  assert.match(source, /mapNoteItem, upsertNotesForDirectory, isCurrent/);
   assert.match(settingsEventSource, /await refreshVaultSettings\(\);/);
   assert.match(settingsEventSource, /createSettingsVaultSwitcher/);
   assert.match(fs.readFileSync(path.join(repoRoot, "apps/web/src/settings-vault-switch.js"), "utf8"), /await fetchDirectories\(true, \{ signal \}\);[\s\S]*Promise\.all\(rootIds\.map\(async id => \{[\s\S]*await fetchDirectoryNotes\(id, \{ signal, includeDescendants: true \}\);/);
-  assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId\);[\s\S]*syncRailSelectionState\(\);/);
+  assert.match(readQuickActionEventBindings(), /state\.module = "explorer";[\s\S]*state\.selectedFileId = null;[\s\S]*await syncNotesForDirectoryTree\(state\.browserRootId, \{ isCurrent: isCurrentNavigation \}\);[\s\S]*syncRailSelectionState\(\);/);
   await refreshDirectoryGraphForRuntime({
     graphScopeDirectoryId: () => "selected-dir",
     graphOriginalScopeDirectoryId: "original-root",

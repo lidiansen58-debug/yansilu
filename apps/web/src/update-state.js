@@ -120,13 +120,13 @@ export function updateStateFromCheckResult(state = {}, result = {}, options = {}
   const ignored = !options.manual && ignoredVersion && latestVersion && ignoredVersion === latestVersion && result?.status === UPDATE_STATUS.UPDATE_AVAILABLE;
   if (
     state?.installReadyForRestart === true &&
-    state?.status === UPDATE_STATUS.DOWNLOADED &&
     latestVersion &&
     latestVersion === cleanText(state.latestVersion || state.manifest?.version)
   ) {
     return {
       ...createUpdateState(),
       ...state,
+      status: UPDATE_STATUS.DOWNLOADED,
       checkedAt: normalizeTimestamp(result?.checkedAt) || isoNow(options.now),
       manifestUrl: cleanText(result?.manifestUrl || state.manifestUrl),
       manifest: manifest || state.manifest,
@@ -150,6 +150,9 @@ export function updateStateFromCheckResult(state = {}, result = {}, options = {}
     changelog: Array.isArray(manifest?.changelog) ? manifest.changelog : [],
     downloadUrl: cleanText(manifest?.downloadUrl || result?.downloadUrl),
     installable: result?.installable === true,
+    installPhase: "",
+    installProgress: null,
+    installReadyForRestart: false,
     critical: Boolean(result?.critical || manifest?.critical),
     minimumSupported: result?.minimumSupported !== false,
     error: cleanText(result?.error?.message || result?.error || "")
@@ -192,7 +195,7 @@ export function updateStateDownloaded(state = {}, options = {}) {
     ...state,
     status: UPDATE_STATUS.DOWNLOADED,
     error: cleanText(options.message || ""),
-    installPhase: "installed",
+    installPhase: "downloaded",
     installProgress: {
       ...(state.installProgress || {}),
       ...(options.progress || {}),

@@ -2,21 +2,18 @@ import {
   normalizeScheduledTaskFilters,
   scheduledTaskFormDefaults,
   scheduledTaskFormFromTask,
-  scheduledTaskFromCanonical,
-  scheduledTaskPayloadFromForm
+  scheduledTaskFromCanonical
 } from "./scheduled-tasks-model.js";
+import { createScheduledTaskManualActions } from "./scheduled-task-manual-actions.js";
+import { captureActionConfirmationContext } from "./action-confirmation-context.js";
 
 function cleanText(value) {
   return String(value || "").trim();
 }
 
-function scheduledTaskPayloadHasScope(payload = {}) {
-  const scope = payload.scope || {};
-  return ["noteIds", "directoryIds", "tags", "keywords"].some((key) => Array.isArray(scope[key]) && scope[key].length);
-}
-
 export function createScheduledTasksRuntimeController(depsProvider = () => ({})) {
   const runtimeDeps = () => depsProvider() || {};
+  const { saveFromUi, setTaskStatus, runDueFromUi } = createScheduledTaskManualActions(runtimeDeps, { formFromUi, refreshTasks });
 
   function filtersFromUi() {
     const {
@@ -107,6 +104,8 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       setStatus = () => {},
       settingsState = {}
     } = runtimeDeps();
+    const ai = settingsState.ai;
+    const currentContext = captureActionConfirmationContext(runtimeDeps, current => current.settingsState?.ai === ai);
     if (!options.silent) {
       settingsState.ai.scheduledTaskTemplatesLoading = true;
       settingsState.ai.scheduledTaskTemplatesError = "";
@@ -114,6 +113,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     }
     try {
       const result = await fetchAiScheduledTaskTemplates({ implementationReady: true });
+      if (!currentContext()) return null;
       settingsState.ai.scheduledTaskTemplates = result.items;
       settingsState.ai.scheduledTaskTemplatesError = "";
       if (!cleanText(settingsState.ai.scheduledTaskForm.templateId)) {
@@ -123,12 +123,13 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       }
       return result;
     } catch (error) {
+      if (!currentContext()) return null;
       settingsState.ai.scheduledTaskTemplatesError = String(error?.message || error);
       setStatus(`整理类型加载失败：${settingsState.ai.scheduledTaskTemplatesError}`, "warn");
       return null;
     } finally {
-      settingsState.ai.scheduledTaskTemplatesLoading = false;
-      render({ preserveForm: true });
+      ai.scheduledTaskTemplatesLoading = false;
+      if (currentContext()) render({ preserveForm: true });
     }
   }
 
@@ -140,6 +141,8 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       setStatus = () => {},
       settingsState = {}
     } = runtimeDeps();
+    const ai = settingsState.ai;
+    const currentContext = captureActionConfirmationContext(runtimeDeps, current => current.settingsState?.ai === ai);
     settingsState.ai.scheduledTaskFilters = normalizeScheduledTaskFilters(settingsState.ai.scheduledTaskFilters);
     if (!options.silent) {
       settingsState.ai.scheduledTasksLoading = true;
@@ -148,6 +151,7 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     }
     try {
       const result = await fetchAiScheduledTasks({ ...settingsState.ai.scheduledTaskFilters, canonical: true });
+      if (!currentContext()) return null;
       settingsState.ai.scheduledTasks = Array.isArray(result?.canonical?.items) && result.canonical.items.length
         ? result.canonical.items.map((item) => scheduledTaskFromCanonical(item))
         : result.items;
@@ -156,56 +160,13 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
       settingsState.ai.scheduledTasksError = "";
       return result;
     } catch (error) {
+      if (!currentContext()) return null;
       settingsState.ai.scheduledTasksError = String(error?.message || error);
       setStatus(`整理规则加载失败：${settingsState.ai.scheduledTasksError}`, "warn");
       return null;
     } finally {
-      settingsState.ai.scheduledTasksLoading = false;
-      render({ preserveForm: true });
-    }
-  }
-
-  async function saveFromUi() {
-    const {
-      refreshScheduledTasks = refreshTasks,
-      rememberAiDebugSnapshot = () => {},
-      render = () => {},
-      saveAiScheduledTask = async () => null,
-      setStatus = () => {},
-      settingsState = {},
-      window = globalThis.window
-    } = runtimeDeps();
-    const form = formFromUi();
-    if (settingsState.ai.scheduledTaskActionLoading) return null;
-    settingsState.ai.scheduledTaskForm = form;
-    settingsState.ai.scheduledTaskFormOpen = true;
-    settingsState.ai.scheduledTaskFormError = "";
-    const payload = scheduledTaskPayloadFromForm(form);
-    if (payload.status === "active" && !scheduledTaskPayloadHasScope(payload)) {
-      const confirmed = typeof window?.confirm === "function"
-        ? window.confirm(`没有限制整理范围，这条规则将处理${payload.scope.includePrivateNotes ? "所有笔记（包括私密笔记）" : "所有非私密笔记"}。确认启用吗？`)
-        : true;
-      if (!confirmed) return null;
-    }
-
-    settingsState.ai.scheduledTaskActionLoading = true;
-    render();
-    try {
-      const item = await saveAiScheduledTask({ ...payload, canonical: true });
-      rememberAiDebugSnapshot("scheduledTaskAction", item);
-      const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
-      settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(canonicalTask || item);
-      settingsState.ai.scheduledTaskFormOpen = false;
-      await refreshScheduledTasks({ silent: true });
-      setStatus(`整理规则已保存：${item?.name || ""}`, "ok");
-      return item;
-    } catch (error) {
-      settingsState.ai.scheduledTaskFormError = `保存失败：${String(error?.message || error)}`;
-      setStatus(settingsState.ai.scheduledTaskFormError, "bad");
-      return null;
-    } finally {
-      settingsState.ai.scheduledTaskActionLoading = false;
-      render();
+      ai.scheduledTasksLoading = false;
+      if (currentContext()) render({ preserveForm: true });
     }
   }
 
@@ -223,100 +184,6 @@ export function createScheduledTasksRuntimeController(depsProvider = () => ({}))
     settingsState.ai.scheduledTaskFormError = "";
     render();
     setStatus(`正在编辑：${task.name || "整理规则"}`, "ok");
-  }
-
-  async function setTaskStatus(scheduledTaskId, status) {
-    const {
-      refreshScheduledTasks = refreshTasks,
-      rememberAiDebugSnapshot = () => {},
-      render = () => {},
-      setStatus = () => {},
-      settingsState = {},
-      updateAiScheduledTaskStatusWithOptions = async () => null
-    } = runtimeDeps();
-    const cleanScheduledTaskId = cleanText(scheduledTaskId);
-    const cleanStatus = cleanText(status);
-    if (!cleanScheduledTaskId || !cleanStatus) return null;
-    if (settingsState.ai.scheduledTaskActionLoading) return null;
-    settingsState.ai.scheduledTaskActionLoading = true;
-    settingsState.ai.scheduledTaskActionError = "";
-    render();
-    try {
-      const item = await updateAiScheduledTaskStatusWithOptions(cleanScheduledTaskId, cleanStatus, { canonical: true });
-      rememberAiDebugSnapshot("scheduledTaskAction", item);
-      const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
-      const nextTask = canonicalTask || item;
-      settingsState.ai.scheduledTasks = settingsState.ai.scheduledTasks.map((task) =>
-        cleanText(task.scheduledTaskId) === cleanScheduledTaskId ? nextTask : task
-      );
-      await refreshScheduledTasks({ silent: true });
-      setStatus(cleanStatus === "active" ? "整理规则已启用" : "整理规则已暂停", "ok");
-      return item;
-    } catch (error) {
-      settingsState.ai.scheduledTaskActionError = `修改规则状态失败：${String(error?.message || error)}`;
-      setStatus(settingsState.ai.scheduledTaskActionError, "bad");
-      return null;
-    } finally {
-      settingsState.ai.scheduledTaskActionLoading = false;
-      render();
-    }
-  }
-
-  async function runDueFromUi() {
-    const {
-      addSystemMessage = () => {},
-      aiInboxState = {},
-      globalPendingAiInboxFilters = () => ({}),
-      normalizeAiInboxFilters = (value) => value,
-      refreshAiInbox = async () => null,
-      refreshAiInboxEvaluationSummary = async () => null,
-      refreshScheduledTasks = refreshTasks,
-      render = () => {},
-      runDueAiScheduledTasks = async () => null,
-      scheduledTaskReviewArtifactCount = () => 0,
-      scheduledTaskSystemMessageForArtifacts = () => null,
-      setStatus = () => {},
-      settingsState = {},
-      window = globalThis.window
-    } = runtimeDeps();
-    if (settingsState.ai.scheduledTaskActionLoading) return null;
-    const confirmed = typeof window?.confirm === "function"
-      ? window.confirm("现在整理到期内容吗？结果会先进入待处理，确认后才写入笔记。使用远程模型可能产生第三方费用。")
-      : true;
-    if (!confirmed) return null;
-    settingsState.ai.scheduledTaskActionLoading = true;
-    settingsState.ai.scheduledTaskActionError = "";
-    settingsState.ai.scheduledTasksError = "";
-    render();
-    try {
-      const summary = await runDueAiScheduledTasks({ limit: settingsState.ai.scheduledTaskFilters.limit || 50 });
-      settingsState.ai.scheduledTaskRunSummary = summary;
-      await Promise.all([
-        refreshScheduledTasks({ silent: true }),
-        refreshAiInbox({ silent: true, preserveDetail: true }),
-        refreshAiInboxEvaluationSummary({ silent: true })
-      ]);
-      const artifactCount = scheduledTaskReviewArtifactCount(summary);
-      if (artifactCount > 0) {
-        aiInboxState.filters = normalizeAiInboxFilters({
-          ...globalPendingAiInboxFilters(),
-          type: aiInboxState.filters?.type || "all"
-        });
-        aiInboxState.detail = null;
-        aiInboxState.selectedArtifactId = "";
-        const systemMessage = scheduledTaskSystemMessageForArtifacts(artifactCount);
-        if (systemMessage) addSystemMessage(systemMessage, { interrupt: true });
-      }
-      setStatus(`整理完成：${summary?.succeeded || 0} 条成功，${summary?.skipped || 0} 条跳过，${summary?.failed || 0} 条失败`, summary?.failed ? "warn" : "ok");
-      return summary;
-    } catch (error) {
-      settingsState.ai.scheduledTaskActionError = `整理失败：${String(error?.message || error)}`;
-      setStatus(settingsState.ai.scheduledTaskActionError, "bad");
-      return null;
-    } finally {
-      settingsState.ai.scheduledTaskActionLoading = false;
-      render();
-    }
   }
 
   return {

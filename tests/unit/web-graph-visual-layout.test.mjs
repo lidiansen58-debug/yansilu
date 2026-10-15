@@ -19,6 +19,34 @@ const layoutDeps = {
   }
 };
 
+test("dense reading layouts retain every real group, relation degree and deterministic note position", () => {
+  const nodes = Array.from({ length: 121 }, (_, i) => ({ id: `dense-${i}`, title: `笔记 ${i}` }));
+  const edges = nodes.slice(1).map((node, i) => ({ fromNoteId: nodes[i].id, toNoteId: node.id }));
+  const input = structuredClone({ nodes, edges });
+  const overview = graphBuildVisualLayout(nodes, edges, {}, layoutDeps);
+  const read = graphBuildVisualLayout(nodes, edges, { zoomKey: "read" }, layoutDeps);
+  const detail = graphBuildVisualLayout(nodes, edges, { zoomKey: "detail" }, layoutDeps);
+  assert.deepEqual(read.nodes, detail.nodes, 'Reading levels keep stable positions');
+  assert.deepEqual(graphBuildVisualLayout(nodes, edges, { zoomKey: "detail" }, layoutDeps), detail);
+  assert.deepEqual({ nodes, edges }, input, 'Layout must not mutate saved graph inputs');
+  assert.deepEqual(detail.nodes.map(({ id, title, degree, clusterIndex }) => ({ id, title, degree, clusterIndex })),
+    overview.nodes.map(({ id, title, degree, clusterIndex }) => ({ id, title, degree, clusterIndex })));
+  assert.deepEqual(detail.clusterMeta.map(({ memberIds }) => memberIds), overview.clusterMeta.map(({ memberIds }) => memberIds));
+  assertRealClusterPaths(detail, edges);
+  for (const [i, a] of detail.nodes.entries()) for (const b of detail.nodes.slice(i + 1)) {
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y) >= 60, `Distinct hit targets: ${a.id}/${b.id}`);
+  }
+  assert.ok(detail.nodes.every(node => node.x > 0 && node.x < detail.width && node.y > 0 && node.y < detail.height));
+});
+
+test("small graph and fit mode keep their existing positions", () => {
+  const nodes = Array.from({ length: 8 }, (_, i) => ({ id: `small-${i}` }));
+  const edges = nodes.slice(1).map(node => ({ fromNoteId: nodes[0].id, toNoteId: node.id }));
+  const baseline = graphBuildVisualLayout(nodes, edges, {}, layoutDeps);
+  assert.deepEqual(graphBuildVisualLayout(nodes, edges, { zoomKey: "fit" }, layoutDeps), baseline);
+  assert.deepEqual(graphBuildVisualLayout(nodes, edges, { zoomKey: "detail" }, layoutDeps), baseline);
+});
+
 test("small maps give real low-degree endpoints a visible radius without enlarging dense graphs", () => {
   const nodes = Array.from({ length: 12 }, (_, i) => ({ id: `n${i}` }));
   const edges = [{ fromNoteId: "n0", toNoteId: "n1" }];

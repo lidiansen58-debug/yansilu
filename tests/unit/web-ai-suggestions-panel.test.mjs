@@ -231,6 +231,29 @@ test("AI suggestions panel only lets the selected grouped suggestion be edited",
   assert.doesNotMatch(summarySection, /我已改好/);
 });
 
+for (const status of ["adopted_as_draft", "edited"]) test(`a pending sibling cannot hide ${status} review controls`, () => {
+  const selected = { ...suggestion, status };
+  const pending = { ...suggestion, id: "pending_summary", content: { three_line_summary: ["Summary candidate"] },
+    target: { ...suggestion.target, field: "three_line_summary" } };
+  const pane = detailPane(renderAiSuggestionsPanel({ items: [pending, selected], total: 2,
+    selectedSuggestionId: selected.id, detail: selected }));
+  assert.match(pane, /id="aiSuggestionContentEditor"/);
+  assert.match(pane, new RegExp(`data-ai-suggestion-status="${status === "edited" ? "confirmed" : "edited"}"`));
+  assert.match(pane, /data-ai-suggestion-id="pending_summary"[\s\S]*处理这项/);
+  assert.doesNotMatch(pane, /data-ai-suggestion-group-status=/);
+  assert.doesNotMatch(pane, /id="aiSuggestionContentEditor-pending_summary"/);
+});
+
+for (const [kind, content] of [["object", { thesis: "Claim", confidence: 0.7 }], ["array", ["First", "Second"]], ["number", 0.7]]) {
+  test(`structured ${kind} opens with a reversible editor value`, () => {
+    const item = { ...suggestion, status: "adopted_as_draft", content };
+    const pane = detailPane(renderAiSuggestionsPanel({ items: [item], selectedSuggestionId: item.id, detail: item }));
+    const value = pane.match(/<textarea[\s\S]*?>([\s\S]*?)<\/textarea>/)?.[1];
+    assert.equal(typeof value, "string");
+    assert.deepEqual(JSON.parse(value.replaceAll("&quot;", '"')), content);
+  });
+}
+
 test("AI suggestions panel renders edited action for adopted draft suggestions in plain language", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "adopted_as_draft" }],
@@ -593,6 +616,15 @@ test("AI suggestions panel marks the current suggestion detail busy while its re
 test("AI suggestions panel renders loading and empty states", () => {
   assert.match(renderAiSuggestionsPanel({ loading: true }), /正在加载待处理/);
   assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /没有符合筛选条件的待处理/);
+});
+
+test('a pending group keeps its failed write explanation visible beside the proposed content', () => {
+  const pending = { ...suggestion, status: 'suggested' };
+  const pane = detailPane(renderAiSuggestionsPanel({ items: [pending], total: 1,
+    selectedSuggestionId: pending.id, detail: { item: pending }, actionSuggestionId: pending.id,
+    actionError: '笔记已变化，本次未覆盖。' }));
+  assert.match(pane, /笔记已变化，本次未覆盖/);
+  assert.match(pane, /保存这篇建议/);
 });
 
 test("AI suggestions compact mode keeps an empty automation tab quiet", () => {

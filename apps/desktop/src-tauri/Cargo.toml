@@ -1,6 +1,6 @@
 [package]
 name = "yansilu-desktop"
-version = "0.1.1-beta.2"
+version = "0.1.1-beta.3"
 description = "研思录桌面壳"
 authors = ["Yansilu Team"]
 edition = "2021"
@@ -17,7 +17,7 @@ tauri-build = { version = "2", features = [] }
 reqwest = { version = "0.13.2", default-features = false, features = ["blocking"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 serde_json = "1"
-tauri = { version = "2", features = [] }
+tauri = { version = "2.12.2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"

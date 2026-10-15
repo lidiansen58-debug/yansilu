@@ -92,13 +92,6 @@ export function renderWritingFlowStepsDom(deps = {}, {
   el.innerHTML = renderWritingFlowStepsView(steps, { escapeHtml });
 }
 
-function writingEntryContextText(writingState = {}) {
-  const reason = String(writingState.entryContextReason || "").trim();
-  if (!reason) return "";
-  const sourceLabel = String(writingState.entryContextSourceLabel || "").trim();
-  return `${sourceLabel || "入口"}推荐理由：${reason}`;
-}
-
 export function renderWritingPanelDom(deps = {}) {
   const {
     $,
@@ -228,13 +221,9 @@ export function renderWritingPanelDom(deps = {}) {
   } = panelState;
   current.textContent = panelState.currentLabel;
   if (scopeHint) {
-    const entryContextText = writingEntryContextText(writingState);
     const shouldShowScopeHint = Boolean(candidateFocusPlan.usingFocusedScope);
-    const scopeText = candidateFocusPlan.usingFocusedScope
-        ? `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱进入写作的，下面会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；已选相关笔记和可写主题仍保持当前目录范围。`
-      : `当前查看范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里的永久笔记，不展示原始导入资料；写作默认从已有观点开始。`;
     scopeHint.hidden = !shouldShowScopeHint;
-    scopeHint.textContent = shouldShowScopeHint ? (entryContextText ? `${scopeText} ${entryContextText}` : scopeText) : "";
+    scopeHint.textContent = shouldShowScopeHint ? `候选材料：${candidateFocusPlan.scopeLabel} · ${candidates.length} 条` : "";
   }
   renderWritingStatusStripDom(deps);
   if (themeIndexesHint) {
