@@ -7,11 +7,11 @@
     "bundleReady": true,
     "notice": "Beta 测试版，需手动安装。安装前建议备份现有笔记库。",
     "platformNotices": {
-      "windows": "Windows 安装版主流程已验收。Beta 测试版，需手动安装；安装包未进行系统代码签名，可能显示 SmartScreen 提示。",
+      "windows": "Beta 测试版。首次使用需手动安装；已有 Windows 版可在设置中检查更新。安装包未进行代码签名，可能显示 SmartScreen 提示。",
       "macos": "Beta 测试版，需手动安装。已完成 Apple 签名与公证，尚未完成 Mac 实机验收。",
       "linux": "Beta 测试版，需手动安装。基于 Ubuntu 24.04 x64 构建，尚未实机验收。"
     },
-    "generatedAt": "2026-10-15T14:37:29.304Z",
+    "generatedAt": "2026-10-17T04:07:37.997Z",
     "totalFiles": 4,
     "items": [
       {
