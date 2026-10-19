@@ -6,6 +6,14 @@ function cleanText(value = "") {
   return String(value ?? "").trim();
 }
 
+function platformUpdateError(error) {
+  const message = String(error?.message || error);
+  if (!/None of the fallback platforms[\s\S]*were found in the response[\s\S]*platforms/.test(message)) return error;
+  const normalized = new Error("当前更新来源尚未提供此系统的应用内更新包，请前往官网下载页查看可用安装包。", { cause: error });
+  normalized.code = "DESKTOP_UPDATE_PLATFORM_UNAVAILABLE";
+  return normalized;
+}
+
 function hasUpdaterApi(tauri = tauriGlobal()) {
   return typeof tauri?.updater?.check === "function" || typeof tauri?.core?.invoke === "function";
 }
@@ -70,11 +78,17 @@ export async function checkDesktopUpdate(options = {}) {
   }
   let update = null;
   if (typeof tauri?.updater?.check === "function") {
-    update = await tauri.updater.check({ timeout: Number(options.timeout || 30000) });
+    try {
+      update = await tauri.updater.check({ timeout: Number(options.timeout || 30000) });
+    } catch (error) {
+      throw platformUpdateError(error);
+    }
   } else {
     try {
       update = await tauri.core.invoke("plugin:updater|check", { timeout: Number(options.timeout || 30000) });
     } catch (error) {
+      const normalized = platformUpdateError(error);
+      if (normalized?.code === "DESKTOP_UPDATE_PLATFORM_UNAVAILABLE") throw normalized;
       return { supported: false, available: false, update: null, error };
     }
   }

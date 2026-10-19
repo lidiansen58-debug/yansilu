@@ -718,25 +718,31 @@ mod startup_tests {
     #[test]
     fn real_packaged_api_skips_unrelated_loopback_services() {
         let _guard = NATIVE_API_TEST_LOCK.lock().unwrap();
-        let listeners: Vec<_> = (DEFAULT_API_PORT..=DEFAULT_API_PORT + 1)
-            .map(|port| TcpListener::bind(("127.0.0.1", port)).expect("Conflict regression requires free ports 3000 and 3001"))
+        // Development servers or another desktop instance may already own 3000/3001.
+        // Occupy the first two available candidates without touching those processes.
+        let listeners: Vec<_> = (DEFAULT_API_PORT..=API_PORT_SEARCH_END)
+            .filter_map(|port| TcpListener::bind(("127.0.0.1", port)).ok())
+            .take(2)
             .collect();
+        assert_eq!(listeners.len(), 2, "Conflict regression requires two free candidate ports");
+        let occupied_ports: Vec<_> = listeners.iter().map(|listener| listener.local_addr().unwrap().port()).collect();
+        let expected_port = (DEFAULT_API_PORT..=API_PORT_SEARCH_END)
+            .find(|port| api_port_is_available(*port)).expect("Conflict regression requires a free API port");
         let fixture = RunningApiFixture::start("loopback-occupied");
         let api = fixture.wait_for_healthy(None);
         let port: u16 = api["baseUrl"].as_str().unwrap().rsplit(':').next().unwrap().parse().unwrap();
-        assert_eq!(port, DEFAULT_API_PORT + 2);
+        assert_eq!(port, expected_port);
         assert_eq!(api["restartCount"], 0);
         assert_ne!(resolve_desktop_api_port(&fixture.recovery_path.parent().unwrap().to_path_buf()), Some(port), "Do not adopt an API without owning its parent channel");
         assert_eq!(api_health_json(port).unwrap()["pid"], api["pid"]);
-        println!("Packaged API skipped occupied loopback ports 3000/3001 and became healthy on {port}");
+        println!("Packaged API skipped occupied loopback ports {occupied_ports:?} and became healthy on {port}");
         drop(fixture);
         assert!(api_port_is_available(port));
         for listener in &listeners {
             assert!(!api_port_is_available(listener.local_addr().unwrap().port()), "Unrelated listeners must remain untouched");
         }
         drop(listeners);
-        assert!(api_port_is_available(DEFAULT_API_PORT));
-        assert!(api_port_is_available(DEFAULT_API_PORT + 1));
+        for port in occupied_ports { assert!(api_port_is_available(port)); }
     }
 
     #[test]

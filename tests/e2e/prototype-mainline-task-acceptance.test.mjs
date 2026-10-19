@@ -21,9 +21,9 @@ async function writeMarkdown(page, text) {
     await page.locator("#btnModeToggle").click();
   }
   await page.locator("#editorHost .cm-content:visible").click();
-  await page.keyboard.press("Control+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.insertText(text);
-  await page.keyboard.press("Control+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await page.waitForFunction(() => {
     const editor = window.__prototypeEditor;
     return !editor.savingPromise && !editor.activeTab()?.dirty;
