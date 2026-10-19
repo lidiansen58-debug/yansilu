@@ -5,6 +5,10 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "codex/mac-signed-rebuild-20261019"
+    paths:
+      - ".github/workflows/desktop-release.yml"
 
 permissions:
   contents: write
@@ -27,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
             tag="v$(node -p "require('./package.json').version")"
           fi
           node ./scripts/release-validate-tag.mjs "$tag"
@@ -217,7 +221,7 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
             tag="v$(node -p "require('./package.json').version")"
           fi
           node ./scripts/collect-release-assets.mjs --dist dist --out release-assets
@@ -232,7 +236,7 @@ jobs:
           test -f release-assets/latest.json
 
       - name: Upload signed release rehearsal assets
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || github.ref_type == 'branch'
         uses: actions/upload-artifact@v7
         with:
           name: yansilu-signed-release-rehearsal-assets
@@ -240,7 +244,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create or update draft GitHub release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref_type == 'tag'
         shell: bash
         run: |
           set -euo pipefail
