@@ -243,6 +243,29 @@ test("prototype update controller falls back to manifest when desktop updater pl
   });
 });
 
+test("missing desktop platform offers the official download page without installing or claiming latest", async () => {
+  await withWindow({ __TAURI__: { core: { async invoke() {
+    throw 'None of the fallback platforms `["darwin-x86_64"]` were found in the response `platforms` object';
+  } } } }, async () => {
+    let fallbackCalls = 0;
+    const settingsState = { update: createUpdateState({ currentVersion: "0.1.1", installable: true }) };
+    const controller = createPrototypeUpdateController({ settingsState,
+      checkAppUpdate: async () => { fallbackCalls++; return { status: "up-to-date" }; }
+    });
+    const result = await controller.runAppUpdateCheck({ manual: true });
+    assert.equal(result.status, "failed");
+    assert.equal(result.installable, false);
+    assert.equal(result.downloadUrl, "https://yansilu.ai/download/");
+    assert.match(result.error, /尚未提供此系统/);
+    assert.equal(fallbackCalls, 0);
+    const elements = new Map();
+    const $ = id => { if (!elements.has(id)) elements.set(id, createElement()); return elements.get(id); };
+    renderUpdateSettingsCard({ $, escapeHtml, settingsState });
+    assert.equal($("settingsInstallUpdate").hidden, true);
+    assert.equal($("settingsOpenUpdateDownload").hidden, false);
+  });
+});
+
 test("prototype update controller starts installable desktop updates in the background", async () => {
   const storage = new Map();
   const settingsState = { update: createUpdateState({ currentVersion: "0.1.1" }) };

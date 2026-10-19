@@ -112,6 +112,19 @@ test("desktop update adapter treats missing updater plugin as unsupported", asyn
   });
 });
 
+for (const bridge of ["updater", "core"]) {
+  test(`missing platform is actionable rather than up-to-date through ${bridge}`, async () => {
+    const fail = async () => { throw 'None of the fallback platforms `["darwin-x86_64-app", "darwin-x86_64"]` were found in the response `platforms` object'; };
+    await withWindow({ __TAURI__: bridge === "updater" ? { updater: { check: fail } } : { core: { invoke: fail } } }, async () => {
+      await assert.rejects(checkDesktopUpdate(), error => {
+        assert.equal(error.code, "DESKTOP_UPDATE_PLATFORM_UNAVAILABLE");
+        assert.match(error.message, /尚未提供此系统/);
+        return true;
+      });
+    });
+  });
+}
+
 test("desktop update adapter normalizes download progress events", () => {
   const started = normalizeDesktopDownloadEvent({ event: "Started", data: { contentLength: 200 } });
   const progress = normalizeDesktopDownloadEvent({ event: "Progress", data: { chunkLength: 50 } }, started);

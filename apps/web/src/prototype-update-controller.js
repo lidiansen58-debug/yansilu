@@ -165,6 +165,13 @@ export function createPrototypeUpdateController(deps = {}) {
       installProgress: previous.installProgress,
       installReadyForRestart: true
     } : failed;
+    if (!retained && error?.code === "DESKTOP_UPDATE_PLATFORM_UNAVAILABLE") {
+      settingsState.update = {
+        ...settingsState.update,
+        installable: false,
+        downloadUrl: "https://yansilu.ai/download/"
+      };
+    }
   }
 
   async function refreshAppVersionInfo() {

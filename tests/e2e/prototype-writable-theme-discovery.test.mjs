@@ -127,7 +127,7 @@ test("shared note rationale labels edit and save only the selected theme suggest
   await target.locator(`[data-theme-discovery-field="title"]`).fill("共享笔记的第二主题");
   await target.locator(`article[data-theme-discovery-note-id="${sharedId}"] label`).click();
   assert.equal(await targetReason.evaluate(el => el.ownerDocument.activeElement === el), true);
-  await page.keyboard.press("Control+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.insertText("只属于第二个主题的理由。");
   assert.equal(await targetReason.inputValue(), "只属于第二个主题的理由。");
   assert.equal(await first.locator(rationaleSelector).inputValue(), firstReason);

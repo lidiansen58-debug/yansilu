@@ -35,7 +35,7 @@ const files = [
   "tests/e2e/prototype-writing-theme-list-project-resume.test.mjs",
   "tests/e2e/prototype-writable-theme-discovery.test.mjs",
   "tests/e2e/prototype-graph-theme-index-entry.test.mjs",
-  "tests/e2e/prototype-beta-short-practice.test.mjs",
+  "tests/e2e/prototype-mainline-task-acceptance.test.mjs",
   "tests/e2e/prototype-beta-mobile-closeout.test.mjs"
 ];
 const mainTests = [

@@ -121,7 +121,7 @@ for (const [kind, mode, width, delayedSave] of [["original", "source", 1366], ["
     await page.setViewportSize({ width, height: 900 });
     const editor = page.locator(mode === "source" ? "#editorHost .cm-content:visible" : "#wysiwygHost .ProseMirror:visible");
     await editor.click();
-    await page.keyboard.press("Control+End");
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End");
     await page.keyboard.press("Enter");
     const before = await page.evaluate(() => window.__prototypeEditor.getEditorValue());
     // Simulate targets not yet loaded by the directory browser: search must reach the vault.
@@ -177,7 +177,7 @@ for (const [kind, mode, width, delayedSave] of [["original", "source", 1366], ["
     if ((mode === "wysiwyg") !== rich) await page.locator("#btnModeToggle").click();
     await page.screenshot({ path: `output/note-editor-validation/body-link-before-preview-${kind}-${mode}-${width}.png`, fullPage: true });
     if (mode === "source") {
-      await page.locator("#editorHost .cm-line").filter({ hasText: nextToken }).click({ position: { x: 45, y: 10 }, modifiers: ["Control"] });
+      await page.locator("#editorHost .cm-line").filter({ hasText: nextToken }).click({ position: { x: 45, y: 10 }, modifiers: ["ControlOrMeta"] });
     } else {
       const link = page.locator(`#wysiwygHost [data-wikilink="${replacement.id}|替换目标"]:visible`);
       assert.equal(await link.textContent(), "替换目标");
@@ -236,7 +236,7 @@ for (const mode of ["source", "wysiwyg"]) {
     assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.split(token).length - 1, 2);
     await checkRelations(true);
     await page.unroute(endpoint);
-    await page.keyboard.press("Control+s");
+    await page.keyboard.press("ControlOrMeta+s");
     await waitFor(async () => assert.equal((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.split(token).length - 1, 1));
     await checkRelations(true);
     await openLink();
@@ -275,7 +275,7 @@ for (const mode of ["source", "wysiwyg"]) {
     if (mode === "source") await page.locator("#btnModeToggle").click();
     if (mode === "wysiwyg") await page.setViewportSize({ width: 390, height: 900 });
     await page.locator(mode === "source" ? "#editorHost .cm-content:visible" : "#wysiwygHost .ProseMirror:visible").click();
-    await page.keyboard.press("Control+End");
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End");
     if (mode === "source") await page.keyboard.press("ArrowUp");
     await page.keyboard.press("Home");
     for (let i = 0; i < 2; i++) await page.keyboard.press("ArrowRight");
@@ -311,7 +311,7 @@ for (const mode of ["source", "wysiwyg"]) {
     if (mode === "wysiwyg") await page.setViewportSize({ width: 390, height: 900 });
     for (const [action, selected, replacement] of [["escape", "选择文字", "接着写"], ["close", "接着写", "新文字"]]) {
       await page.locator(mode === "source" ? "#editorHost .cm-content:visible" : "#wysiwygHost .ProseMirror:visible").click();
-      await page.keyboard.press("Control+End");
+      await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End");
       if (mode === "source") await page.keyboard.press("ArrowUp");
       await page.keyboard.press("Home");
       for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
@@ -325,7 +325,7 @@ for (const mode of ["source", "wysiwyg"]) {
       assert.equal(await page.evaluate(() => window.__prototypeEditor.getEditorValue()), before);
       await page.waitForFunction(() => Boolean(document.activeElement?.closest("#editorHost, #wysiwygHost")));
       await page.keyboard.type(replacement);
-      await page.keyboard.press("Control+s");
+      await page.keyboard.press("ControlOrMeta+s");
       await waitFor(async () => assert.ok((await fetchJson(apiBase, `/api/v1/notes/${source.id}`)).json.item.body.includes(`前文 ${replacement} 后文。`)));
     }
   });
