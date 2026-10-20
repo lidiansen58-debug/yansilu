@@ -8,10 +8,10 @@
     "notice": "Beta 测试版，需手动安装。安装前建议备份现有笔记库。",
     "platformNotices": {
       "windows": "Beta 测试版。首次使用需手动安装；已有 Windows 版可在设置中检查更新。安装包未进行代码签名，可能显示 SmartScreen 提示。",
-      "macos": "Beta 测试版。2026-10-19 Mac 修复包版本号仍为 beta.3，需手动安装更新。已完成 Apple 签名、公证和 Intel 启动与保存校验；原生界面复验待完成，M 系列尚未实机验收。",
+      "macos": "Beta 测试版。2026-10-20 Mac 修复包版本号仍为 beta.3，需手动安装更新。已完成 Apple 签名、公证和 Intel macOS 原生界面验收；M 系列尚未实机验收。",
       "linux": "Beta 测试版，需手动安装。基于 Ubuntu 24.04 x64 构建，尚未实机验收。"
     },
-    "generatedAt": "2026-10-19T10:16:13.850Z",
+    "generatedAt": "2026-10-20T02:35:33.667Z",
     "totalFiles": 4,
     "items": [
       {
