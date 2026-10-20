@@ -1,0 +1,118 @@
+name: Publish verified Mac acceptance package
+on:
+  push:
+    branches:
+      - codex/mac-delivery-20261019
+    paths:
+      - .github/workflows/mac-delivery.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: beta3-mac-ci-f41c0627-20261019
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: f41c06272e95c80a37b623f1f75273e63f74b29e
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Require successful fixed-source signed build
+        run: |
+          gh api repos/lidiansen58-debug/yansilu/actions/runs/39231979304 > source-run.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('source-run.json'))
+          assert r['head_sha']=='f41c06272e95c80a37b623f1f75273e63f74b29e'
+          assert r['status']=='completed' and r['conclusion']=='success'
+          PY
+      - uses: actions/download-artifact@v8
+        with:
+          name: yansilu-macos-universal-bundles
+          run-id: 39231979304
+          github-token: ${{ github.token }}
+          path: dist/mac
+      - name: Validate the exact Mac files verified on the Intel acceptance machine
+        run: |
+          python3 - <<'PY'
+          import pathlib, json, hashlib
+          expected=[{"file":"dmg/研思录_0.1.1-beta.3_universal.dmg","bytes":180310665,"modifiedAt":"2026-10-19T09:59:44.706Z","sha256":"9DAAA810992469E84C993E2471C7CDE861A04D1AB9DADD6EDAB857386833611A"},{"file":"dmg/研思录_0.1.1-beta.3_universal.dmg.sig","bytes":428,"modifiedAt":"2026-10-19T09:59:44.710Z","sha256":"01D05F2A8DA3AC372E6036B8ACA7EEC25C8C5FEF39C88B865AFC5CF2BCB1C017"},{"file":"macos/研思录_universal.app.tar.gz","bytes":105207817,"modifiedAt":"2026-10-19T09:59:45.090Z","sha256":"7E86CF87D8F67F5BE7410614D4D59D11A10E390CAC08AF682463D56D98D9DC0F"},{"file":"macos/研思录_universal.app.tar.gz.sig","bytes":420,"modifiedAt":"2026-10-19T09:59:45.098Z","sha256":"17A3EC9542B204AC9A28C684BAF7534ACEB9B994496D870F925FA388C99579D3"}]
+          root=pathlib.Path('dist/mac')
+          manifest=json.loads((root/'bundle-manifest.json').read_text())
+          assert len(manifest['items'])==len(expected)==4
+          for item in expected:
+              p=root/item['file']
+              assert p.stat().st_size==item['bytes'], item['file']
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==item['sha256'].lower(), item['file']
+          print('Exact signed Mac artifact bytes verified')
+          PY
+      - name: Reuse the existing Windows and Linux beta.3 packages unchanged
+        run: |
+          mkdir -p dist/reused
+          gh release download beta3-ci-d49f4839-20261015 --repo lidiansen58-debug/yansilu \
+            --dir dist/reused --pattern 'yansilu_0.1.1-beta.3_x64-setup.exe*' \
+            --pattern 'yansilu_0.1.1-beta.3_amd64.AppImage*' --pattern 'yansilu_0.1.1-beta.3_amd64.deb*'
+          python3 - <<'PY'
+          import pathlib,hashlib
+          expected=[{"file":"yansilu_0.1.1-beta.3_amd64.AppImage","bytes":136821240,"sha256":"1b90449ac449a234f53adcacb9118c5eae0f1cea0d178d4f07e75660bb46fcce"},{"file":"yansilu_0.1.1-beta.3_amd64.AppImage.sig","bytes":456,"sha256":"c7bcc4df9137d03283d709bb3f5c9d1b931d6dbc85a800f680d65a7a15a5ce5c"},{"file":"yansilu_0.1.1-beta.3_amd64.deb","bytes":65424064,"sha256":"baec6f79cb6cdcdce75df929de1709c066c36ede0f4a8fa9692162d256214ce7"},{"file":"yansilu_0.1.1-beta.3_amd64.deb.sig","bytes":448,"sha256":"429f73c79091a1a5065fa7e9193e8254c41b462bb0fa106c9db769c367315410"},{"file":"yansilu_0.1.1-beta.3_x64-setup.exe","bytes":33883210,"sha256":"1c33ccb87035271c7a93ba3f73f7e9b9b558b0a378af9feb1e5c752a5bc7f91e"},{"file":"yansilu_0.1.1-beta.3_x64-setup.exe.sig","bytes":456,"sha256":"645199ab9818364bb6ea8ba6aec439fca495432adc2cc7fedf64263a2981d872"}]
+          root=pathlib.Path('dist/reused')
+          assert len(list(root.iterdir()))==len(expected)==6
+          for item in expected:
+              p=root/item['file']
+              assert p.stat().st_size==item['bytes'],item['file']
+              assert hashlib.sha256(p.read_bytes()).hexdigest()==item['sha256'].lower(),item['file']
+          print('Existing Windows and Linux files preserved byte for byte')
+          PY
+      - name: Collect packages and normalize only download filenames
+        run: |
+          node scripts/collect-release-assets.mjs --dist dist --out release-assets
+          python3 - <<'PY'
+          import pathlib,json,hashlib
+          root=pathlib.Path('release-assets')
+          for p in list(root.iterdir()):
+              if p.name.startswith('研思录'):
+                  target=p.with_name(p.name.replace('研思录','yansilu',1))
+                  assert not target.exists()
+                  p.rename(target)
+          files=sorted(p for p in root.iterdir() if p.name not in ['bundle-manifest.json','bundle-manifest.sha256.txt'])
+          assert len(files)==10
+          items=[dict(file=p.name,bytes=p.stat().st_size,sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in files]
+          (root/'bundle-manifest.json').write_text(json.dumps(dict(version='0.1.1-beta.3',sourceCommit='f41c06272e95c80a37b623f1f75273e63f74b29e',totalFiles=len(items),items=items),indent=2)+'\n')
+          checksums=''.join(i['sha256']+'  '+i['file']+'\n' for i in items)
+          (root/'bundle-manifest.sha256.txt').write_text(checksums)
+          (root/'SHA256SUMS.txt').write_text(checksums)
+          pathlib.Path('release-notes.md').write_text('''Mac 验收修复包，版本仍为 0.1.1-beta.3，需手动下载安装。
+
+          修复 Mac 系统代理环境中的更新检查，缺少当前系统更新包时提供中文说明与官网下载入口。
+
+          Mac Universal 包经过 Apple 签名和公证，并在 Intel macOS 13.7.8 上完成安装包复验。Apple Silicon 实机尚未验收。原生交互和数据保留证据见仓库 Mac 验收记录。
+
+          Windows 和 Linux 复用 2026-10-15 的原有 beta.3 安装包，字节和摘要保持一致。本发布保留 Beta 标记；已有 Windows 更新通道保持原状。
+          ''')
+          PY
+      - name: Publish a new prerelease without replacing earlier releases
+        run: |
+          python3 - <<'PY'
+          import subprocess,os,pathlib,json,hashlib
+          repo='lidiansen58-debug/yansilu';tag=os.environ['RELEASE_TAG']
+          existing=subprocess.run(['gh','release','view',tag,'--repo',repo],capture_output=True)
+          assert existing.returncode!=0,'Refusing to overwrite an existing release'
+          files=sorted(pathlib.Path('release-assets').iterdir())
+          subprocess.run(['gh','release','create',tag,'--repo',repo,'--target','f41c06272e95c80a37b623f1f75273e63f74b29e',
+            '--prerelease','--latest=false','--title','0.1.1-beta.3 · Mac 验收修复包（2026-10-20）',
+            '--notes-file','release-notes.md',*[str(p) for p in files]],check=True)
+          release=json.loads(subprocess.check_output(['gh','api','repos/'+repo+'/releases/tags/'+tag]))
+          assert release['prerelease'] is True and release['draft'] is False
+          assets={a['name']:a for a in release['assets']}
+          assert set(assets)=={p.name for p in files}
+          for p in files:
+              a=assets[p.name]
+              assert a['size']==p.stat().st_size
+              assert a['digest']=='sha256:'+hashlib.sha256(p.read_bytes()).hexdigest()
+          print('Published and verified: '+release['html_url'])
+          PY
+
