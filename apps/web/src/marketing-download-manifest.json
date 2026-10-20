@@ -3,40 +3,40 @@
   "item": {
     "productName": "研思录",
     "version": "0.1.1-beta.3",
-    "releaseTag": "beta3-ci-d49f4839-20261015",
+    "releaseTag": "beta3-mac-ci-f41c0627-20261019",
     "bundleReady": true,
     "notice": "Beta 测试版，需手动安装。安装前建议备份现有笔记库。",
     "platformNotices": {
       "windows": "Beta 测试版。首次使用需手动安装；已有 Windows 版可在设置中检查更新。安装包未进行代码签名，可能显示 SmartScreen 提示。",
-      "macos": "Beta 测试版，需手动安装。已完成 Apple 签名与公证，尚未完成 Mac 实机验收。",
+      "macos": "Beta 测试版。2026-10-20 Mac 修复包版本号仍为 beta.3，需手动安装更新。已完成 Apple 签名、公证和 Intel macOS 原生界面验收；M 系列尚未实机验收。",
       "linux": "Beta 测试版，需手动安装。基于 Ubuntu 24.04 x64 构建，尚未实机验收。"
     },
-    "generatedAt": "2026-10-17T04:07:37.997Z",
+    "generatedAt": "2026-10-20T02:35:33.667Z",
     "totalFiles": 4,
     "items": [
       {
         "file": "yansilu_0.1.1-beta.3_x64-setup.exe",
         "bytes": 33883210,
         "sha256": "1c33ccb87035271c7a93ba3f73f7e9b9b558b0a378af9feb1e5c752a5bc7f91e",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-ci-d49f4839-20261015/yansilu_0.1.1-beta.3_x64-setup.exe"
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-mac-ci-f41c0627-20261019/yansilu_0.1.1-beta.3_x64-setup.exe"
       },
       {
         "file": "yansilu_0.1.1-beta.3_universal.dmg",
-        "bytes": 185620849,
-        "sha256": "6564a7d59007d8387b4cb71c89f3a4ff0588140d88fc68abfd084eb4202fea2b",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-ci-d49f4839-20261015/yansilu_0.1.1-beta.3_universal.dmg"
+        "bytes": 180310665,
+        "sha256": "9daaa810992469e84c993e2471c7cde861a04d1ab9dadd6edab857386833611a",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-mac-ci-f41c0627-20261019/yansilu_0.1.1-beta.3_universal.dmg"
       },
       {
         "file": "yansilu_0.1.1-beta.3_amd64.AppImage",
         "bytes": 136821240,
         "sha256": "1b90449ac449a234f53adcacb9118c5eae0f1cea0d178d4f07e75660bb46fcce",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-ci-d49f4839-20261015/yansilu_0.1.1-beta.3_amd64.AppImage"
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-mac-ci-f41c0627-20261019/yansilu_0.1.1-beta.3_amd64.AppImage"
       },
       {
         "file": "yansilu_0.1.1-beta.3_amd64.deb",
         "bytes": 65424064,
         "sha256": "baec6f79cb6cdcdce75df929de1709c066c36ede0f4a8fa9692162d256214ce7",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-ci-d49f4839-20261015/yansilu_0.1.1-beta.3_amd64.deb"
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta3-mac-ci-f41c0627-20261019/yansilu_0.1.1-beta.3_amd64.deb"
       }
     ]
   }
