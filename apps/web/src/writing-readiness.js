@@ -1,10 +1,6 @@
 import { parseLinks, parseTags } from "./prototype-store.js";
-
-export function noteHasBoundarySignal(note = {}) {
-  if (String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim()) return true;
-  const body = String(note?.body || note?.markdown || "");
-  return /边界|反例|不成立|适用条件|反方|counterpoint|boundary|counterexample/i.test(body);
-}
+import { noteHasBoundarySignal } from "./note-readiness-signals.js";
+export { noteHasBoundarySignal } from "./note-readiness-signals.js";
 
 export function isHiddenSemanticRelation(link = {}) {
   const status = String(link?.status || "confirmed").trim().toLowerCase();

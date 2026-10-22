@@ -200,6 +200,7 @@ export function renderTodayOrganizingPanel(state = {}) {
       ${renderTodayNotice(state.noticeMessage)}
       <section class="today-primary-step tone-${escape(recommended.tone || "")}" aria-label="推荐下一步">
         <div>
+          <span class="today-action-kicker">${escape(recommended.title)}</span>
           <strong>${escape(recommended.objectTitle)}</strong>
           <p>${escape(recommended.summary)}</p>
           ${recommended.meta ? `<small>${escape(recommended.meta)}</small>` : ""}
@@ -210,19 +211,19 @@ export function renderTodayOrganizingPanel(state = {}) {
       </section>
       ${renderTodaySummary(state)}
       <section class="today-secondary-tabs" aria-label="辅助信息">
-        <div class="today-secondary-tablist" role="tablist" aria-label="辅助信息切换">
-          <button class="today-secondary-tab" type="button" role="tab" aria-selected="false" data-today-secondary-tab="path">其他步骤 <span>展开</span></button>
-          <button class="today-secondary-tab" type="button" role="tab" aria-selected="false" data-today-secondary-tab="check">今日提醒 <span>展开</span></button>
+        <div class="today-secondary-tablist" role="group" aria-label="辅助信息切换">
+          <button class="today-secondary-tab" id="today-path-toggle" type="button" aria-expanded="false" aria-controls="today-path-panel" data-today-secondary-tab="path">其他步骤 <span>展开</span></button>
+          <button class="today-secondary-tab" id="today-check-toggle" type="button" aria-expanded="false" aria-controls="today-check-panel" data-today-secondary-tab="check">今日提醒 <span>展开</span></button>
           ${recommended.action !== "start-first-note" ? `<button class="mini-btn" type="button" data-today-action="start-first-note">记一条</button>` : ""}
         </div>
-        <div class="today-secondary-panel" role="tabpanel" data-today-secondary-panel="path" hidden>
+        <div class="today-secondary-panel" id="today-path-panel" role="region" aria-labelledby="today-path-toggle" data-today-secondary-panel="path" hidden>
           <div class="today-secondary-body">
             <section class="today-action-grid" aria-label="其他可做">
               ${actions.filter((item) => item.key !== recommended.key && !item.disabled).map(actionCard).join("")}
             </section>
           </div>
         </div>
-        <div class="today-secondary-panel" role="tabpanel" data-today-secondary-panel="check" hidden>
+        <div class="today-secondary-panel" id="today-check-panel" role="region" aria-labelledby="today-check-toggle" data-today-secondary-panel="check" hidden>
           <div class="today-secondary-body">
             ${renderReviewChecklistPanel(state.reviewChecklist)}
           </div>

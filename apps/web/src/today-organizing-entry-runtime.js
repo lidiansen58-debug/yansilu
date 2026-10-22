@@ -50,10 +50,15 @@ export function createTodayOrganizingEntryRuntime(depsProvider = () => ({})) {
       applyWritingTab,
       openStartupUntitledNote,
       state = {},
+      writingState = {},
+      currentVaultPath = () => "",
       setStatus
     } = depsProvider() || {};
     return installTodayOrganizingEvents($("todayOrganizingPanel"), () => ({
       todayState: runtime.currentState(),
+      state,
+      writingState,
+      getVaultPath: currentVaultPath,
       handleStateChange,
       activateModule,
       openNoteById,

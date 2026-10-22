@@ -48,4 +48,16 @@ test("permanent note readiness card marks mature note complete", () => {
 
   assert.equal(summary.doneCount, 5);
   assert.equal(summary.totalCount, 5);
+  assert.equal(summary.nextAction, "可以组织成可写主题");
+  assert.doesNotMatch(renderPermanentNoteReadinessCard(note, { explicitRelationCount: 1 }), /下一步：补一条关系理由/);
+});
+
+test("permanent readiness respects freshly loaded zero relations instead of stale note totals", () => {
+  const items = permanentNoteReadinessItems({ explicitRelationCount: 2 }, { explicitRelationCount: 0 });
+  assert.equal(items.find(item => item.key === "relation").done, false);
+});
+
+test("permanent readiness does not accept an empty boundary heading or template prompt", () => {
+  const items = permanentNoteReadinessItems({ body: "## 边界 / 反例\n\n这条判断在什么条件下不成立？" });
+  assert.equal(items.find(item => item.key === "boundary").done, false);
 });

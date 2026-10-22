@@ -400,6 +400,7 @@ export async function listIndexCards(vaultPath, input = {}) {
   const indexType = cleanText(input.indexType || input.index_type);
   const includeDescendants = normalizeBoolean(input.includeDescendants ?? input.include_descendants, true);
   const limit = Math.max(1, Math.min(50, Number(input.limit || 12) || 12));
+  const offset = Number.isFinite(Number(input.offset)) ? Math.max(0, Math.trunc(Number(input.offset))) : 0;
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
@@ -437,10 +438,10 @@ export async function listIndexCards(vaultPath, input = {}) {
          LEFT JOIN index_items ii ON ii.index_id = ic.id
          ${whereClause}
          GROUP BY ic.id, d.title
-         ORDER BY datetime(ic.updated_at) DESC, ic.title ASC
-         LIMIT ?`
+         ORDER BY datetime(ic.updated_at) DESC, ic.title ASC, ic.id ASC
+         LIMIT ? OFFSET ?`
       )
-      .all(...params, limit);
+      .all(...params, limit, offset);
     return rows.map((row) => mapIndexCardRow(row, loadIndexItems(db, row.id)));
   } finally {
     db.close();

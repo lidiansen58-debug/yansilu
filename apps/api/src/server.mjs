@@ -6410,7 +6410,8 @@ const server = http.createServer(async (req, res) => {
           directoryId: url.searchParams.get("directoryId") || "",
           includeDescendants: url.searchParams.get("includeDescendants") || "true",
           indexType: url.searchParams.get("indexType") || "",
-          limit: Number(url.searchParams.get("limit") || 12)
+          limit: Number(url.searchParams.get("limit") || 12),
+          offset: Number(url.searchParams.get("offset") || 0)
         });
         return sendJson(res, 200, {
           items,

@@ -1,6 +1,8 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { literatureCitationReadiness } from "./literature-source-readiness.js";
 import { createPermanentSectionRoleResolver } from "./permanent-section-roles.js";
+import { noteHasBoundarySignal } from "./note-readiness-signals.js";
+export { noteHasBoundarySignal } from "./note-readiness-signals.js";
 const UNTITLED_NOTE_TITLE = "未命名笔记";
 
 function escapeRegExp(value) {
@@ -89,12 +91,6 @@ export function normalizeLooseText(value = "") {
 export function countIdeaUnits(value = "") {
   const matches = String(value || "").trim().match(/[\u4e00-\u9fff]|[A-Za-z0-9]+/g);
   return Array.isArray(matches) ? matches.length : 0;
-}
-
-export function noteHasBoundarySignal(note = {}) {
-  if (String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim()) return true;
-  const body = String(note?.body || note?.markdown || "");
-  return /边界|反例|不成立|适用条件|反方|counterpoint|boundary|counterexample/i.test(body);
 }
 
 export function collectDistillationWarnings(note = {}) {

@@ -29,8 +29,7 @@ import {
   renderWritingProjectCardDom
 } from "./writing-note-card-panel.js";
 import {
-  renderWritingThemeDetailDom,
-  renderWritingThemeIndexCardDom
+  renderWritingThemeDetailDom
 } from "./writing-theme-card-panel.js";
 import {
   renderWritingStatusStripDom
@@ -39,6 +38,7 @@ import {
   renderWritingScaffoldPreviewDom
 } from "./writing-scaffold-preview-panel.js";
 import { syncWritingThemeDiscoveryView } from "./writing-theme-discovery-view.js";
+import { renderWritingThemeLibrary } from "./writing-theme-library.js";
 import {
   updateWritingRelatedNoteCounters
 } from "./writing-related-notes-panel.js";
@@ -141,7 +141,6 @@ export function renderWritingPanelDom(deps = {}) {
   const scopeHint = $("writingScopeHint");
   const themeIndexesHint = $("writingThemeIndexesHint");
   const themeDiscoverySuggestions = $("writingThemeDiscoverySuggestions");
-  const themeIndexList = $("writingThemeIndexList");
   const themeDetail = $("writingThemeDetail");
   const themeDetailHint = $("writingThemeDetailHint");
   const basketSummary = $("writingBasketSummary");
@@ -245,19 +244,7 @@ export function renderWritingPanelDom(deps = {}) {
     updateWritingRelatedNoteCounters(relatedEntries.length, { root: shell });
     syncWritingTopicPickerAction(shell.dataset.writingView === "topic-picker");
   }
-  const themeIndexes = Array.isArray(writingState.themeIndexes) ? writingState.themeIndexes : [];
-  const visibleThemeIndexes = themeIndexes.slice(0, 3);
-  if (themeIndexList) {
-    if (writingState.loadingThemeIndexes) {
-      themeIndexList.innerHTML = visibleThemeIndexes.length
-        ? visibleThemeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("")
-        : `<div class="writing-empty">正在加载可写主题...</div>`;
-    } else if (visibleThemeIndexes.length) {
-      themeIndexList.innerHTML = visibleThemeIndexes.map((indexCard) => renderWritingThemeIndexCardDom(deps, indexCard)).join("");
-    } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">先选择至少 3 条相关笔记，再新建主题。</div>`;
-    }
-  }
+  renderWritingThemeLibrary(deps);
   if (themeDiscoverySuggestions) {
     syncWritingThemeDiscoveryView(themeDiscoverySuggestions, deps);
     $("btnWritingSaveThemeIndex")?.classList?.toggle?.("primary", themeDiscoverySuggestions.hidden);

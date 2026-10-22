@@ -9,8 +9,8 @@ test("a folder without themes offers the current Vault themes without changing t
     renderWritingPanel: () => {} });
   assert.deepEqual(result, [{ id: "existing-theme" }]);
   assert.deepEqual(queries, [
-    { directoryId: "usage-notes", includeDescendants: true, indexType: "topic", limit: 12 },
-    { includeDescendants: true, indexType: "topic", limit: 12 }
+    { directoryId: "usage-notes", includeDescendants: true, indexType: "topic", limit: 50 },
+    { includeDescendants: true, indexType: "topic", limit: 50 }
   ]);
   assert.deepEqual(writingState.themeIndexes, result);
 });
@@ -68,5 +68,40 @@ test("newer themes own loading and results even when an old request completes fi
   assert.equal(writingState.loadingThemeIndexes, true);
   assert.equal(writingState.themeIndexes, undefined);
   pending[1](["new"]); assert.deepEqual(await second, ["new"]);
+  assert.equal(writingState.loadingThemeIndexes, false);
+});
+
+test("theme loading reads past fifty within the same scope and deduplicates moving rows", async () => {
+  const items = Array.from({ length: 53 }, (_, i) => ({ id: `theme-${i}` }));
+  const queries = [], writingState = {};
+  const loaded = await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "current-folder",
+    listIndexCards: async query => { queries.push(query); return query.offset ? [items[49], ...items.slice(50)] : items.slice(0, 50); },
+    renderWritingPanel: () => {} });
+  assert.deepEqual(loaded, items);
+  assert.equal(queries.length, 2);
+  assert.deepEqual(queries[1], { directoryId: "current-folder", includeDescendants: true, indexType: "topic", limit: 50, offset: 50 });
+});
+
+test("a changed Vault during a later page cannot publish partial old themes or continue paging", async () => {
+  let release, current = true;
+  const queries = [], writingState = { themeIndexes: ["current"] };
+  const work = loadWritingThemeIndexesForRuntime({ writingState, directoryId: "old",
+    listIndexCards: query => { queries.push(query); return query.offset ? new Promise(resolve => { release = resolve; }) : Array.from({ length: 50 }, (_, i) => ({ id: `old-${i}` })); },
+    renderWritingPanel: () => {}, isCurrent: () => current });
+  await new Promise(resolve => setImmediate(resolve));
+  current = false; release(Array.from({ length: 50 }, (_, i) => ({ id: `late-${i}` })));
+  assert.deepEqual(await work, []);
+  assert.deepEqual(writingState.themeIndexes, ["current"]);
+  assert.equal(queries.length, 2);
+});
+
+test("a server ignoring offsets fails instead of looping or presenting a partial library", async () => {
+  const items = Array.from({ length: 50 }, (_, i) => ({ id: `theme-${i}` }));
+  let calls = 0;
+  const writingState = { themeIndexes: ["keep"] };
+  await assert.rejects(loadWritingThemeIndexesForRuntime({ writingState,
+    listIndexCards: async () => { calls++; return items; }, renderWritingPanel: () => {} }), /未能完整读取/);
+  assert.equal(calls, 2);
+  assert.deepEqual(writingState.themeIndexes, ["keep"]);
   assert.equal(writingState.loadingThemeIndexes, false);
 });

@@ -578,6 +578,18 @@ test("writing panel controller renders writing note card actions", () => {
   assert.match(html, /<b>status<\/b>/);
 });
 
+test("a saved draft without an outline promises viewing rather than editing", () => {
+  for (const scaffoldId of ["", "outline"]) {
+    const html = renderWritingThemeIndexCardDom({
+      writingState: { sourceIndexIds: [] }, writingThemeIndexNoteIds: () => ["source"],
+      findExistingWritingProjectForTheme: () => ({ id: "project", draft_note_id: "draft", scaffold_id: scaffoldId }),
+      describeWritingContinuationAction: () => ({ projectId: "project", action: "open-draft" }), escapeHtml
+    }, { id: "topic", title: "Saved topic" });
+    assert.match(html, scaffoldId ? />继续草稿<\/button>/ : />查看草稿<\/button>/);
+    assert.match(html, /data-writing-index-action="open-draft"/);
+  }
+});
+
 test("writing note card omits an empty summary", () => {
   const html = renderWritingNoteCardDom({
     renderThinkingStatusBadge: () => "",

@@ -66,7 +66,7 @@ test("help generates and opens a permanent note before saving its viewpoint", ()
 });
 
 test("help continuation labels match actual theme buttons", () => {
-  for (const project of [{ id: "p" }, { id: "p", scaffold_id: "s" }, { id: "p", draft_note_id: "d" }]) {
+  for (const project of [{ id: "p" }, { id: "p", scaffold_id: "s" }, { id: "p", draft_note_id: "d", scaffold_id: "s" }, { id: "p", draft_note_id: "d" }]) {
     const html = renderWritingThemeIndexCardDom({ writingState: { sourceIndexIds: [] }, writingThemeIndexNoteIds: () => [],
       findExistingWritingProjectForTheme: () => project, describeWritingContinuationAction: () => ({ projectId: "p", action: "resume-project" }),
       escapeHtml: String }, { id: "t" });

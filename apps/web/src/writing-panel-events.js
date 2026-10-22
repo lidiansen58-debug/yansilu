@@ -1,5 +1,6 @@
 import { prepareWritingEntryNote } from "./writing-entry-preparation.js";
 import { createWritingThemeEditController } from "./writing-theme-edit-controller.js";
+import { installWritingThemeLibraryEvents } from "./writing-theme-library.js";
 import { installDisclosureMenus } from "./ui-disclosure-menu.js";
 import { installWritingDocumentEditor, syncWritingDocumentEditor } from "./writing-document-editor.js";
 import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
@@ -86,6 +87,7 @@ export function installWritingThemeIndexEventHandlers(options = {}) {
   const { $ = () => null, depsProvider = () => ({}) } = options;
   const editor = createWritingThemeEditController({ depsProvider });
   const deps = () => ({ ...depsProvider(), editWritingTheme: (id, options) => editor.open(id, options) });
+  installWritingThemeLibraryEvents({ $, depsProvider: deps });
   const registrations = [];
   const add = (id, eventName, handler) => {
     const element = $(id);
@@ -1093,7 +1095,7 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
     const cardId = String(card.getAttribute("data-writing-index-card-id") || "");
     if (!cardId) return;
     try {
-      await selectWritingThemeIndex(cardId);
+      if (await selectWritingThemeIndex(cardId) === null) return;
       setStatus(`已查看可写主题：${cardId}`, "ok");
     } catch (error) {
       setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
@@ -1154,7 +1156,7 @@ export async function handleWritingThemeIndexListClick(event, deps = {}) {
   }
   if (action === "open") {
     try {
-      await selectWritingThemeIndex(indexId);
+      if (await selectWritingThemeIndex(indexId) === null) return;
       setStatus(`已查看可写主题：${indexId}`, "ok");
     } catch (error) {
       setStatus(`打开可写主题失败：${String(error?.message || error)}`, "bad");
