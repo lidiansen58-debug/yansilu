@@ -1200,10 +1200,12 @@ export async function listIndexCards(options = {}) {
   const indexType = String(options?.indexType || "").trim();
   const includeDescendants = options?.includeDescendants !== false;
   const limit = Math.max(1, Math.min(50, Number(options?.limit || 12) || 12));
+  const offset = Number.isFinite(Number(options?.offset)) ? Math.max(0, Math.trunc(Number(options.offset))) : 0;
   if (directoryId) params.set("directoryId", directoryId);
   if (indexType) params.set("indexType", indexType);
   params.set("includeDescendants", includeDescendants ? "true" : "false");
   params.set("limit", String(limit));
+  if (offset) params.set("offset", String(offset));
   const json = await request(`/api/v1/index-cards?${params.toString()}`);
   return Array.isArray(json.items) ? json.items : [];
 }

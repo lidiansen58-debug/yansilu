@@ -503,6 +503,10 @@
                   <button class="mini-btn primary" id="btnWritingSaveThemeIndex" type="button">新建主题</button>
                   <button class="mini-btn" id="btnWritingDiscoverThemes" type="button">建议主题</button>
                 </div>
+                <div class="writing-theme-library-tools" id="writingThemeLibraryTools" hidden>
+                  <input id="writingThemeSearch" type="search" aria-label="搜索主题" placeholder="搜索题目或问题" aria-controls="writingThemeIndexList" hidden />
+                  <button class="mini-btn is-ghost" id="btnWritingExpandThemes" type="button" aria-expanded="false" aria-controls="writingThemeIndexList">显示全部主题</button>
+                </div>
                 <div class="writing-note-list writing-theme-picks" id="writingThemeIndexList"></div>
                 <div id="writingThemeIndexesHint" hidden></div>
                 <div class="writing-note-list" id="writingThemeDiscoverySuggestions"></div>
@@ -1101,7 +1105,7 @@
                           <details class="settings-help-task">
                             <summary>用笔记写文章和书籍</summary>
                             <div class="settings-help-task-body">
-                              <p>在写作中心选择主题或相关笔记，确认要回答的问题，再生成提纲、写正文。已有项目可以“继续提纲”“继续草稿”或“继续写”。</p>
+                              <p>在写作中心选择主题或相关笔记，确认要回答的问题，再生成提纲、写正文。已有项目可以“继续提纲”“继续草稿”或“继续写”；没有提纲的草稿可以“查看草稿”。</p>
                               <div class="settings-inline-actions">
                                 <button class="mini-btn" type="button" data-settings-help-action="open-theme-example">查看主题索引示例</button>
                                 <button class="mini-btn" type="button" data-settings-help-action="open-writing">打开写作</button>

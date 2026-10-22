@@ -1,5 +1,6 @@
 import { captureWritingProjectCreationContext } from "./writing-project-creation-context.js";
 import { createWritingProjectKeepingForm } from "./writing-project-form-sync.js";
+import { writingNoteEligibility as deriveWritingNoteEligibility } from "./note-readiness-signals.js";
 export function createWritingThemeProjectRuntime(deps = {}) {
   const {
     $,
@@ -85,38 +86,7 @@ export function createWritingThemeProjectRuntime(deps = {}) {
   }
 
   function writingNoteEligibility(note) {
-    if (!note) {
-      return {
-        ok: false,
-        key: "missing",
-        message: "还没能读取到这条永久笔记的完整信息。"
-      };
-    }
-    const noteType = String(note.noteType || note.note_type || "").trim().toLowerCase();
-    const inOriginalRoot = noteType === "permanent" || isDirectoryUnderOriginalRoot(note.folderId);
-    if (!inOriginalRoot) {
-      return {
-        ok: false,
-        key: "type",
-        message: "相关笔记只接受永久笔记。"
-      };
-    }
-    const authorship = normalizeAuthorshipItem(note.authorship) || { user_confirmed: false, ai_assisted: false };
-    if (!authorship.user_confirmed) {
-      return {
-        ok: false,
-        key: "authorship",
-        message: "这条永久笔记还没完成作者确认。"
-      };
-    }
-    if (String(note.status || "").trim().toLowerCase() !== "active") {
-      return {
-        ok: false,
-        key: "draft",
-        message: "这条永久笔记还未通过原创性检查，请检查后再加入写作。"
-      };
-    }
-    return { ok: true, key: "ok", message: "" };
+    return deriveWritingNoteEligibility(note, { isDirectoryUnderOriginalRoot, normalizeAuthorshipItem });
   }
 
   function writingThemeProjectEntry(indexCard) {

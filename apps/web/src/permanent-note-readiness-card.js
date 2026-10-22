@@ -1,3 +1,5 @@
+import { noteHasBoundarySignal, noteHasConfirmedViewpoint } from "./note-readiness-signals.js";
+
 function cleanText(value = "") {
   return String(value || "").trim();
 }
@@ -6,18 +8,12 @@ function summaryCount(note = {}) {
   return (Array.isArray(note.threeLineSummary) ? note.threeLineSummary : []).filter((line) => cleanText(line)).length;
 }
 
-function hasBoundary(note = {}) {
-  if (cleanText(note.boundaryOrCounterpoint || note.boundary_or_counterpoint)) return true;
-  return /边界|反例|不成立|适用条件|反方|counterpoint|boundary|counterexample/i.test(String(note.body || note.markdown || ""));
-}
-
 export function permanentNoteReadinessItems(note = {}, options = {}) {
   const authorshipConfirmed = Boolean(note?.authorship?.user_confirmed || options.authorshipConfirmed);
   const active = cleanText(note.status).toLowerCase() === "active";
   const thesis = cleanText(note.thesis);
   const summaries = summaryCount(note);
-  const confirmed = cleanText(note.distillationStatus).toLowerCase() === "confirmed";
-  const relationCount = Number(options.explicitRelationCount || note.explicitRelationCount || note.explicit_relation_count || 0);
+  const relationCount = Number(options.explicitRelationCount ?? note.explicitRelationCount ?? note.explicit_relation_count ?? 0);
   return [
     {
       key: "authorship",
@@ -34,13 +30,13 @@ export function permanentNoteReadinessItems(note = {}, options = {}) {
     {
       key: "judgment",
       label: "一句话判断 / 三句压缩",
-      done: Boolean(thesis) && summaries === 3 && confirmed,
+      done: noteHasConfirmedViewpoint(note),
       action: !thesis ? "补一句自己的判断" : summaries < 3 ? `补齐三句话，还差 ${3 - summaries} 句` : "确认观点"
     },
     {
       key: "boundary",
       label: "边界 / 反例",
-      done: hasBoundary(note),
+      done: noteHasBoundarySignal(note),
       action: "补一条不成立条件"
     },
     {
@@ -55,7 +51,7 @@ export function permanentNoteReadinessItems(note = {}, options = {}) {
 export function permanentNoteReadinessSummary(note = {}, options = {}) {
   const items = permanentNoteReadinessItems(note, options);
   const doneCount = items.filter((item) => item.done).length;
-  const next = items.find((item) => !item.done) || items[items.length - 1] || null;
+  const next = items.find((item) => !item.done) || null;
   return {
     doneCount,
     totalCount: items.length,

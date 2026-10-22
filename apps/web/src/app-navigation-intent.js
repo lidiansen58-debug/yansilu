@@ -1,12 +1,16 @@
 const navigationRevisions = new WeakMap();
 
-export function beginAppNavigation(state) {
-  const revision = (navigationRevisions.get(state) || 0) + 1;
-  navigationRevisions.set(state, revision);
+export function captureAppNavigation(state) {
+  const revision = navigationRevisions.get(state);
   const vaultScope = state.noteMoveVaultScope;
   return () => navigationRevisions.get(state) === revision
     && state.noteMoveVaultScope === vaultScope
     && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain;
+}
+
+export function beginAppNavigation(state) {
+  navigationRevisions.set(state, (navigationRevisions.get(state) || 0) + 1);
+  return captureAppNavigation(state);
 }
 
 export async function prepareAppNavigation(state, dismiss, context = {}) {

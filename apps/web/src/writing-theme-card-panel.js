@@ -18,7 +18,7 @@ export function renderWritingThemeIndexCardDom(deps = {}, indexCard) {
   const centralQuestion = String(indexCard?.central_question || indexCard?.centralQuestion || indexCard?.summary || "").trim();
   const actionLabel = themeContinuation?.projectId
     ? existingProject?.draft_note_id
-      ? "继续草稿"
+      ? existingProject?.scaffold_id ? "继续草稿" : "查看草稿"
       : existingProject?.scaffold_id
         ? "继续提纲"
         : "继续写"

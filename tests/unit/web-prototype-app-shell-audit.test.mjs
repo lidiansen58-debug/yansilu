@@ -142,7 +142,8 @@ test("extracted shell modules stay focused on one assembly boundary", () => {
     "app-startup-retry-controller.js": 90,
     "app-event-bindings.js": 200,
     "app-rail-event-bindings.js": 80,
-    "app-navigation-intent.js": 20,
+    // Includes a read-only capture shared by asynchronous page operations.
+    "app-navigation-intent.js": 25,
     "quick-action-event-bindings.js": 70,
     "app-global-keyboard-events.js": 120,
     "startup-auto-open-event-bindings.js": 20,

@@ -653,6 +653,20 @@ test("a superseded theme entry does not display its late failure in the new cont
   assert.deepEqual(statuses, []);
 });
 
+test("a cancelled theme selection does not overwrite the current page status", async () => {
+  const statuses = [];
+  for (const target of [
+    indexTarget("[data-writing-index-card-id]", { "data-writing-index-card-id": "old-theme" }),
+    indexTarget("[data-writing-index-action]", { "data-writing-index-action": "open", "data-writing-index-id": "old-theme" })
+  ]) {
+    await handleWritingThemeIndexListClick({ target }, {
+      selectWritingThemeIndex: async () => null,
+      setStatus: text => statuses.push(text)
+    });
+  }
+  assert.deepEqual(statuses, []);
+});
+
 test("writing theme index actions show pending state and never fail silently", async () => {
   const calls = [];
   let resolveUse;

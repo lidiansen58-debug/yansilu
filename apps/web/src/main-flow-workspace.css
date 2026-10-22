@@ -52,7 +52,8 @@
   color: var(--ui-text);
   box-shadow: none;
 }
-#todayOrganizingPanel .today-secondary-tab[aria-selected="true"] { background: var(--ui-brand-soft); border-color: var(--ui-brand); color: var(--ui-brand); }
+#todayOrganizingPanel .today-secondary-tab[aria-expanded="true"] { background: var(--ui-brand-soft); border-color: var(--ui-brand); color: var(--ui-brand); }
+#todayOrganizingPanel .today-primary-step .today-action-kicker { display: block; margin-bottom: 8px; color: var(--ui-text-muted); font-size: 13px; font-weight: 600; }
 #todayOrganizingPanel .today-secondary-tab span { padding: 0; border: 0; background: transparent; color: var(--ui-text-muted); font-size: 12px; font-weight: 400; }
 #todayOrganizingPanel .today-secondary-body { padding: 16px 0 0; }
 #todayOrganizingPanel .today-action-grid { gap: 16px; }

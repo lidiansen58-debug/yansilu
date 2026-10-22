@@ -1,32 +1,17 @@
+import { openTodayWriting } from "./today-writing-navigation.js";
+
 export function installTodayOrganizingEvents(panel = null, depsProvider = () => ({})) {
   if (!panel?.addEventListener) return null;
-  const themeNoteIds = (theme = null) => (Array.isArray(theme?.noteIds) ? theme.noteIds : [])
-    .map((item) => String(item || "").trim())
-    .filter(Boolean);
-  const parseNoteIds = (value = "") => String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const themeEntryReason = (theme = null) => {
-    const title = String(theme?.title || "这个可写主题").trim();
-    const count = Number(theme?.noteCount || 0);
-    return count > 0
-      ? `${title} 已经聚合了 ${count} 条相关笔记，适合先续接这个主题。`
-      : `${title} 已经在当前主题列表里，适合先从这里续接。`;
-  };
-  const noteEntryReason = (note = null) => {
-    const title = String(note?.title || "这条永久笔记").trim();
-    return `${title} 已经有明确观点和三句摘要，适合先放入相关笔记继续组织。`;
-  };
+  const parseNoteIds = value => String(value || "").split(",").map(id => id.trim()).filter(Boolean);
   const markReturnToToday = (deps) => deps.markTodayReturnTarget?.({ label: "首页" });
   const selectSecondaryTab = (key = "") => {
     const selected = String(key || "path").trim() || "path";
     const selectedTab = panel.querySelector?.(`[data-today-secondary-tab="${selected}"]`);
-    const shouldCollapse = selectedTab?.getAttribute("aria-selected") === "true";
+    const shouldCollapse = selectedTab?.getAttribute("aria-expanded") === "true";
     panel.querySelectorAll?.("[data-today-secondary-tab]")?.forEach((tab) => {
       const active = !shouldCollapse && tab.getAttribute("data-today-secondary-tab") === selected;
       tab.classList.toggle("is-active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
+      tab.setAttribute("aria-expanded", active ? "true" : "false");
       const stateText = tab.querySelector("span");
       if (stateText) stateText.textContent = active ? "收起" : "展开";
     });
@@ -35,38 +20,12 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
     });
   };
 
-  const openThemeIndex = async (theme = null, deps = {}) => {
-    const themeId = String(theme?.id || "").trim();
-    const noteIds = themeId ? [] : themeNoteIds(theme);
-    markReturnToToday(deps);
-    deps.activateModule?.("writing");
-    await deps.openWritingModule?.({
-      entryReason: themeId
-        ? "已打开主题索引详情。先看中心问题、关键笔记和缺口，再决定是否进入写作。"
-        : themeEntryReason(theme),
-      entrySourceLabel: "首页"
-    });
-    if (themeId) await deps.selectWritingThemeIndex?.(themeId);
-    if (!themeId && noteIds.length) deps.addWritingBasketIds?.(noteIds);
-    deps.applyWritingTab?.("themes");
-    deps.setStatus?.(themeId ? "已打开主题索引详情" : "已打开这组主题材料", "ok");
-  };
-
-  const openThemeForWriting = async (theme = null, note = null, deps = {}) => {
-    const themeId = String(theme?.id || "").trim();
-    const themeIds = themeId ? [] : themeNoteIds(theme);
-    const noteId = themeId || themeIds.length ? "" : note?.id || "";
-    if (themeIds.length) deps.addWritingBasketIds?.(themeIds);
-    if (noteId) deps.addWritingBasketIds?.([noteId]);
-    markReturnToToday(deps);
-    deps.activateModule?.("writing");
-    await deps.openWritingModule?.({
-      ...(themeIds.length ? { statusMessage: `已把 ${themeIds.length} 条主题笔记加入写作中心` } : noteId ? { statusMessage: "已把这条笔记加入写作中心" } : {}),
-      entryReason: themeId || themeIds.length ? themeEntryReason(theme) : noteEntryReason(note),
-      entrySourceLabel: "首页"
-    });
-    if (themeId) await deps.selectWritingThemeIndex?.(themeId);
-    deps.applyWritingTab?.("write");
+  let writingEntryPending = false;
+  const openWritingEntry = async (theme, note, forWriting, deps) => {
+    if (writingEntryPending) return false;
+    writingEntryPending = true;
+    try { return await openTodayWriting({ theme, note, forWriting, deps }); }
+    finally { writingEntryPending = false; }
   };
 
   const handler = async (event) => {
@@ -283,11 +242,11 @@ export function installTodayOrganizingEvents(panel = null, depsProvider = () => 
       return;
     }
     if (action === "open-first-theme") {
-      await openThemeIndex(deps.todayState?.firstTheme || null, deps);
+      await openWritingEntry(deps.todayState?.firstTheme || null, null, false, deps);
       return;
     }
     if (action === "open-writing") {
-      await openThemeForWriting(deps.todayState?.firstTheme || null, deps.todayState?.firstWritingReady || null, deps);
+      await openWritingEntry(deps.todayState?.firstTheme || null, deps.todayState?.firstWritingReady || null, true, deps);
     }
   };
   panel.addEventListener("click", handler);

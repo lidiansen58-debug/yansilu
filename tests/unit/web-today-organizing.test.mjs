@@ -12,7 +12,7 @@ test("today organizing state prioritizes pending materials, isolated notes, and 
       { id: "fn_1", title: "手机随笔待处理", noteType: "fleeting", status: "needs_processing" },
       { id: "ln_1", title: "文献笔记待转述", noteType: "literature", status: "pending" },
       { id: "pn_1", title: "孤立判断", noteType: "permanent", relationNetworkStatus: "isolated" },
-      { id: "pn_2", title: "已有关系", noteType: "permanent", relationNetworkStatus: "connected", thesis: "判断", threeLineSummary: ["a", "b", "c"], distillationStatus: "confirmed" }
+      { id: "pn_2", title: "已有关系", noteType: "permanent", status: "active", authorship: { user_confirmed: true }, relationNetworkStatus: "connected", thesis: "判断", threeLineSummary: ["a", "b", "c"], distillationStatus: "confirmed" }
     ],
     relations: [{ sourceNoteId: "pn_2", targetNoteId: "pn_3", relationType: "supports", status: "confirmed" }],
     themeIndexes: [
@@ -58,6 +58,38 @@ test("today organizing does not treat unknown cold-start relation state as isola
 
   assert.equal(loaded.isolatedCount, 1);
   assert.equal(loaded.firstIsolated.title, "图谱已确认无关系");
+});
+
+test("today recommends only eligible notes with a fully confirmed viewpoint for writing", () => {
+  const ready = { noteType: "permanent", status: "active", authorship: { user_confirmed: true }, thesis: "反馈帮助修正判断", threeLineSummary: ["观点", "理由", "用途"], distillationStatus: "confirmed" };
+  const state = buildTodayOrganizingState({ notes: [
+    { ...ready, id: "unconfirmed-author", authorship: { user_confirmed: false } },
+    { ...ready, id: "originality-draft", status: "draft" },
+    { ...ready, id: "unconfirmed-viewpoint", distillationStatus: "draft" },
+    { ...ready, id: "legacy-approved", distillationStatus: "approved" },
+    { ...ready, id: "missing-status", distillationStatus: "" },
+    { ...ready, id: "four-lines", threeLineSummary: ["一", "二", "三", "四"] },
+    { ...ready, id: "empty-line", threeLineSummary: ["一", " ", "三"] },
+    { ...ready, id: "ready", title: "可以组织的观点" }
+  ] });
+  assert.equal(state.writingReadyCount, 1);
+  assert.deepEqual(state.firstWritingReady, { id: "ready", title: "可以组织的观点" });
+});
+
+test("today skips already promoted source records even when their target is not loaded", () => {
+  const state = buildTodayOrganizingState({ notes: [
+    { id: "fleeting-promoted", noteType: "fleeting", status: "draft", generatedOriginalNoteId: "unloaded-permanent" },
+    { id: "literature-promoted", noteType: "literature", status: "pending", generated_original_note_id: "unloaded-permanent" },
+    { id: "marker-promoted", noteType: "fleeting", status: "draft", body: "记录\n\n<!-- yansilu:generated-original=unloaded-permanent -->" },
+    { id: "pending", title: "还未整理的记录", noteType: "fleeting", status: "draft", generatedOriginalNoteId: " " }
+  ] });
+  assert.equal(state.pendingMaterialCount, 1);
+  assert.equal(state.firstPendingMaterial.id, "pending");
+  const processedOnly = buildTodayOrganizingState({ notes: [
+    { id: "processed", noteType: "fleeting", status: "draft", generatedOriginalNoteId: "unloaded-permanent" }
+  ] });
+  assert.equal(processedOnly.pendingMaterialCount, 0);
+  assert.equal(processedOnly.isEmptyLibrary, false);
 });
 
 test("today organizing counts only explicit saved relations from note link summaries", () => {
@@ -245,7 +277,7 @@ test("today organizing secondary tabs switch one full-width panel", async () => 
   ];
   const tabs = ["path", "check"].map((key, index) => ({
     key,
-    attrs: { "aria-selected": index === 0 ? "true" : "false" },
+    attrs: { "aria-expanded": index === 0 ? "true" : "false" },
     span: { textContent: index === 0 ? "收起" : "展开" },
     classList: { toggle(name, active) { this[name] = active; } },
     getAttribute(name) {
@@ -279,8 +311,8 @@ test("today organizing secondary tabs switch one full-width panel", async () => 
 
   assert.equal(panels[0].hidden, true);
   assert.equal(panels[1].hidden, false);
-  assert.equal(tabs[0].attrs["aria-selected"], "false");
-  assert.equal(tabs[1].attrs["aria-selected"], "true");
+  assert.equal(tabs[0].attrs["aria-expanded"], "false");
+  assert.equal(tabs[1].attrs["aria-expanded"], "true");
   assert.equal(tabs[0].span.textContent, "展开");
   assert.equal(tabs[1].span.textContent, "收起");
 
@@ -291,8 +323,8 @@ test("today organizing secondary tabs switch one full-width panel", async () => 
 
   assert.equal(panels[0].hidden, true);
   assert.equal(panels[1].hidden, true);
-  assert.equal(tabs[0].attrs["aria-selected"], "false");
-  assert.equal(tabs[1].attrs["aria-selected"], "false");
+  assert.equal(tabs[0].attrs["aria-expanded"], "false");
+  assert.equal(tabs[1].attrs["aria-expanded"], "false");
   assert.equal(tabs[0].span.textContent, "展开");
   assert.equal(tabs[1].span.textContent, "展开");
 });

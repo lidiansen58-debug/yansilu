@@ -7,13 +7,26 @@ export function beginWritingThemeIndexRequest(writingState, isCurrent = () => tr
 
 export async function fetchWritingThemeIndexesForScope({ directoryId, listIndexCards, isCurrent = () => true }) {
   if (!isCurrent()) return [];
-  const query = { includeDescendants: true, indexType: "topic", limit: 12 };
-  let items = await listIndexCards({ directoryId, ...query });
+  const query = { includeDescendants: true, indexType: "topic", limit: 50 };
+  const readScope = async scope => {
+    const items = new Map();
+    for (let offset = 0; isCurrent(); offset += query.limit) {
+      const page = await listIndexCards({ ...scope, ...query, ...(offset ? { offset } : {}) });
+      if (!isCurrent()) return [];
+      const previousSize = items.size;
+      for (const item of page) items.set(item?.id ?? item, item);
+      if (page.length < query.limit) return [...items.values()];
+      // An older server ignoring pagination must not turn into an endless load.
+      if (items.size === previousSize) throw new Error("主题列表未能完整读取，请重试。");
+    }
+    return [];
+  };
+  let items = await readScope({ directoryId });
   if (!isCurrent()) return [];
   // A note folder without themes should not strand the writer. This changes
   // only the picker, not the directory used to create a new theme.
   if (!items.length && String(directoryId || "").trim()) {
-    items = await listIndexCards(query);
+    items = await readScope({});
   }
   return isCurrent() ? items : [];
 }

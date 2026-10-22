@@ -1,3 +1,4 @@
+import { selectWritingThemeForRuntime } from "./writing-theme-selection-request.js";
 import { childFolders, createInitialState, folderById, joinFsPath, parseLinks, notesInFolder, parseTags, rootBoxIdFromFolder, typeFromFolder, uid } from "./prototype-store.js";
 import { ContextMenu } from "./components-context-menu.js";
 import { CreateBoxDialog } from "./components-create-box-dialog.js";
@@ -659,7 +660,7 @@ let selectedSystemMessageId = systemMessages[0]?.id || "";
 let todayReturnTarget = null;
 let startupAutoOpenSuppressed = false;
 const FEEDBACK_EMAIL = "lidiansen58@gmail.com";
-const APP_VERSION = "0.1.1-beta.3";
+const APP_VERSION = "0.1.1-beta.4";
 const UPDATE_SETTINGS_KEY = "yansilu:update:settings:v1";
 const UPDATE_LAST_RESULT_KEY = "yansilu:update:last-result:v1";
 const AI_RUNTIME_MODE_KEY = "yansilu:ai:runtime-mode";
@@ -3925,28 +3926,12 @@ function upsertWritingThemeIndex(indexCard) {
   ];
 }
 
-async function selectWritingThemeIndex(indexId) {
-  const id = String(indexId || "").trim();
-  if (!id) return null;
-  if (id !== writingState.selectedThemeIndexId) assertWritingDraftCanLeave(writingState);
-  const fetched = await fetchIndexCard(id);
-  if (!fetched?.id) return null;
-  const noteIds = writingThemeIndexNoteIds(fetched);
-  const preservingExistingThemeContext = shouldPreserveWritingThemeContext({
-    noteIds,
-    loadedThemeNoteIds: writingState.themeNoteDetailIds,
-    relationThemeNoteIds: writingState.themeRelationNoteIds,
-    sameSet: sameUniqueStringSet
-  });
-  await ensureNotesLoaded(noteIds);
-  if (id !== writingState.selectedThemeIndexId) assertWritingDraftCanLeave(writingState);
-  upsertWritingThemeIndex(fetched);
-  setSelectedWritingThemeIndex(fetched.id);
-  writingState.themeNoteDetailIds = noteIds;
-  writingState.loadingThemeNoteDetails = false;
-  if (!preservingExistingThemeContext) clearWritingThemeRelationCounts(noteIds);
-  renderWritingPanel();
-  return fetched;
+async function selectWritingThemeIndex(indexId, options = {}) {
+  return selectWritingThemeForRuntime(indexId, {
+    state, writingState, getVaultPath: currentVaultPath, assertWritingDraftCanLeave, fetchIndexCard,
+    writingThemeIndexNoteIds, shouldPreserveWritingThemeContext, sameUniqueStringSet, ensureNotesLoaded,
+    upsertWritingThemeIndex, setSelectedWritingThemeIndex, clearWritingThemeRelationCounts, renderWritingPanel
+  }, options);
 }
 
 function buildThemeIndexItemsFromIds(indexCard, noteIds = []) {

@@ -48,6 +48,18 @@ async function importPrototypeApi(caseName, windowValue) {
   }
 }
 
+test("theme list pagination preserves defaults and forwards only nonnegative integer offsets", async t => {
+  const api = await importPrototypeApi("theme-pages", { __API_BASE__: "http://127.0.0.1:3999" });
+  const queries = [];
+  t.mock.method(globalThis, "fetch", async url => { queries.push(new URL(url).searchParams); return Response.json({ items: [] }); });
+  await api.listIndexCards();
+  await api.listIndexCards({ directoryId: "notes", indexType: "topic", limit: 50, offset: 50.9 });
+  await api.listIndexCards({ limit: 500, offset: -1 });
+  assert.equal(queries[0].get("limit"), "12"); assert.equal(queries[0].has("offset"), false);
+  assert.equal(queries[1].get("offset"), "50"); assert.equal(queries[1].get("directoryId"), "notes");
+  assert.equal(queries[2].get("limit"), "50"); assert.equal(queries[2].has("offset"), false);
+});
+
 test("writing history requests older pages without changing existing default requests", async t => {
   const api = await importPrototypeApi("outline-history-pages", { __API_BASE__: "http://127.0.0.1:3999" });
   const calls = [];

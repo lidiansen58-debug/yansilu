@@ -1,5 +1,7 @@
 import { explicitPermanentNoteRelations } from "./permanent-note-sidebar-model.js";
 import { buildReviewChecklist } from "./review-checklist-model.js";
+import { generatedOriginalNoteIdFromBody } from "./note-persistence-policy.js";
+import { noteHasConfirmedViewpoint, writingNoteEligibility } from "./note-readiness-signals.js";
 
 function cleanText(value = "") {
   return String(value || "").trim();
@@ -23,6 +25,8 @@ function materialNoteType(note = null, deps = {}) {
 function isPendingMaterialNote(note = null, deps = {}) {
   const type = materialNoteType(note, deps);
   if (type !== "fleeting" && type !== "literature") return false;
+  const generatedId = cleanText(note?.generatedOriginalNoteId || note?.generated_original_note_id || generatedOriginalNoteIdFromBody(note?.body || ""));
+  if (generatedId) return false;
   const status = cleanText(note?.status || note?.processingStatus || note?.processing_status || note?.conversionStatus || note?.conversion_status).toLowerCase();
   if (!status) return true;
   return ["needs_processing", "pending", "needs_review", "draft", "paraphrased"].includes(status);
@@ -190,19 +194,16 @@ export function buildTodayOrganizingState({
   const useImportRecommended = shouldUseImportRecommended(importRecommended, permanentNotes, isolatedNotes, relations, relationsReady, deps);
   const loadedTheme = firstLoadedTheme(themeIndexes);
   const selectedTheme = loadedTheme || importTheme;
-  const writingReadyNotes = permanentNotes.filter((note) => {
-    const thesis = cleanText(note?.thesis);
-    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => cleanText(item)) : [];
-    const status = cleanText(note?.distillationStatus || note?.distillation_status || note?.authorshipStatus || note?.authorship_status).toLowerCase();
-    return thesis && summary.length >= 3 && (!status || ["confirmed", "complete", "approved"].includes(status));
-  });
+  const writingReadyNotes = permanentNotes.filter((note) =>
+    writingNoteEligibility(note, { isDirectoryUnderOriginalRoot: () => isPermanentNote(note, deps) }).ok &&
+    noteHasConfirmedViewpoint(note)
+  );
   const hasImportOverview = importOverviewPermanentCount(organizingOverview) > 0;
 
   return {
     noticeMessage: cleanText(noticeMessage),
     isEmptyLibrary:
-      permanentNotes.length === 0 &&
-      pendingMaterialNotes.length === 0 &&
+      allNotes.length === 0 &&
       !loadedTheme &&
       !importTheme &&
       !hasImportOverview,
