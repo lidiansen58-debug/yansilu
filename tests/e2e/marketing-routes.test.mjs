@@ -209,9 +209,16 @@ test("marketing download puts Windows and macOS choices in the first screen", as
   assert.match(html, /data-download-other-options hidden/);
   assert.match(html, /其他版本/);
   assert.match(html, /x64 安装包/);
-  const model = await fetch(`${webBase}/marketing-download-model.js`);
+  assert.match(html, /src="\/marketing-download\.js\?v=20261023-beta4"/);
+  const entry = await fetch(`${webBase}/marketing-download.js?v=20261023-beta4`);
+  assert.equal(entry.status, 200);
+  const entrySource = await entry.text();
+  assert.equal((entrySource.match(/from "\.\/marketing-download-model\.js\?v=20261023-beta4";/g) || []).length, 2, "import and re-export must request the same fresh model module");
+  const model = await fetch(`${webBase}/marketing-download-model.js?v=20261023-beta4`);
   assert.equal(model.status, 200);
-  assert.match(await model.text(), /detectDownloadPlatform/);
+  const modelSource = await model.text();
+  assert.match(modelSource, /detectDownloadPlatform/);
+  assert.match(modelSource, /export function downloadVersionText/);
   assert.doesNotMatch(html, /data-download-primary(?:[\s>])/);
   assert.doesNotMatch(html, /data-download-files|releaseTitle/);
 });

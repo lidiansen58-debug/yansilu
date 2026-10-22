@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { detectDownloadPlatform, downloadChoices, recommendedDownload } from "../../apps/web/src/marketing-download-model.js";
+import { detectDownloadPlatform, downloadChoices, downloadVersionText, recommendedDownload, versionForDownload } from "../../apps/web/src/marketing-download-model.js";
 
-test("published marketing manifest pins same-version Windows, Universal Mac and Linux downloads", async () => {
+test("published marketing manifest pins each platform's actual version and release asset", async () => {
   const manifest = JSON.parse(await readFile(new URL("../../apps/web/src/marketing-download-manifest.json", import.meta.url), "utf8"));
   assert.equal(manifest.ok, true);
   assert.equal(manifest.item.bundleReady, true);
@@ -19,12 +19,27 @@ test("published marketing manifest pins same-version Windows, Universal Mac and 
   assert.equal(recommendedDownload(choices, "linux").architecture, "x64");
   assert.ok(choices.some(choice => choice.key === "linux" && choice.format === "deb" && choice.architecture === "x64"));
   for (const item of manifest.item.items) {
-    assert.ok(item.file.includes(manifest.item.version));
+    assert.ok(item.file.includes(item.version || manifest.item.version));
     assert.ok(item.bytes > 0);
     assert.match(item.sha256, /^[a-f0-9]{64}$/);
     assert.notEqual(item.sha256, "85766d3c1b14d7fba7463aa0cbf1d36f279c10423f01754517a0e8eff62f4e92", "The CI DEB with an invalid package name must not be published");
-    assert.equal(item.downloadUrl, `https://github.com/lidiansen58-debug/yansilu/releases/download/${manifest.item.releaseTag}/${item.file}`);
+    assert.equal(item.downloadUrl, `https://github.com/lidiansen58-debug/yansilu/releases/download/${item.releaseTag || manifest.item.releaseTag}/${item.file}`);
   }
+});
+
+test("download versions use explicit platform metadata, then the asset filename, then the legacy version", () => {
+  assert.equal(versionForDownload({ version: "0.1.1-beta.3", file: "installer.dmg" }, "0.1.1-beta.4"), "0.1.1-beta.3");
+  assert.equal(versionForDownload({ file: "yansilu_0.1.1-beta.3_universal.dmg" }, "0.1.1-beta.4"), "0.1.1-beta.3");
+  assert.equal(versionForDownload({ file: "installer.exe" }, "0.1.1-beta.4"), "0.1.1-beta.4");
+  assert.equal(downloadVersionText([], "unknown"), "来自已发布版本");
+  const choices = downloadChoices([
+    { file: "yansilu_0.1.1-beta.4_x64-setup.exe", version: "0.1.1-beta.4", downloadUrl: "/windows.exe" },
+    { file: "yansilu_0.1.1-beta.3_universal.dmg", version: "0.1.1-beta.3", downloadUrl: "/mac.dmg" },
+    { file: "yansilu_0.1.1-beta.3_amd64.AppImage", version: "0.1.1-beta.3", downloadUrl: "/linux.AppImage" }
+  ]);
+  assert.equal(downloadVersionText(choices, "windows", "0.1.1-beta.4"), "当前版本 0.1.1-beta.4");
+  assert.equal(downloadVersionText(choices, "macos", "0.1.1-beta.4"), "当前版本 0.1.1-beta.3");
+  assert.equal(downloadVersionText(choices, "mobile", "0.1.1-beta.4"), "Windows 0.1.1-beta.4 · macOS 0.1.1-beta.3 · Linux 0.1.1-beta.3");
 });
 
 function createDocument() {
@@ -73,6 +88,87 @@ function createDownloadPageDocument() {
   };
   return { ...fixture, status, note, releaseNote };
 }
+
+test("a Windows-only new release keeps older Mac and Linux installers when the primary manifest is unavailable", async () => {
+  const originalDocument = globalThis.document, originalFetch = globalThis.fetch;
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  globalThis.document = createDocument().document;
+  const releases = [
+    { tag_name: "v0.1.1-beta.4", draft: false, prerelease: true, assets: [
+      { name: "yansilu_0.1.1-beta.4_x64-setup.exe", browser_download_url: "/beta4/windows.exe" }
+    ] },
+    { tag_name: "beta3-mac-ci-f41c0627-20261019", draft: false, prerelease: true, assets: [
+      { name: "yansilu_0.1.1-beta.3_x64-setup.exe", browser_download_url: "/beta3/windows.exe" },
+      { name: "yansilu_0.1.1-beta.3_universal.dmg", browser_download_url: "/beta3/mac.dmg" },
+      { name: "yansilu_0.1.1-beta.3_amd64.AppImage", browser_download_url: "/beta3/linux.AppImage" },
+      { name: "yansilu_0.1.1-beta.3_amd64.deb", browser_download_url: "/beta3/linux.deb" }
+    ] }
+  ];
+  try {
+    const module = await import(`../../apps/web/src/marketing-download.js?retained-platform-fallback=${Date.now()}`);
+    globalThis.fetch = async url => {
+      if (url.endsWith("/api/download-manifest")) throw new Error("Primary manifest unavailable");
+      const count = Number(new URL(url).searchParams.get("per_page") || 1);
+      return { ok: true, json: async () => releases.slice(0, count) };
+    };
+    for (const [platform, href, version] of [["MacIntel", "/beta3/mac.dmg", "0.1.1-beta.3"], ["Linux x86_64", "/beta3/linux.AppImage", "0.1.1-beta.3"], ["Win32", "/beta4/windows.exe", "0.1.1-beta.4"]]) {
+      const fixture = createDownloadPageDocument(); globalThis.document = fixture.document;
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: { platform } });
+      await module.initDownloadPage();
+      assert.equal(fixture.container.children[0].href, href, `${platform} must retain its own latest available installer`);
+      assert.match(fixture.note.textContent, new RegExp(`当前版本 ${version.replaceAll(".", "\\.")}`));
+      assert.doesNotMatch(fixture.note.textContent, platform === "Win32" ? /beta\.3/ : /beta\.4/);
+      assert.match(fixture.releaseNote.textContent, /Beta/);
+      const links = [...fixture.container.children, ...fixture.otherContainer.children].map(item => item.href);
+      assert.equal(links.includes("/beta3/windows.exe"), false, "fallback must not downgrade Windows while retaining other platforms");
+      assert.equal(links.includes("/beta3/linux.deb"), true);
+    }
+  } finally {
+    globalThis.document = originalDocument; globalThis.fetch = originalFetch;
+    if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+});
+
+test("Windows can advance while pinned Mac and Linux downloads keep their actual versions without GitHub access", async () => {
+  const originalDocument = globalThis.document, originalFetch = globalThis.fetch;
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  globalThis.document = createDocument().document;
+  const mixed = { version: "0.1.1-beta.4", releaseTag: "windows-beta4-test", bundleReady: true,
+    notice: "Beta 测试版。", platformNotices: { windows: "Windows beta.4", macos: "Mac beta.3 保留已验收版本。", linux: "Linux beta.3 需手动安装。" }, items: [
+      { file: "yansilu_0.1.1-beta.4_x64-setup.exe", version: "0.1.1-beta.4", releaseTag: "windows-beta4-test", downloadUrl: "/verified-windows-beta4.exe" },
+      { file: "yansilu_0.1.1-beta.3_universal.dmg", version: "0.1.1-beta.3", releaseTag: "verified-mac-beta3", downloadUrl: "/verified-mac-beta3.dmg" },
+      { file: "yansilu_0.1.1-beta.3_amd64.AppImage", version: "0.1.1-beta.3", releaseTag: "retained-linux-beta3", downloadUrl: "/retained-linux-beta3.AppImage" }
+    ] };
+  try {
+    const module = await import(`../../apps/web/src/marketing-download.js?platform-versions=${Date.now()}`);
+    const requests = [];
+    globalThis.fetch = async url => {
+      requests.push(url);
+      if (url.endsWith("/api/download-manifest")) return { ok: true, json: async () => ({ item: mixed }) };
+      assert.match(url, /releases\/tags\/windows-beta4-test$/);
+      throw new Error("GitHub unavailable");
+    };
+    for (const [platform, href, version] of [["Win32", "/verified-windows-beta4.exe", "0.1.1-beta.4"], ["MacIntel", "/verified-mac-beta3.dmg", "0.1.1-beta.3"], ["Linux x86_64", "/retained-linux-beta3.AppImage", "0.1.1-beta.3"]]) {
+      const fixture = createDownloadPageDocument(); globalThis.document = fixture.document;
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: { platform } });
+      await module.initDownloadPage();
+      assert.equal(fixture.container.children[0].href, href);
+      assert.match(fixture.note.textContent, new RegExp(`当前版本 ${version.replaceAll(".", "\\.")}`));
+      if (platform !== "Win32") assert.doesNotMatch(fixture.note.textContent, /beta\.4/);
+      assert.equal(fixture.releaseNote.textContent, mixed.platformNotices[platform === "Win32" ? "windows" : platform === "MacIntel" ? "macos" : "linux"]);
+    }
+    const fixture = createDownloadPageDocument(); globalThis.document = fixture.document;
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "iPhone" } });
+    await module.initDownloadPage();
+    assert.equal(fixture.note.textContent, "Windows 0.1.1-beta.4 · macOS 0.1.1-beta.3 · Linux 0.1.1-beta.3");
+    assert.equal(requests.filter(url => url.endsWith("/api/download-manifest")).length, 4);
+  } finally {
+    globalThis.document = originalDocument; globalThis.fetch = originalFetch;
+    if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+});
 
 test("download buttons expose Windows and macOS installers from one release manifest", async () => {
   const originalDocument = globalThis.document;
@@ -433,7 +529,9 @@ for (const filenames of [
   test(`GitHub fallback does not invent a version for ${filenames.join(", ")}`, async () => {
     const originalDocument = globalThis.document;
     const originalFetch = globalThis.fetch;
+    const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
     globalThis.document = createDocument().document;
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
     try {
       const module = await import(`../../apps/web/src/marketing-download.js?unknown-version=${Date.now()}-${filenames.length}`);
       const fixture = createDownloadPageDocument();
@@ -446,10 +544,15 @@ for (const filenames of [
         }] };
       };
       await module.initDownloadPage();
-      assert.match(fixture.note.textContent, /^来自已发布版本/);
+      if (filenames.length === 1) assert.equal(fixture.note.textContent, "来自已发布版本");
+      else assert.equal(fixture.note.textContent, "Windows 0.1.1-beta.1 · macOS 0.1.1-beta.2");
       assert.doesNotMatch(fixture.note.textContent, /beta2-ci-pr226/);
       assert.equal(fixture.releaseNote.hidden, false);
-    } finally { globalThis.document = originalDocument; globalThis.fetch = originalFetch; }
+    } finally {
+      globalThis.document = originalDocument; globalThis.fetch = originalFetch;
+      if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+      else delete globalThis.navigator;
+    }
   });
 }
 
