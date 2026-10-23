@@ -1,5 +1,7 @@
 # Windows 0.1.1-beta.4 发布状态
 
+后续平台发布：macOS / Linux 已更新至 beta.4，见[独立发布记录](V0_1_1_BETA_4_MAC_LINUX_RELEASE_STATUS.md)。以下保留 Windows 发布当时的验证与平台状态。
+
 更新日期：2026-10-23。Windows beta.4 已公开为预发布版本，Windows 更新入口已切换至同一份验证产物。官网分平台下载配置随本次变更交付，使用既有 Cloudflare Pages 项目手动部署。
 
 ## 固定源码与产物
