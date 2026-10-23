@@ -1,0 +1,51 @@
+name: publish-beta4-platforms
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful desktop-release build run for the fixed beta.4 source
+        required: true
+        default: "39897167774"
+permissions:
+  actions: read
+  contents: write
+jobs:
+  prepare-draft:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Validate fixed build provenance
+        run: node scripts/prepare-beta4-platform-release.mjs provenance
+      - uses: actions/download-artifact@v8
+        with:
+          name: yansilu-linux-bundles
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: platform-bundles/linux
+      - uses: actions/download-artifact@v8
+        with:
+          name: yansilu-macos-universal-bundles
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: platform-bundles/macos
+      - name: Build public-key signature verifier
+        shell: bash
+        run: |
+          mkdir -p signature-verifier/src
+          cp scripts/release/verify-updater-signature.rs signature-verifier/src/main.rs
+          printf '[package]\nname="release-signature-verifier"\nversion="0.1.0"\nedition="2021"\n[dependencies]\nminisign-verify="=0.2.5"\n' > signature-verifier/Cargo.toml
+          cargo build --manifest-path signature-verifier/Cargo.toml
+      - name: Verify assets and prepare private prerelease
+        run: node scripts/prepare-beta4-platform-release.mjs draft
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: beta4-platform-publication-receipt
+          path: platform-publication-receipt/
+          if-no-files-found: warn
