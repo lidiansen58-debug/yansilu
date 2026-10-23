@@ -50,3 +50,21 @@ export function recommendedDownload(choices, platform) {
   if (platform === "linux") return choices.find(choice => choice.key === "linux" && choice.architecture === "x64" && choice.format === "AppImage");
   return undefined;
 }
+
+export function versionForDownload(item = {}, fallbackVersion = "") {
+  return String(item.version || "").trim()
+    || String(item.file || "").match(/_(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)_(?:universal|x64|x86_64|amd64|arm64|aarch64)(?:[-.]|$)/iu)?.[1]
+    || String(fallbackVersion || "").trim();
+}
+
+export function downloadVersionText(choices = [], platform = "unknown", fallbackVersion = "") {
+  const matching = choices.filter(choice => choice.key === platform);
+  const visible = matching.length ? matching : choices;
+  const versions = [...new Set(visible.map(choice => versionForDownload(choice.item, fallbackVersion)).filter(Boolean))];
+  if (versions.length <= 1) return versions[0] ? `当前版本 ${versions[0]}` : "来自已发布版本";
+  const labels = { windows: "Windows", macos: "macOS", linux: "Linux" };
+  return [...new Set(visible.map(choice => {
+    const version = versionForDownload(choice.item, fallbackVersion);
+    return version ? `${labels[choice.key] || choice.key} ${version}` : "";
+  }).filter(Boolean))].join(" · ");
+}

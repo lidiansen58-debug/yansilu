@@ -1,5 +1,5 @@
-import { detectDownloadPlatform, downloadChoices, recommendedDownload } from "./marketing-download-model.js";
-export { platformForFile } from "./marketing-download-model.js";
+import { detectDownloadPlatform, downloadChoices, downloadVersionText, recommendedDownload, versionForDownload } from "./marketing-download-model.js?v=20261023-beta4";
+export { platformForFile } from "./marketing-download-model.js?v=20261023-beta4";
 
 const DOWNLOAD_API_BASE = globalThis.window?.location?.origin || "";
 const RELEASES_URL = "https://github.com/lidiansen58-debug/yansilu/releases";
@@ -61,23 +61,37 @@ export function renderDownloadButtons(items, { fallback = false, platform = dete
 }
 
 async function fetchReleaseAssets(version = "", releaseTag = "") {
-  const endpoint = version || releaseTag
+  const pinned = Boolean(version || releaseTag);
+  const endpoint = pinned
     ? `${RELEASES_API_URL}/tags/${encodeURIComponent(releaseTag || `v${version}`)}`
-    : `${RELEASES_API_URL}?per_page=1`;
+    : `${RELEASES_API_URL}?per_page=10`;
   try {
     const response = await readDownloadJson(endpoint);
     if (!response.ok) return null;
     const payload = response.payload;
-    const release = Array.isArray(payload) ? payload.find((item) => !item.draft) : payload;
-    if (!release || release.draft) return null;
-    const items = Array.isArray(release.assets)
-      ? release.assets.map((asset) => ({ file: asset.name, downloadUrl: asset.browser_download_url })) : [];
-    const tagVersion = String(release.tag_name || "").match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/u)?.[1];
-    const assetVersions = [...new Set(downloadChoices(items).map(choice => String(choice.item.file)
-      .match(/_(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)_(?:universal|x64|x86_64|amd64|arm64|aarch64)(?:[-.]|$)/iu)?.[1]).filter(Boolean))];
+    const releases = (Array.isArray(payload) ? payload : [payload]).filter(release => release && !release.draft);
+    const items = [], availablePlatforms = new Set();
+    // A Windows-only release must not remove the older published Mac/Linux
+    // downloads. Pinned primary releases still use only their own assets.
+    for (const release of pinned ? releases.slice(0, 1) : releases) {
+      const tagVersion = String(release.tag_name || "").match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/u)?.[1];
+      const choices = downloadChoices((Array.isArray(release.assets) ? release.assets : []).map(asset => ({
+        file: asset.name, downloadUrl: asset.browser_download_url
+      })));
+      const selected = choices.filter(choice => !availablePlatforms.has(choice.key));
+      for (const choice of selected) items.push({ ...choice.item,
+        version: versionForDownload(choice.item, tagVersion || (pinned ? version : "")),
+        releaseTag: release.tag_name || "", prerelease: Boolean(release.prerelease) });
+      for (const choice of selected) availablePlatforms.add(choice.key);
+      if (availablePlatforms.size === 3) break;
+    }
+    if (!items.length) return null;
+    const platform = detectDownloadPlatform(globalThis.navigator);
+    const platformItems = downloadChoices(items).filter(choice => choice.key === platform).map(choice => choice.item);
+    const assetVersions = [...new Set(items.map(item => item.version).filter(Boolean))];
     return {
-      version: tagVersion || version || (assetVersions.length === 1 ? assetVersions[0] : ""),
-      notice: release.prerelease ? "Beta 测试版，需手动安装。" : "",
+      version: version || (assetVersions.length === 1 ? assetVersions[0] : ""),
+      notice: (platformItems.length ? platformItems : items).some(item => item.prerelease) ? "Beta 测试版，需手动安装。" : "",
       items
     };
   } catch {
@@ -103,7 +117,7 @@ function showDownloads(status, items, version, notice = "") {
   status.textContent = recommended ? "推荐下载："
     : platform === "macos" && platforms.some(choice => choice.key === "macos") ? "请选择与你的 Mac 芯片对应的版本：" : COPY.choosePlatform;
   const compatibility = recommended?.architecture === "universal" ? " · Intel 和 M 系列均可使用" : "";
-  setText("[data-download-primary-note]", `${version ? `当前版本 ${version}` : "来自已发布版本"}${compatibility}`);
+  setText("[data-download-primary-note]", `${downloadVersionText(platforms, platform, version)}${compatibility}`);
   return true;
 }
 
