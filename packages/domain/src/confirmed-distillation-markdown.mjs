@@ -2,6 +2,22 @@ import { markdownCodeRanges } from "../../markdown-engine/src/markdown-code-cont
 
 const END = "<!-- yansilu:distillation:end -->";
 
+const EMPTY_CORE_CLAIMS = new Set([
+  "用自己的话，把这个想法写成一个清楚的判断。",
+  "用自己的话写出一个判断，不直接照抄来源。",
+  "写成一句可被反驳、可被引用、值得保留的判断。"
+]);
+
+function removeGeneratedCoreClaimPlaceholder(source) {
+  const code = markdownCodeRanges(source);
+  const heading = [...source.matchAll(/^##[ \t]+核心观点[ \t]*\n/gm)]
+    .find(match => !code.some(([from, to]) => match.index >= from && match.index < to));
+  if (!heading) return source;
+  const block = source.slice(heading.index).match(/^##[ \t]+核心观点[ \t]*\n(?:[ \t]*\n)*([^\n]+)\n(?:[ \t]*\n)*(?=##[ \t]+为什么成立[ \t]*(?:\n|$))/);
+  if (!block || !EMPTY_CORE_CLAIMS.has(block[1].trim())) return source;
+  return source.slice(0, heading.index) + source.slice(heading.index + block[0].length);
+}
+
 function legacyBlockEnd(rows, start, limit, isCode) {
   let index = start + 1, fields = 0;
   const skipBlank = () => { while (index < limit && !rows[index].value.trim()) index++; };
@@ -22,7 +38,7 @@ function legacyBlockEnd(rows, start, limit, isCode) {
 }
 
 export function upsertConfirmedDistillationMarkdown(markdownBody, section) {
-  const source = String(markdownBody || "").replace(/\r\n/g, "\n").trim();
+  const source = removeGeneratedCoreClaimPlaceholder(String(markdownBody || "").replace(/\r\n/g, "\n").trim());
   const rows = [...source.matchAll(/[^\n]*(?:\n|$)/g)].filter(row => row[0])
     .map(row => ({ value: row[0].replace(/\n$/, ""), from: row.index }));
   const code = markdownCodeRanges(source);
