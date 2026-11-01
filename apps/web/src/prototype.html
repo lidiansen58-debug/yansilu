@@ -487,14 +487,21 @@
                       <button class="mini-btn" id="btnWritingReloadScaffold" type="button">载入已保存提纲</button>
                       <button class="mini-btn" id="btnWritingHistory" type="button">提纲历史</button>
                       <button class="mini-btn" id="btnWritingOpenDraft" type="button">打开当前草稿</button>
+                      <div class="writing-chapter-tools" id="writingChapterMenu" role="group" aria-label="章节目录操作">
+                        <button class="mini-btn is-ghost" id="btnWritingChapterAdd" type="button">新增章节</button>
+                        <button class="mini-btn is-ghost" id="btnWritingChapterUp" type="button">上移章节</button>
+                        <button class="mini-btn is-ghost" id="btnWritingChapterDown" type="button">下移章节</button>
+                        <button class="mini-btn is-ghost" id="btnWritingChapterRemove" type="button">移出目录</button>
+                        <p class="writing-chapter-menu-note">移出目录会保留正文笔记。</p>
+                      </div>
                     </div>
                   </details>
                 </div>
               </div>
 
               <div class="writing-help-popover" id="writingHelpPopover" hidden>
-                <strong>从主题到草稿</strong>
-                <span>先确认中心问题和相关笔记，再生成提纲，最后保存草稿。导出和打开草稿在“更多”里。</span>
+                <strong>从一个想法开始写</strong>
+                <span>写下问题或想法，点击“开始写”。相关笔记可以以后再补，正文随时保存。导出和章节操作在“更多”里。</span>
               </div>
 
               <section class="writing-empty-topic" id="writingEmptyTopic">
@@ -577,16 +584,6 @@
                     </div>
                     <div class="writing-draft-target-row">
                       <select id="writingDraftTarget" aria-label="章节"><option value="">文章正文</option></select>
-                      <details class="writing-chapter-menu" id="writingChapterMenu" data-ui-menu>
-                        <summary class="mini-btn">管理章节</summary>
-                        <div class="writing-chapter-tools" role="group" aria-label="章节目录操作">
-                          <button class="mini-btn is-ghost" id="btnWritingChapterAdd" type="button">新增章节</button>
-                          <button class="mini-btn is-ghost" id="btnWritingChapterUp" type="button">上移</button>
-                          <button class="mini-btn is-ghost" id="btnWritingChapterDown" type="button">下移</button>
-                          <button class="mini-btn is-ghost" id="btnWritingChapterRemove" type="button">移出目录</button>
-                          <p class="writing-chapter-menu-note">移出目录会保留正文笔记。</p>
-                        </div>
-                      </details>
                     </div>
                     <textarea class="writing-draft-editor" id="writingDraftEditor" aria-label="正文内容" placeholder="写下正文，保存后可继续修改。"></textarea>
                     <div class="writing-document-editor wysiwyg-host" id="writingDocumentEditor" hidden></div>

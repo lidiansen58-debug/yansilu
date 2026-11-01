@@ -49,7 +49,7 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
   await page.locator('[data-writing-tab="draft"]').click();
   await selectWritingChapter(page, "first");
   await page.waitForFunction(() => document.querySelector("#writingDraftEditor").value.includes("第一章"));
-  const menu = page.locator("#writingChapterMenu");
+  const menu = page.locator("#writingMoreMenu");
   const summary = menu.locator("summary");
   const editor = page.locator("#writingDraftEditor");
   const documentEditor = page.locator("#writingDocumentEditor");
@@ -75,7 +75,7 @@ test("writing uses shared controls, one heading, dismissible chapter tools and t
     assert.equal(await menu.getAttribute("open"), null);
     assert.equal(await summary.evaluate(el => el === document.activeElement), true);
     await summary.click();
-    await page.locator('#writingDraftTitle').click();
+    await page.locator('#writingPanel').click({ position: { x: 2, y: 600 } });
     assert.equal(await menu.getAttribute("open"), null);
     const geometry = await page.locator("#writingDraftPanel").evaluate(el => {
       const style = node => { const s = getComputedStyle(node); return { font: s.fontSize, radius: s.borderRadius, height: node.getBoundingClientRect().height }; };

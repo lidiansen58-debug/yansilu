@@ -81,23 +81,13 @@
 #writingPanel .writing-document-editor .toastui-editor-contents h1 { font-size: 26px; border: 0; }
 #writingPanel .writing-document-editor .yansilu-token-wikilink { color: var(--ui-brand); border-radius: 4px; padding: 0 3px; }
 #writingPanel .writing-draft-target-row { align-items: center; margin: 0; gap: 12px; }
+#writingPanel .writing-draft-target-row[hidden] { display: none; }
 #writingPanel .writing-draft-target-row select { flex: 1 1 220px; max-width: 420px; }
-#writingPanel .writing-chapter-menu { position: relative; }
-#writingPanel .writing-chapter-menu > summary { list-style: none; }
-#writingPanel .writing-chapter-menu > summary::-webkit-details-marker { display: none; }
 #writingPanel .writing-chapter-tools {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 20;
   display: grid;
   gap: 4px;
-  min-width: 180px;
-  padding: 8px;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-control-radius);
-  background: var(--ui-surface);
-  box-shadow: var(--ui-shadow-popover);
+  padding-top: 8px;
+  border-top: 1px solid var(--ui-border);
 }
 #writingPanel .writing-chapter-tools button { width: 100%; height: auto; text-align: left; }
 #writingPanel .writing-chapter-tools .mini-btn { justify-content: flex-start; }
@@ -116,7 +106,7 @@
 #writingPanel .writing-save-feedback { flex: 1; margin: 0; font-size: 13px; color: var(--ui-text-muted); }
 #writingPanel .writing-save-feedback[data-state="error"] { color: var(--ui-danger); }
 #writingPanel .writing-save-feedback[data-state="saved"] { color: var(--ui-brand); }
-#writingPanel .writing-more-menu-panel { box-shadow: var(--ui-shadow-popover); }
+#writingPanel .writing-more-menu-panel { box-shadow: var(--ui-shadow-popover); max-height: min(65dvh, 560px); overflow-y: auto; }
 #writingPanel .writing-note-title { font-size: 16px; font-weight: 600; }
 #writingPanel .writing-note-meta { font-size: 14px; line-height: 1.6; }
 .writing-chapter-navigation { border-top: 1px solid var(--ui-border); margin-top: 24px; padding-top: 16px; }
@@ -147,7 +137,6 @@
   #writingPanel .writing-head-actions .mini-btn { padding: 8px; white-space: nowrap; }
   #writingPanel .writing-draft-target-row { flex-wrap: nowrap; gap: 8px; }
   #writingPanel .writing-draft-target-row select { flex: 1; width: 0; min-width: 0; }
-  #writingPanel .writing-chapter-menu { flex: 0 0 auto; }
   #writingPanel #writingDraftEditor { min-height: 48dvh; padding: 16px; }
   #writingPanel .writing-draft-footer {
     position: sticky;

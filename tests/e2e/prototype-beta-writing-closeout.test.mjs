@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { openWritingChapterActions, optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
 import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 async function answerInput(page, value) {
@@ -74,7 +74,7 @@ test("Beta writing closes material theme, outline, article save, current-text ex
   await waitFor(async () => assert.match((await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item.body, /尚未保存的正文也必须导出/));
   await waitFor(async () => assert.equal(await page.locator('#btnWritingSaveDraft').isDisabled(), false));
   for (const title of ["第一章 理解", "第二章 边界"]) {
-    await page.locator('#writingChapterMenu > summary').click();
+    await openWritingChapterActions(page);
     await page.locator('#btnWritingChapterAdd').click();
     await answerInput(page, title);
     await page.waitForFunction(title => document.querySelector('#writingDraftTarget')?.selectedOptions[0]?.textContent.includes(title), title);
@@ -88,7 +88,7 @@ test("Beta writing closes material theme, outline, article save, current-text ex
     }, 15000);
     await waitFor(async () => assert.match(await page.locator('#statusText').textContent(), /章节已保存/), 15000);
   }
-  await page.locator('#writingChapterMenu > summary').click();
+  await openWritingChapterActions(page);
   await page.locator('#btnWritingChapterUp').click();
   await waitFor(async () => assert.match(await page.locator('#statusText').textContent(), /章节顺序已保存/));
   await page.locator('#writingMoreMenu > summary').click();

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
+import { openWritingChapterActions, createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
 import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 const longHeading = number => `第${number}节：先用自己的话说明读过的内容，检查判断成立的条件，再对照原文和反例修正遗漏，保留依据、适用范围及仍未解决的问题，以便在新的情境中继续检验和修改这条判断`;
@@ -434,7 +434,7 @@ for (const width of [1366, 390, 320]) {
       stage = "long chapters";
       const chapterTitles = [1, 2, 3].map(number => `第${number}章：从阅读时产生的问题出发，用自己的话解释材料，检查证据与反例，在真实任务中逐步修正判断，并保留整个形成过程以支持后续的主题文章和书稿写作`);
       for (const title of chapterTitles) {
-        await page.locator("#writingChapterMenu > summary").click();
+        await openWritingChapterActions(page);
     await page.locator("#btnWritingChapterAdd").click();
         await answer(page, title);
         await page.waitForFunction(title => document.querySelector("#writingDraftTarget")?.selectedOptions[0]?.textContent === title, title);
@@ -485,7 +485,7 @@ for (const width of [1366, 390, 320]) {
       await selectWritingChapter(page, selectedId);
       await page.waitForFunction(title => document.querySelector("#writingDraftTarget option:checked")?.textContent === title, chapter.title);
       assert.match(await page.locator("#writingDraftEditor").inputValue(), /本章第35段/);
-      await page.locator("#writingChapterMenu > summary").click();
+      await openWritingChapterActions(page);
       await page.locator("#btnWritingChapterUp").click();
       await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /章节顺序已保存/));
       await page.locator("#writingMoreMenu > summary").click();

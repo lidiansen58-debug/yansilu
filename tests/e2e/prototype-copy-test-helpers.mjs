@@ -144,6 +144,12 @@ export async function selectWritingChapter(page, id) {
   }
 }
 
+export async function openWritingChapterActions(page) {
+  if (!await page.locator("#writingMoreMenu").evaluate(menu => menu.open)) {
+    await page.locator("#writingMoreMenu > summary").click();
+  }
+}
+
 export async function startPrototypeStack(t, playwright, { apiEnv = {}, prepareVault = null, beforeNavigate = null, navigateWaitUntil = "networkidle" } = {}) {
   const vaultPath = await makeTempDir("yansilu-browser-e2e-vault-");
   if (prepareVault) await prepareVault(vaultPath);

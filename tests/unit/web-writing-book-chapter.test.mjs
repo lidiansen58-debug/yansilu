@@ -103,12 +103,17 @@ test("a chapter-only book retains its export menu without an article outline or 
   assert.equal(exportButton.hidden, false);
   s.writingState.project.book_structure.parts = [];
   s.deps.renderWritingPanel();
-  assert.equal(menu.hidden, true);
+  assert.equal(menu.hidden, false, "More retains the existing add-chapter action for an article");
   assert.equal(exportButton.hidden, true);
 });
 
 test("first chapter save through the panel preserves boundary whitespace without a false dirty warning", async () => {
   const s = setup();
+  const article = { id: "article", body: s.writingState.draftMarkdown, fileRevision: "article-revision" };
+  s.writingState.project.draft_note = article;
+  s.deps.updateWritingProjectBookStructure = async (id, payload) => ({
+    id, draft_note_id: "article", draft_note: { id: "article", title: "Article" }, book_structure: payload.bookStructure
+  });
   usePanelRenderer(s);
   await selectWritingDraftTarget(s.deps, "first");
   const body = "\n# First\n\nChapter prose with a Markdown hard break.  \n\n";
@@ -122,6 +127,7 @@ test("first chapter save through the panel preserves boundary whitespace without
   assert.equal(s.writingState.bookChapter.savedBody, body);
   assert.equal(s.writingState.bookChapter.saveState, "saved");
   assert.equal(s.messages.at(-1), "章节已保存");
+  assert.deepEqual(s.writingState.project.draft_note, article);
 });
 
 test("panel rendering during first chapter binding preserves later input as genuinely dirty", async () => {
