@@ -5,6 +5,8 @@ const fields = [["writingTitle", "title"], ["writingGoal", "goal"], ["writingAud
 // Metadata responses contain only a draft summary and may predate a draft save.
 // Keep the live editor binding/body/revision so a late response cannot undo it.
 export function retainWritingDraftBaseline(saved, previous) {
+  if (saved?.id === previous?.id && saved?.draft_note_id && previous?.draft_note_id
+    && saved.draft_note_id !== previous.draft_note_id) return { ...saved, draft_note: null };
   if (saved?.id !== previous?.id || !previous?.draft_note_id
     || previous.draft_note_id !== previous.draft_note?.id) return saved;
   return { ...saved, draft_note_id: previous.draft_note_id,

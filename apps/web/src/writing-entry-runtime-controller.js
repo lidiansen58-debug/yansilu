@@ -99,7 +99,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     renderWritingPanel();
     if (activeTab) applyWritingTab(activeTab);
     const projectAtRequest = writingState.project;
-    void loadWritingEntryMaterials({ state, writingState, loadWritingMaterials, renderWritingPanel }, isCurrent);
+    void loadWritingEntryMaterials({ state, writingState, loadWritingMaterials, renderWritingPanel, getVaultPath });
     try {
       const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
         listWritingProjects({

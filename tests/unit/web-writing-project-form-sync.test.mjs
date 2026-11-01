@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWritingProjectKeepingForm, syncWritingProjectForm } from "../../apps/web/src/writing-project-form-sync.js";
+import { createWritingProjectKeepingForm, syncWritingProjectForm, retainWritingDraftBaseline } from "../../apps/web/src/writing-project-form-sync.js";
 import { captureWritingProjectCreationContext } from "../../apps/web/src/writing-project-creation-context.js";
+
+test("an authoritative changed article binding cannot inherit the previous article's save baseline", () => {
+  const saved = retainWritingDraftBaseline({ id: "p", draft_note_id: "new", draft_note: { id: "new", body: "Different body" } },
+    { id: "p", draft_note_id: "old", draft_note: { id: "old", body: "Opened body", fileRevision: "old-revision" } });
+  assert.equal(saved.draft_note_id, "new");
+  assert.equal(saved.draft_note, null);
+});
 
 for (const firstSave of [false, true]) test(`late title response retains a completed ${firstSave ? "first binding" : "article save"}`, async () => {
   const { deps, fields, setBasket } = harness();

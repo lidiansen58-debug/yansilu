@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { optionalPlaywright, startPrototypeStack, fetchJson, postJson, useWritingMarkdown, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { optionalPlaywright, startPrototypeStack, fetchJson, postJson, useWritingMarkdown, waitFor, openWritingChapterActions, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
 
 test("a delayed materials response cannot undo an in-place confirmation", { timeout: 45000 }, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
@@ -34,7 +34,7 @@ test("a delayed materials response cannot undo an in-place confirmation", { time
   } finally { release(); await page.unroute(pattern); }
 });
 
-test("another window changing the current article preserves input and prevents stale writes", { timeout: 45000 }, async t => {
+for (const scenario of ["module return", "chapter directory", "chapter binding"]) test(`remote article changes cannot cause stale writes through ${scenario}`, { timeout: 45000 }, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t); if (!pw) return;
   const h = await startPrototypeStack(t, pw); if (!h) return;
@@ -46,18 +46,54 @@ test("another window changing the current article preserves input and prevents s
   let project;
   await waitFor(async () => { project = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items[0]; assert.ok(project.draft_note_id); });
   const original = (await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item;
-  await page.locator('.rail-btn[data-module="today"]').click();
+  async function addChapter() {
+    await openWritingChapterActions(page); await page.locator("#btnWritingChapterAdd").click();
+    await page.locator('[data-text-input-field]:visible').fill("一个章节"); await page.locator('[data-text-input-confirm]:visible').click();
+    await page.waitForFunction(() => document.querySelector("#writingDraftTarget").value !== "");
+  }
+  if (scenario === "module return") await page.locator('.rail-btn[data-module="today"]').click();
+  if (scenario === "chapter binding") await addChapter();
   const alternate = await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_original_default", title: "另一个版本", status: "draft", body: "# 另一个版本\n\n另一窗口选定的正文。" });
   assert.equal(alternate.status, 201);
   const binding = await postJson(apiBase, `/api/v1/writing-projects/${project.id}/draft-note`, { draftNoteId: alternate.json.item.id });
   assert.equal(binding.status, 200, JSON.stringify(binding.json));
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /当前草稿已在其他地方切换/));
-  await page.locator('[data-writing-tab="draft"]').click();
+  if (scenario === "module return") {
+    await page.locator('.rail-btn[data-module="writing"]').click();
+    await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /当前草稿已在其他地方切换/));
+    await page.locator('[data-writing-tab="draft"]').click();
+  } else {
+    if (scenario === "chapter directory") await addChapter();
+    if (scenario === "chapter binding") {
+      await page.locator("#writingDraftEditor").fill("# 一个章节\n\n章节正文。"); await page.locator("#btnWritingSaveDraft").click();
+      await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /章节已保存/));
+    }
+    await selectWritingChapter(page, "");
+  }
   await page.locator("#writingDraftEditor").fill("# 写下自己的解释\n\n仍需保留的当前修改。"); await page.locator("#btnWritingSaveDraft").click();
   await waitFor(async () => assert.match(await page.locator("#writingDraftSaveFeedback").innerText(), /保存失败/));
   assert.match(await page.locator("#writingDraftEditor").inputValue(), /仍需保留的当前修改/);
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${original.id}`)).json.item.body, original.body);
   assert.equal((await fetchJson(apiBase, `/api/v1/notes/${alternate.json.item.id}`)).json.item.body, alternate.json.item.body);
   assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item.draft_note_id, alternate.json.item.id);
+});
+
+test("materials still arrive when a manual draft is started before their read finishes", { timeout: 45000 }, async t => {
+  if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
+  const pw = await optionalPlaywright(t); if (!pw) return;
+  const h = await startPrototypeStack(t, pw); if (!h) return;
+  const { page, apiBase } = h;
+  const note = await postJson(apiBase, "/api/v1/notes", { directoryId: "dir_original_default", title: "尚未打开的旧笔记", body: "# 尚未打开的旧笔记\n\n这是已有的材料。" });
+  let release, started;
+  const held = new Promise(resolve => { release = resolve; }), ready = new Promise(resolve => { started = resolve; });
+  const pattern = "**/api/v1/directories/dir_original_default/notes?includeDescendants=true";
+  await page.route(pattern, async route => { const response = await route.fetch(); started(); await held; await route.fulfill({ response }); });
+  try {
+    await page.locator('.rail-btn[data-module="writing"]').click(); await ready;
+    await page.locator("#btnWritingSaveThemeIndex").click(); await page.locator("#writingTitle").fill("先写一个问题");
+    await page.locator("#btnWritingStartManualDraft").click(); await page.locator("#writingDraftPanel:visible").waitFor();
+    release(); await page.waitForLoadState("networkidle");
+    await page.locator('.writing-head-actions [data-writing-related-open]').click(); await page.locator("#writingCandidateDetails > summary").click();
+    await page.locator(`#writingCandidateList article[data-writing-note-id="${note.json.item.id}"]`).waitFor();
+    assert.doesNotMatch(await page.locator("#writingCandidateSummary").innerText(), /正在读取|还没有可添加/);
+  } finally { release(); await page.unroute(pattern); }
 });
