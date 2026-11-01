@@ -4,7 +4,7 @@ import { upsertConfirmedDistillationMarkdown as upsert } from "../../packages/do
 
 const section = thesis => `## 提炼观点\n\n### 当前观点\n\n${thesis}`;
 
-for (const prompt of ["用自己的话，把这个想法写成一个清楚的判断。", "用自己的话写出一个判断，不直接照抄来源。", "写成一句可被反驳、可被引用、值得保留的判断。"]) {
+for (const prompt of ["用自己的话，把这个想法写成一个清楚的判断。", "用自己的话写出一个判断，不直接照抄来源。", "写成一句可被反驳、可被引用、值得保留的判断。", "> 写成一句可被反驳、可被引用、值得保留的判断。"]) {
   test("confirmation replaces the untouched core-claim prompt: " + prompt, () => {
     const rest = "## 为什么成立\n\nMy reasons.\n\n## 相关笔记\n\n[[source]]\n\n## 补充内容\n\nOriginal observation.";
     const first = upsert(`# Note\n\n## 核心观点\n\n${prompt}\n\n${rest}`, section("My confirmed judgment."));

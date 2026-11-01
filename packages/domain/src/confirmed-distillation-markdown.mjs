@@ -5,7 +5,8 @@ const END = "<!-- yansilu:distillation:end -->";
 const EMPTY_CORE_CLAIMS = new Set([
   "用自己的话，把这个想法写成一个清楚的判断。",
   "用自己的话写出一个判断，不直接照抄来源。",
-  "写成一句可被反驳、可被引用、值得保留的判断。"
+  "写成一句可被反驳、可被引用、值得保留的判断。",
+  "> 写成一句可被反驳、可被引用、值得保留的判断。"
 ]);
 
 function removeGeneratedCoreClaimPlaceholder(source) {
