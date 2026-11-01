@@ -1,4 +1,5 @@
 import { prepareAppNavigation } from "./app-navigation-intent.js";
+import { setWritingRelatedPanelOpen } from "./writing-related-notes-panel.js";
 
 export function installAppRailEventBindings(deps = {}) {
   const {
@@ -56,11 +57,10 @@ export function installAppRailEventBindings(deps = {}) {
         }
       }
       if (targetModule === "writing" && state.module === "writing") {
+        setWritingRelatedPanelOpen(false, { documentRef });
         await openWritingModule({
-          activeTab: "theme",
           entrySourceLabel: "侧栏",
-          entryReason: "直接进入写作时，先选择一个可写主题，再生成提纲。",
-          statusMessage: "已打开写作，可先选择主题并生成提纲"
+          statusMessage: "已打开写作"
         });
       }
       if (targetModule === "distillation" && state.module === "distillation") {
