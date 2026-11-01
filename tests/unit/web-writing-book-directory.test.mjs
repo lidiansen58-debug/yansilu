@@ -30,6 +30,8 @@ function setup() {
 
 test("adding creates only a directory entry and selects its unsaved body", async () => {
   const s = setup();
+  const article = { id: "article", body: "Saved article", fileRevision: "revision-1" };
+  s.writingState.project.draft_note = article;
   await changeWritingBookDirectory(s.deps, "add");
   const added = s.writingState.project.book_structure.parts[0].chapters.at(-1);
   assert.deepEqual(added, { id: "new", title: "New chapter", evidence_note_ids: [], sections: [] });
@@ -37,6 +39,7 @@ test("adding creates only a directory entry and selects its unsaved body", async
   assert.match(s.writingState.bookChapter.markdown, /# New chapter/);
   assert.equal(s.writingState.draftMarkdown, "Article unchanged");
   assert.equal(s.writes.length, 1);
+  assert.deepEqual(s.writingState.project.draft_note, article);
 });
 
 test("moving preserves chapter bindings, evidence, bodies and other parts", async () => {

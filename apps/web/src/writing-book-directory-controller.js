@@ -1,4 +1,5 @@
 import { selectedWritingBookChapter, selectWritingDraftTarget } from "./writing-book-chapter-controller.js";
+import { retainWritingDraftBaseline } from "./writing-project-form-sync.js";
 
 function locateChapter(structure, id) {
   for (const part of structure?.parts || []) {
@@ -90,7 +91,7 @@ export async function changeWritingBookDirectory(deps, action) {
     if (result?.id !== projectId || directoryIdentity(result.book_structure) !== directoryIdentity(structure)) {
       throw new Error("目录保存结果未确认，请重新打开主题核查。");
     }
-    writingState.project = result;
+    writingState.project = retainWritingDraftBaseline(result, writingState.project);
     writingState.projects = [result, ...(writingState.projects || []).filter((item) => item.id !== projectId)];
     writingState.chapterOpenRevision = Number(writingState.chapterOpenRevision || 0) + 1;
     writingState.bookDirectoryPending = null;

@@ -2,6 +2,7 @@ import { acknowledgeWritingNoteBinding, createWritingNoteWithRecovery } from "./
 import { checkpointChapterInput, clearWritingInput, readWritingInput } from "./writing-input-recovery.js";
 import { saveEditorNoteWithRecovery } from "./editor-save-recovery.js";
 import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
+import { retainWritingDraftBaseline } from "./writing-project-form-sync.js";
 
 export function selectedWritingBookChapter(writingState = {}) {
   const chapter = writingState.bookChapter;
@@ -160,7 +161,7 @@ export async function saveWritingBookChapter(deps) {
       if (project?.id !== chapter.projectId || chapters(project).find((item) => item.id === chapter.id)?.draft_note_id !== note.id) {
         throw new Error("章节文件已保存，但绑定结果未确认。请重试，不会重复创建。");
       }
-      writingState.project = project;
+      writingState.project = retainWritingDraftBaseline(project, writingState.project);
     }
     chapter.noteId = note.id;
     acknowledgeWritingNoteBinding(deps, JSON.stringify([chapter.projectId, chapter.id]), note.id);
