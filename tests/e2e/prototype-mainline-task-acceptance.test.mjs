@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 async function answerInput(page, value) {
   await page.locator("[data-text-input-field]:visible").fill(value);
@@ -48,7 +49,8 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
   const { page, apiBase, webBase, vaultPath } = stack;
   await page.setViewportSize({ width, height: width === 1366 ? 768 : 844 });
   page.setDefaultTimeout(12000);
-  const output = width === 1366 ? "output/playwright/core-mainline" : `output/playwright/core-mainline/${width}`;
+  const output = process.env.YANSILU_QA_OUTPUT ? path.join(process.env.YANSILU_QA_OUTPUT, `mainline-${width}`)
+    : width === 1366 ? "output/playwright/core-mainline" : `output/playwright/core-mainline/${width}`;
   await fs.mkdir(output, { recursive: true });
   let stage = "empty library";
   const checkpoint = async name => {
@@ -214,10 +216,8 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     assert.equal(afterEdit.status, "active", "Independent edits must not invalidate a confirmed note for missing citation locators");
     assert.equal(afterEdit.originalityStatus, "pass");
     await page.locator('.rail-btn[data-module="writing"]').click();
-    await page.locator("#btnWritingSaveThemeIndex").click();
     const themeTitle = "怎样检验读书后的理解";
-    await answerInput(page, themeTitle);
-    await answerInput(page, "怎样通过解释和核对改进自己的理解？");
+    await createManualWritingTheme(stack, notes, { title: themeTitle, centralQuestion: "怎样通过解释和核对改进自己的理解？" });
     await page.locator("#btnWritingCreateScaffold").click();
     await page.locator("#writingScaffoldPanel:visible").waitFor({ timeout: 15000 });
     const outlinedProject = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.find(item => item.title === themeTitle);
