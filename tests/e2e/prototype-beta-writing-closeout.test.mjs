@@ -4,13 +4,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { optionalPlaywright, startPrototypeStack, createWritingReadyPermanentNote, postJson, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 async function answerInput(page, value) {
   await page.locator('[data-text-input-field]:visible').fill(value);
   await page.locator('[data-text-input-confirm]:visible').click();
 }
 
-test("Beta writing closes manual theme, outline, article save, current-text export and chapter export", async t => {
+test("Beta writing closes material theme, outline, article save, current-text export and chapter export", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t);
   if (!pw) return;
@@ -38,9 +39,7 @@ test("Beta writing closes manual theme, outline, article save, current-text expo
   await page.locator('#writingCandidateDetails > summary').click();
   for (const note of notes) await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${note.id}"]`).click();
   await page.locator('#writingRelatedNotesPanel [data-writing-related-close]').click();
-  await page.locator('#btnWritingSaveThemeIndex').click();
-  await answerInput(page, "怎样检验读书后的理解");
-  await answerInput(page, "怎样用解释和材料核对检验理解？");
+  await createManualWritingTheme(stack, notes, { title: "怎样检验读书后的理解", centralQuestion: "怎样用解释和材料核对检验理解？" });
   await page.locator('#writingTitle:visible').waitFor();
   assert.equal(await page.locator('#writingTitle').inputValue(), "怎样检验读书后的理解");
   await page.locator('#btnWritingCreateScaffold').click();

@@ -56,6 +56,7 @@ function mapProjectRow(row, basketNoteIds = []) {
   const project = {
     id: row.id,
     title: row.title,
+    entry_mode: row.entry_mode || "materials",
     goal: row.goal || "",
     audience: row.audience || "",
     tone: row.tone || "",
@@ -107,6 +108,7 @@ function mapProjectListRow(row, basketNoteIds = [], basketNotes = []) {
   const project = {
     id: row.id,
     title: row.title,
+    entry_mode: row.entry_mode || "materials",
     goal: row.goal || "",
     audience: row.audience || "",
     tone: row.tone || "",
@@ -527,7 +529,8 @@ export async function createWritingProject(vaultPath, input = {}) {
   if (!title) throw new Error("title is required");
 
   const basketNoteIds = uniqueIds(input.basketNoteIds || input.basket_note_ids);
-  if (!basketNoteIds.length) throw new Error("basketNoteIds is required");
+  const entryMode = input.entryMode === "manual" ? "manual" : "materials";
+  if (!basketNoteIds.length && entryMode !== "manual") throw new Error("basketNoteIds is required");
   const relatedIndexIds = uniqueIds(input.relatedIndexIds || input.related_index_ids);
   const basketNotes = await loadBasketNotes(vaultPath, basketNoteIds);
   if (input.requireEligibleSources === true) assertWritingSourcesEligible(basketNotes);
@@ -538,6 +541,7 @@ export async function createWritingProject(vaultPath, input = {}) {
   const project = {
     id,
     title,
+    entry_mode: entryMode,
     goal: cleanText(input.goal),
     audience: cleanText(input.audience),
     tone: cleanText(input.tone),
@@ -560,11 +564,12 @@ export async function createWritingProject(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO writing_projects
-          (id, title, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, book_structure_json, status, scaffold_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+          (id, title, entry_mode, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, book_structure_json, status, scaffold_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
       ).run(
         project.id,
         project.title,
+        project.entry_mode,
         project.goal,
         project.audience,
         project.tone,
@@ -1108,7 +1113,7 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
   if (!title) throw new Error("title is required");
 
   const basketNoteIds = uniqueIds(input.basketNoteIds || input.basket_note_ids || existingProject.basket_note_ids || []);
-  if (!basketNoteIds.length) throw new Error("basketNoteIds is required");
+  if (!basketNoteIds.length && existingProject.entry_mode !== "manual") throw new Error("basketNoteIds is required");
   const relatedIndexIds = uniqueIds(input.relatedIndexIds || input.related_index_ids || existingProject.related_index_ids || []);
   const basketNotes = await loadBasketNotes(vaultPath, basketNoteIds);
   const relatedIndexCards = await loadRelatedIndexCards(vaultPath, relatedIndexIds);
@@ -1131,7 +1136,7 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
   const audienceChanged = audience !== (existingProject.audience || "");
   const bookStructure = explicitBookStructure
     ? normalizeBookStructure(preserveBookChapterDrafts(providedBookStructure, existingBookStructure))
-    : basketChanged && !hasBookChapterDrafts(existingBookStructure)
+    : basketChanged && (existingProject.entry_mode !== "manual" || existingBookStructure.parts.length) && !hasBookChapterDrafts(existingBookStructure)
       ? buildDefaultBookStructure({ ...existingProject, title, goal, audience, tone, intent, desired_reader_takeaway: desiredReaderTakeaway }, basketNotes)
       : normalizeBookStructure({
           ...existingBookStructure,
@@ -1183,6 +1188,7 @@ export async function syncWritingProject(vaultPath, writingProjectId, input = {}
 export async function listWritingProjects(vaultPath, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const limit = Math.max(1, Math.min(50, Number(input.limit || 8) || 8));
+  const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
   const query = cleanText(input.q).toLowerCase();
   const status = cleanText(input.status).toLowerCase();
   const hasDraft = cleanText(input.hasDraft || input.has_draft).toLowerCase();
@@ -1216,9 +1222,9 @@ export async function listWritingProjects(vaultPath, input = {}) {
          ${whereClause}
          GROUP BY wp.id
          ORDER BY datetime(wp.updated_at) DESC, wp.id DESC
-         LIMIT ?`
+         LIMIT ? OFFSET ?`
       )
-      .all(...params, limit);
+      .all(...params, limit, offset);
     const projects = [];
     for (const row of rows) {
       const basketRows = db

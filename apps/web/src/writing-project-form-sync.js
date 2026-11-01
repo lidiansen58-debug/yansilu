@@ -1,6 +1,15 @@
 import { captureWritingProjectCreationContext } from "./writing-project-creation-context.js";
 
 const fields = [["writingTitle", "title"], ["writingGoal", "goal"], ["writingAudience", "audience"], ["writingTone", "tone"]];
+
+// Metadata responses contain only a draft summary and may predate a draft save.
+// Keep the live editor binding/body/revision so a late response cannot undo it.
+export function retainWritingDraftBaseline(saved, previous) {
+  if (saved?.id !== previous?.id || !previous?.draft_note_id
+    || previous.draft_note_id !== previous.draft_note?.id) return saved;
+  return { ...saved, draft_note_id: previous.draft_note_id,
+    draft_note: { ...previous.draft_note } };
+}
 const formSnapshot = (deps, project = {}) => fields.map(([id, key]) => {
   const input = deps.$?.(id);
   return { input, key, value: String(input?.value ?? project[key] ?? ""), start: input?.selectionStart, end: input?.selectionEnd };
@@ -31,7 +40,7 @@ export async function syncWritingProjectForm(deps = {}, { force = false } = {}) 
         basketNoteIds }));
       context.assertCurrent();
       if (!saved?.id || saved.id !== project.id) throw new Error("未能确认题目和问题已保存，请重试；当前输入已保留。");
-      writingState.project = saved;
+      writingState.project = retainWritingDraftBaseline(saved, writingState.project);
     }
   })();
   writingState.projectFormSync = job;

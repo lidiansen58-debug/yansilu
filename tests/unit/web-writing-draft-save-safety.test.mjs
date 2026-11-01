@@ -4,6 +4,19 @@ import { handleWritingSaveDraftClick } from "../../apps/web/src/writing-panel-ev
 import { assertWritingDraftCanLeave, recordWritingDraftInput } from "../../apps/web/src/writing-draft-save-controller.js";
 import { writingDraftContent } from "../../apps/web/src/writing-workbench-model.js";
 
+test("manual article records and saves prose without any scaffold", async () => {
+  const { deps, writingState, editor } = setup();
+  writingState.project.entry_mode = "manual";
+  writingState.scaffold = null;
+  writingState.scaffoldMarkdown = "";
+  editor.value = "New manual prose";
+  recordWritingDraftInput(deps, editor.value);
+  assert.equal(writingState.draftSaveState, "dirty");
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(writingState.draftSaveState, "saved");
+  assert.equal(writingState.project.draft_note.body, "New manual prose");
+});
+
 function deferred() {
   let resolve, reject;
   const promise = new Promise((done, fail) => { resolve = done; reject = fail; });

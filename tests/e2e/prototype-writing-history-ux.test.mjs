@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { createWritingReadyPermanentNote, optionalPlaywright, postJson, patchJson, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 async function historyWorkspace(t, width, options = {}) {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return null; }
@@ -30,11 +31,7 @@ async function historyWorkspace(t, width, options = {}) {
   await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${other.id}"]`).click();
   await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${third.id}"]`).click();
   await page.locator("#writingRelatedNotesPanel [data-writing-related-close]").click();
-  await page.locator("#btnWritingSaveThemeIndex").click();
-  for (const value of [`判断的修改与写作${width}`, "如何从反例修正自己的判断？"]) {
-    await page.locator("[data-text-input-field]:visible").fill(value);
-    await page.locator("[data-text-input-confirm]:visible").click();
-  }
+  await createManualWritingTheme(h, [note, other, third], { title: `判断的修改与写作${width}`, centralQuestion: "如何从反例修正自己的判断？" });
   await page.locator("#btnWritingCreateScaffold").click();
   await page.locator("#writingScaffoldPanel:visible").waitFor();
   const project = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.find(item => item.title === `判断的修改与写作${width}`);

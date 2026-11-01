@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { optionalPlaywright, fetchJson, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
-test("prototype empty writing entry guides note selection without creating a project on desktop and mobile", async t => {
+test("prototype empty writing entry accepts one thought without creating a project on desktop and mobile", async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
@@ -11,18 +11,19 @@ test("prototype empty writing entry guides note selection without creating a pro
   const { page, apiBase } = stack;
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator("#writingPanel:visible").waitFor();
-  await page.locator("#writingThemeIndexList").getByText("先选择至少 3 条相关笔记，再新建主题。", { exact: true }).waitFor();
+  await page.locator("#writingThemeIndexList").getByText("从一个问题或自己的想法开始写。", { exact: true }).waitFor();
   for (const width of [1280, 320]) {
     await page.setViewportSize({ width, height: 860 });
-    assert.equal(await page.getByRole("heading", { name: "选择一个可写主题", exact: true }).isVisible(), true);
-    assert.match(await page.locator("#writingThemeIndexList").innerText(), /先选择至少 3 条相关笔记，再新建主题。/);
+    if (!await page.locator("#writingThemeIndexList").isVisible()) {
+      const mobilePicker = page.locator('[data-writing-topic-picker]:visible');
+      if (await mobilePicker.count()) await mobilePicker.click();
+      else await page.locator('[data-writing-sidebar-action="topics"]').click();
+    }
+    assert.match(await page.locator("#writingThemeIndexList").innerText(), /从一个问题或自己的想法开始写。/);
     await page.locator("#btnWritingSaveThemeIndex").click();
-    await waitFor(async () => {
-      assert.equal(await page.locator("#statusText").isVisible(), true);
-      assert.match(await page.locator("#statusText").innerText(), /请先在“相关笔记”中选择至少 3 条永久笔记/);
-    });
+    await page.locator("#writingTitle:visible").waitFor();
     assert.equal(await page.locator('[data-text-input-field]:visible').count(), 0);
-    assert.equal(await page.locator("#writingWorkbenchActive").isVisible(), false);
+    assert.equal(await page.locator("#writingWorkbenchActive").isVisible(), true);
     assert.equal(await page.locator("#btnWritingCreateProject").isVisible(), false);
     const text = await page.locator("#writingPanel").innerText();
     assert.doesNotMatch(text, /草稿骨架|写作篮|scaffold|wp_|pn_/);

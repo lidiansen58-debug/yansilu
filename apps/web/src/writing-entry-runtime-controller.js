@@ -99,7 +99,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     try {
       const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
         listWritingProjects({
-          limit: 8,
+          all: true,
           q: writingState.projectFilters.q,
           status: writingState.projectFilters.status,
           hasDraft: writingState.projectFilters.hasDraft

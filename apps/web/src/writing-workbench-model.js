@@ -11,7 +11,7 @@ function sectionPurpose(section = {}) {
 }
 
 export function writingWorkbenchHasTopic({ writingState = {}, selectedTheme = null } = {}) {
-  return Boolean(writingState.project?.id || selectedTheme?.id);
+  return Boolean(writingState.manualThemeEntry || writingState.project?.id || selectedTheme?.id);
 }
 
 export function writingWorkbenchTopicTitle({ writingState = {}, selectedTheme = null, fallback = "" } = {}) {

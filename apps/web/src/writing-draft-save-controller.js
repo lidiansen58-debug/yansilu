@@ -4,6 +4,7 @@ import { acknowledgeWritingNoteBinding, createWritingNoteWithRecovery } from "./
 import { checkpointArticleInput, clearWritingInput } from "./writing-input-recovery.js";
 import { saveEditorNoteWithRecovery } from "./editor-save-recovery.js";
 import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
+import { isManualWritingTheme } from "./writing-manual-theme-view.js";
 
 const pendingSaves = new WeakMap();
 
@@ -31,14 +32,14 @@ export function assertWritingDraftCanLeave(writingState = {}) {
 export function recordWritingDraftInput(deps, value) {
   if (recordWritingBookChapterInput(deps, value)) return;
   const writingState = deps.writingState || {};
-  if (!writingState.scaffold?.id) return;
+  if (!writingState.project?.id) return;
   writingState.draftMarkdown = String(value ?? "");
   const saving = writingDraftSavePending(writingState);
   writingState.draftSaveState = saving ? "saving" : "dirty";
   try { checkpointArticleInput(deps); }
   catch { deps.setStatus?.("输入仍保留，但本机草稿保存失败，请勿刷新或关闭页面。", "warn", { notify: true, force: true }); }
   const button = deps.$?.("btnWritingSaveDraft");
-  if (button && writingState.scaffold?.id) {
+  if (button && writingState.project?.id) {
     button.disabled = saving;
     renderWritingDraftFeedback(deps, { saveState: writingState.draftSaveState });
   }
@@ -82,9 +83,9 @@ async function saveDraft(deps, operation, { projectId, scaffoldId, vaultPath }) 
     currentWritingVersionNote = () => "", mapNoteItem = item => item,
     showWritingResult = () => {}, renderWritingPanel = () => {}, setStatus = () => {}
   } = deps;
-  if (!projectId || !scaffoldId || !String(writingState.scaffoldMarkdown || "").trim()) {
-    showWritingResult({ stage: "writing_draft_note_error", code: "WRITING_DRAFT_INVALID", message: "scaffold is required before creating a draft note" });
-    setStatus(String($("writingDraftSaveFeedback")?.textContent || "").trim() || "先生成提纲", "warn");
+  if (!projectId || (!scaffoldId && !isManualWritingTheme(writingState))) {
+    showWritingResult({ stage: "writing_draft_note_error", code: "WRITING_DRAFT_INVALID", message: "writing project is required before saving a draft" });
+    setStatus("请先填写想写的内容，再开始写。", "warn");
     return;
   }
   if (!operation.isCurrent()) return;

@@ -3,6 +3,7 @@
   "additionalProperties": false,
   "required": ["id", "title", "status", "created_at", "updated_at"],
   "properties": {
+    "entry_mode": { "type": "string", "enum": ["materials", "manual"] },
     "id": { "type": "string" },
     "title": { "type": "string" },
     "goal": { "type": "string" },

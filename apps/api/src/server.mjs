@@ -6582,6 +6582,7 @@ const server = http.createServer(async (req, res) => {
         const limit = Number(url.searchParams.get("limit") || 8);
         const items = await listWritingProjects(VAULT_PATH, {
           limit,
+          offset: url.searchParams.get("offset"),
           q: url.searchParams.get("q") || "",
           status: url.searchParams.get("status") || "",
           hasDraft: url.searchParams.get("hasDraft") || ""

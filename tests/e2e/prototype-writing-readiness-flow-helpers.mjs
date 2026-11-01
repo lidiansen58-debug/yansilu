@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { createWritingReadyPermanentNote, fetchJson, postJson, waitFor } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 export async function runVisibleWritingReadinessFlow({ page, apiBase, webBase }, { prepared, sourceBoundary = "" }) {
   const prefix = prepared ? "Readiness Project" : "Readiness Basket";
@@ -65,24 +66,11 @@ export async function runVisibleWritingReadinessFlow({ page, apiBase, webBase },
   await add(source);
   await waitFor(async () => assert.equal(await page.locator(`#writingBasketList article[data-writing-note-id="${source.id}"]`).isVisible(), true));
   await page.locator("#writingRelatedNotesPanel [data-writing-related-close]").click();
-  if (!prepared) {
-    await page.locator("#btnWritingSaveThemeIndex").click();
-    await waitFor(async () => assert.match(await page.locator("#statusText").innerText(), /选择至少 3 条永久笔记/));
-    assert.equal(await page.locator("[data-text-input-field]:visible").count(), 0);
-    assert.equal(await page.locator("#btnWritingCreateScaffold").isVisible(), false);
-    assert.equal(await page.locator("#btnWritingOutlineCheckPlaceholder").isVisible(), false);
-    assert.deepEqual((await fetchJson(apiBase, "/api/v1/index-cards?limit=50")).json.items, []);
-    assert.deepEqual((await fetchJson(apiBase, "/api/v1/writing-projects?limit=50")).json.items, []);
-  }
   await openCandidates();
   await add(target); await add(third);
   await page.locator("#writingRelatedNotesPanel [data-writing-related-close]").click();
-  await page.locator("#btnWritingSaveThemeIndex").click();
   const title = `${prefix} visible theme`;
-  for (const value of [title, "怎样通过材料核对检验自己的解释？"]) {
-    await page.locator("[data-text-input-field]:visible").fill(value);
-    await page.locator("[data-text-input-confirm]:visible").click();
-  }
+  await createManualWritingTheme({ page, apiBase, webBase }, notes, { title, centralQuestion: "怎样通过材料核对检验自己的解释？" });
   await page.locator("#writingTitle:visible").waitFor();
   assert.equal(await page.locator("#writingTitle").inputValue(), title);
   assert.equal(await page.locator("#btnWritingCreateProject").isVisible(), false);

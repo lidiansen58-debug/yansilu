@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saveWritingInput, readWritingInput, clearWritingInput } from "../../apps/web/src/writing-input-recovery.js";
+import { saveWritingInput, readWritingInput, clearWritingInput, checkpointArticleInput } from "../../apps/web/src/writing-input-recovery.js";
+
+test("manual article input checkpoints without an outline and retains its conflict baseline", () => {
+  const { deps } = fixture();
+  deps.writingState = { project: { id: "p", draft_note_id: "n", draft_note: { body: "Original", fileRevision: "r1" } }, draftMarkdown: "New prose", scaffold: null };
+  checkpointArticleInput(deps);
+  assert.deepEqual(readWritingInput(deps, JSON.stringify(["article", "p", ""])), {
+    markdown: "New prose", noteId: "n", savedBody: "Original", savedFileRevision: "r1"
+  });
+});
 
 function fixture() {
   const records = new Map();

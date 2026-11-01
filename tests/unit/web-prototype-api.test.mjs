@@ -4,6 +4,20 @@ import assert from "node:assert/strict";
 const moduleUrl = new URL("../../apps/web/src/prototype-api.js", import.meta.url);
 let importCounter = 0;
 
+test("writing library loads every page while ordinary project lists retain their limit", async t => {
+  const api = await importPrototypeApi("writing-library-pages", { __API_BASE__: "http://127.0.0.1:3999" });
+  const queries = [];
+  t.mock.method(globalThis, "fetch", async url => {
+    const query = new URL(url).searchParams; queries.push(query);
+    const offset = Number(query.get("offset") || 0);
+    return Response.json({ items: Array.from({ length: offset ? 2 : Number(query.get("limit")) }, (_, i) => ({ id: `p${offset + i}` })) });
+  });
+  assert.equal((await api.listWritingProjects()).length, 8);
+  assert.equal(queries.pop().get("limit"), "8");
+  assert.equal((await api.listWritingProjects({ all: true })).length, 52);
+  assert.deepEqual(queries.map(q => q.get("offset")), [null, "50"]);
+});
+
 test("demo import sends the original client vault without forwarding arbitrary options", async t => {
   const api = await importPrototypeApi("demo-vault-context", { __API_BASE__: "http://127.0.0.1:3999" });
   let body;

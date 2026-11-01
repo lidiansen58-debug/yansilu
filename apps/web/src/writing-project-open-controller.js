@@ -63,12 +63,12 @@ export function createWritingProjectOpenController(depsProvider = () => ({})) {
       ]);
       if (!isCurrent()) return null;
       assertWritingDraftCanLeave(writingState);
-      const recovered = project.scaffold_id
-        ? readWritingInput(deps, JSON.stringify(["article", id, project.scaffold_id])) : null;
+      const recovered = readWritingInput(deps, JSON.stringify(["article", id, project.scaffold_id || ""]));
       const outline = restoreWritingOutline(deps, id, scaffold?.item);
       // Commit only after essential reads succeed and this is still the selected request.
       resetWritingStrongModelState();
       writingState.project = draft ? { ...project, draft_note: draft } : project;
+      writingState.manualThemeEntry = false;
       writingState.scaffold = outline.item || null;
       writingState.scaffoldMarkdown = outline.restored ? outline.item.markdown : scaffold?.export?.markdown || scaffold?.item?.markdown || "";
       writingState.draftMarkdown = draft?.body ?? "";

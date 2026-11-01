@@ -4,7 +4,9 @@ import { installWritingThemeLibraryEvents } from "./writing-theme-library.js";
 import { installDisclosureMenus } from "./ui-disclosure-menu.js";
 import { installWritingDocumentEditor, syncWritingDocumentEditor } from "./writing-document-editor.js";
 import { hideWritingTopicPicker } from "./writing-sidebar-actions.js";
-import { syncWritingProjectForm } from "./writing-project-form-sync.js";
+import { retainWritingDraftBaseline, syncWritingProjectForm } from "./writing-project-form-sync.js";
+import { syncWritingManualThemeView } from "./writing-manual-theme-view.js";
+import { captureWritingProjectCreationContext } from "./writing-project-creation-context.js";
 import { recordWritableThemeDiscoveryInput } from "./writable-theme-discovery-draft.js";
 import { recordWritingDraftInput } from "./writing-draft-save-controller.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
@@ -104,7 +106,7 @@ export function installWritingThemeIndexEventHandlers(options = {}) {
   add("btnWritingSaveThemeIndex", "click", async () => {
     const resetButton = setButtonPending($("btnWritingSaveThemeIndex"), true, "正在创建...");
     try {
-      await handleWritingSaveThemeIndex(deps());
+      await handleWritingBeginManualTheme(deps());
     } finally {
       resetButton();
     }
@@ -251,6 +253,14 @@ export function installWritingDraftActionEventHandlers(options = {}) {
   });
   add("btnWritingCreateScaffold", "click", async () => {
     await handleWritingCreateScaffoldClick(deps());
+  });
+  add("writingTitle", "input", () => syncWritingManualThemeView(deps()));
+  add("btnWritingStartManualDraft", "click", async () => {
+    const current = deps();
+    const reset = setButtonPending($("btnWritingStartManualDraft"), true, "正在打开...");
+    try { await current.startWritingManualTheme(); }
+    catch (error) { current.setStatus(`开始写作失败：${String(error?.message || error)}。输入已保留，请重试。`, "bad"); }
+    finally { reset(); current.renderWritingPanel?.(); }
   });
   add("btnWritingCopyScaffold", "click", async () => {
     await handleWritingCopyScaffoldClick(deps());
@@ -404,7 +414,6 @@ export async function persistWritingProjectForm(deps = {}) {
   const projectId = String(writingState.project?.id || "").trim();
   if (!projectId || writingState.projectCreationPending) return null;
   const basketNoteIds = parseWritingBasketIds();
-  if (!basketNoteIds.length) return null;
   try {
     const previous = writingState.project;
     const project = await syncWritingProjectForm(deps);
@@ -1067,17 +1076,15 @@ export async function handleWritingRefreshThemeIndexes(deps = {}) {
   }
 }
 
-export async function handleWritingSaveThemeIndex(deps = {}) {
+export async function handleWritingBeginManualTheme(deps = {}) {
   const {
-    saveWritingBasketAsThemeIndex = async () => null,
+    beginWritingManualTheme = () => {},
     setStatus = () => {}
   } = deps;
   try {
-    const card = await saveWritingBasketAsThemeIndex();
-    if (!card) return;
-    setStatus(`已保存可写主题：${card.title}`, "ok");
+    await beginWritingManualTheme();
   } catch (error) {
-    setStatus(`保存可写主题失败：${String(error?.message || error)}`, "bad");
+    setStatus(`新建主题失败：${String(error?.message || error)}`, "bad");
   }
 }
 
@@ -1357,16 +1364,23 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
   }
   const noteLabel = writingKnownNoteById(noteId)?.title || noteId;
   const currentProjectId = String(writingState.project?.id || "").trim();
+  const basketContext = captureWritingProjectCreationContext(deps);
   const projectBasketIds = parseWritingBasketIds().length
     ? parseWritingBasketIds()
     : writingState.project?.basket_note_ids || [];
   if (action === "add") {
+    if (!currentProjectId && writingState.manualThemeEntry) {
+      setWritingBasketIds(uniqueStrings([...projectBasketIds, noteId]));
+      renderWritingPanel();
+      return;
+    }
     if (currentProjectId) {
       const basketNoteIds = uniqueStrings([...projectBasketIds, noteId]);
       try {
-        const project = await syncWritingProject(currentProjectId, writingProjectSyncPayload(deps, basketNoteIds));
+        const project = await syncWritingProject(currentProjectId, basketContext.bindPayload(writingProjectSyncPayload(deps, basketNoteIds)));
+        basketContext.assertCurrent();
         if (!preparationIsCurrent()) return;
-        if (project) writingState.project = project;
+        if (project) writingState.project = retainWritingDraftBaseline(project, writingState.project);
         setWritingBasketIds(basketNoteIds);
         renderWritingPanel();
         setStatus(`已加入相关笔记：${noteLabel}`, "ok");
@@ -1386,12 +1400,18 @@ export async function handleWritingNoteListClick(event, deps = {}, options = {})
     return;
   }
   if (action === "remove") {
+    if (!currentProjectId && writingState.manualThemeEntry) {
+      setWritingBasketIds(projectBasketIds.filter(id => id !== noteId));
+      renderWritingPanel();
+      return;
+    }
     if (currentProjectId) {
       const basketNoteIds = projectBasketIds.filter((id) => id !== noteId);
-      if (!basketNoteIds.length) return setStatus("至少保留一条相关笔记", "warn");
+      if (!basketNoteIds.length && writingState.project.entry_mode !== "manual") return setStatus("至少保留一条相关笔记", "warn");
       try {
-        const project = await syncWritingProject(currentProjectId, writingProjectSyncPayload(deps, basketNoteIds));
-        if (project) writingState.project = project;
+        const project = await syncWritingProject(currentProjectId, basketContext.bindPayload(writingProjectSyncPayload(deps, basketNoteIds)));
+        basketContext.assertCurrent();
+        if (project) writingState.project = retainWritingDraftBaseline(project, writingState.project);
         setWritingBasketIds(basketNoteIds);
         renderWritingPanel();
         setStatus(`已移出相关笔记：${noteLabel}`, "ok");

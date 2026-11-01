@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { createWritingReadyPermanentNote, optionalPlaywright, postJson, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown, selectWritingChapter } from "./prototype-copy-test-helpers.mjs";
+import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 const longHeading = number => `第${number}节：先用自己的话说明读过的内容，检查判断成立的条件，再对照原文和反例修正遗漏，保留依据、适用范围及仍未解决的问题，以便在新的情境中继续检验和修改这条判断`;
 
@@ -235,10 +236,8 @@ async function workspace(t, width, options = {}) {
   await page.locator("#writingCandidateDetails > summary").click();
   for (const note of notes) await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${note.id}"]`).click();
   await page.locator("#writingRelatedNotesPanel [data-writing-related-close]").click();
-  await page.locator("#btnWritingSaveThemeIndex").click();
   const title = `阅读与判断的长期整理${width}`;
-  await answer(page, title);
-  await answer(page, "如何从阅读材料形成可追溯、可检验并能够继续写作的判断？");
+  await createManualWritingTheme(stack, notes, { title, centralQuestion: "如何从阅读材料形成可追溯、可检验并能够继续写作的判断？" });
   await page.locator("#btnWritingCreateScaffold").click();
   await page.locator("#writingScaffoldPanel:visible").waitFor();
   const project = (await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.find(item => item.title === title);

@@ -60,6 +60,7 @@ test("applySqliteMigrations creates three database files when node:sqlite is ava
 
     assert.equal(projectColumns.includes("intent"), true);
     assert.equal(projectColumns.includes("desired_reader_takeaway"), true);
+    assert.equal(projectColumns.includes("entry_mode"), true);
 
     assert.equal(linkColumns.includes("insight_question"), true);
     assert.equal(linkColumns.includes("status"), true);

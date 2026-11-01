@@ -2834,8 +2834,8 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
   };
 }
 
-async function saveWritingBasketAsThemeIndex() {
-  return writingManualThemeController.save();
+async function beginWritingManualTheme() {
+  return writingManualThemeController.begin();
 }
 
 const writableThemeDiscoveryController = createWritableThemeDiscoveryController(() => ({
@@ -3516,6 +3516,7 @@ async function openStartupUntitledNote() {
 }
 
 function resetWritingProjectContext({ title = "", goal = "", audience = "", tone = "" } = {}) {
+  writingState.manualThemeEntry = false;
   writingState.projectOpenRevision = Number(writingState.projectOpenRevision || 0) + 1;
   writingState.openingProjectId = "";
   writingState.project = null;
@@ -4476,7 +4477,7 @@ function populateWritingFormFromProject(project) {
   if (!project) return;
   const relatedIndexIds = uniqueStrings(project.related_index_ids || []);
   const selectedTheme = relatedIndexIds.map((indexId) => writingThemeIndexById(indexId)).find(Boolean) || null;
-  if ($("writingTitle")) $("writingTitle").value = resolveWritingProjectFormTitle({ project, indexCard: selectedTheme });
+  if ($("writingTitle")) $("writingTitle").value = project.entry_mode === "manual" ? project.title : resolveWritingProjectFormTitle({ project, indexCard: selectedTheme });
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
@@ -4508,7 +4509,7 @@ async function loadWritingProjectsList() {
   renderWritingPanel();
   try {
     writingState.projects = await listWritingProjects({
-      limit: 8,
+      all: true,
       q: writingState.projectFilters.q,
       status: writingState.projectFilters.status,
       hasDraft: writingState.projectFilters.hasDraft
@@ -4588,7 +4589,7 @@ async function continueWritingProjectEntry(projectId, { openDraft = false, statu
   if (!project) return null;
   const route = writingProjectContinuationRoute({ projectId, project, openDraft, statusMessage });
   if (route.kind === "missing-draft" || route.kind === "invalid-project") throw new Error(route.errorMessage);
-  const continuationTab = route.kind === "open-draft" ? "draft" : (project?.scaffold_id ? "outline" : "theme");
+  const continuationTab = route.kind === "open-draft" || project?.entry_mode === "manual" ? "draft" : (project?.scaffold_id ? "outline" : "theme");
   hideWritingTopicPicker({ root: $("writingPanel")?.querySelector?.(".writing-shell"), documentRef: document });
   applyWritingTab(continuationTab, {
     root: $("writingPanel")?.querySelector?.(".writing-shell"),
@@ -5545,9 +5546,11 @@ const permanentNoteDialog = new PermanentNoteDialog({
 });
 const requestTextInput = createTextInputDialog({ documentRef: document });
 const writingManualThemeController = createWritingManualThemeController({
-  state, writingState, parseWritingBasketIds, writingThemeIndexScopeDirectoryId, ensureNotesLoaded,
-  writingNoteById, writingNoteEligibility, requestTextInput, createIndexCard: payload => createIndexCard({ ...payload, expectedVaultPath: currentVaultPath() }),
-  upsertWritingThemeIndex, useThemeIndexAsWritingEntry,
+  $, state, writingState, parseWritingBasketIds, getVaultPath: currentVaultPath,
+  resetWritingStrongModelState, resetWritingLocalBookIdeas, clearWritingSourceIndexIds,
+  setSelectedWritingThemeIndex, setWritingBasketIds, resetWritingProjectContext,
+  createWritingProject, syncWritingProject, populateWritingFormFromProject,
+  openDraft: () => { applyWritingTab("draft"); renderWritingPanel(); },
   openTheme: () => {
     const root = $("writingPanel")?.querySelector?.(".writing-shell");
     hideWritingTopicPicker({ root, documentRef: document });
@@ -5864,7 +5867,7 @@ installWritingThemeIndexEventHandlers({
     writingState,
     loadWritingThemeIndexes,
     refreshWritableThemeDiscoverySuggestions,
-    saveWritingBasketAsThemeIndex,
+    beginWritingManualTheme,
     ignoreWritableThemeDiscoverySuggestion,
     saveWritableThemeDiscoverySuggestion,
     selectWritingThemeIndex,
@@ -5972,6 +5975,7 @@ installWritingDraftActionEventHandlers({
     writingDraftDirectoryId,
     writingDraftTitle,
     writingDraftBody,
+    startWritingManualTheme: () => writingManualThemeController.start(),
     getVaultPath: currentVaultPath,
     fetchNote,
     fetchWritingProject,

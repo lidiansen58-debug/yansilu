@@ -33,9 +33,9 @@ export function clearWritingInput(deps, context) {
 
 export function checkpointArticleInput(deps) {
   const writing = deps.writingState;
-  if (!writing?.project?.id || !writing.scaffold?.id) return;
+  if (!writing?.project?.id) return;
   const baseline = writing.project.draft_note;
-  saveWritingInput(deps, JSON.stringify(["article", writing.project.id, writing.scaffold.id]), {
+  saveWritingInput(deps, JSON.stringify(["article", writing.project.id, writing.scaffold?.id || ""]), {
     markdown: String(writing.draftMarkdown ?? ""), noteId: writing.project.draft_note_id || "",
     savedBody: baseline?.body, savedFileRevision: baseline?.fileRevision
   });

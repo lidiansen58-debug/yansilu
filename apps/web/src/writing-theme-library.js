@@ -1,15 +1,19 @@
 import { renderWritingThemeIndexCardDom } from "./writing-theme-card-panel.js";
+import { escapeHtml } from "./editor-render-utils.js";
 
 const libraryStates = new WeakMap();
 const EMPTY_THEMES = [];
 
 function libraryState(writingState) {
-  const items = Array.isArray(writingState.themeIndexes) ? writingState.themeIndexes : EMPTY_THEMES;
+  const themes = Array.isArray(writingState.themeIndexes) ? writingState.themeIndexes : EMPTY_THEMES;
+  const projects = writingState.projects || EMPTY_THEMES;
   let state = libraryStates.get(writingState);
   // A refreshed directory or Vault supplies a new collection. Its old filter
   // must not hide the new topics or retain titles from another library.
-  if (!state || state.items !== items) {
-    state = { items, expanded: false, query: "" };
+  if (!state || state.themes !== themes || state.projects !== projects) {
+    const manual = projects.filter(project => project.entry_mode === "manual");
+    const sameThemes = state?.themes === themes;
+    state = { themes, projects, items: [...manual, ...themes], expanded: sameThemes && state.expanded, query: sameThemes ? state.query : "" };
     libraryStates.set(writingState, state);
   }
   return state;
@@ -42,8 +46,17 @@ export function renderWritingThemeLibrary({ $ = () => null, writingState = {}, .
     : state.items;
   const visible = state.expanded ? matches : matches.slice(0, 3);
   list.innerHTML = visible.length
-    ? visible.map(item => renderWritingThemeIndexCardDom({ ...deps, writingState }, item)).join("")
-    : `<div class="writing-empty">${loading ? "正在加载可写主题..." : query ? "没有匹配的主题，试试其他关键词。" : "先选择至少 3 条相关笔记，再新建主题。"}</div>`;
+    ? visible.map(item => state.projects.includes(item)
+      ? renderManualTheme(item, deps.escapeHtml || escapeHtml)
+      : renderWritingThemeIndexCardDom({ ...deps, writingState }, item)).join("")
+    : `<div class="writing-empty">${loading ? "正在加载可写主题..." : query ? "没有匹配的主题，试试其他关键词。" : "从一个问题或自己的想法开始写。"}</div>`;
+}
+
+function renderManualTheme(project, escapeHtml) {
+  return `<article class="writing-start-topic" data-writing-project-id="${escapeHtml(project.id)}">
+    <div class="writing-note-card-head"><div class="writing-note-title">${escapeHtml(project.title)}</div>
+      <button class="mini-btn primary" type="button" data-writing-index-action="resume-project" data-writing-project-id="${escapeHtml(project.id)}">继续写</button>
+    </div></article>`;
 }
 
 export function installWritingThemeLibraryEvents({ $ = () => null, depsProvider = () => ({}) } = {}) {

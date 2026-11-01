@@ -19,7 +19,7 @@ test("writing workbench keeps actions in the writing pane and the main task one-
 
   assert.doesNotMatch(html, /writing-sidebar-actions/);
   assert.doesNotMatch(html, /writing-workbench-actions/);
-  assert.doesNotMatch(html, />开始写<|>选笔记<|>用主题<|>高级工具</);
+  assert.doesNotMatch(html, />选笔记<|>用主题<|>高级工具</);
   assert.doesNotMatch(html, /writing-start-guide/);
   assert.doesNotMatch(html, /这个页面要干啥|现在最重要|后面流程/);
   assert.ok(themePanelIndex > 0);
@@ -75,7 +75,7 @@ test("resuming a draft stays in the writing workbench", () => {
   const continuation = prototypeApp.slice(continuationStart, continuationEnd);
 
   assert.match(continuation, /activateModule\("writing"\)/);
-  assert.match(continuation, /route\.kind === "open-draft" \? "draft"/);
+  assert.match(continuation, /route\.kind === "open-draft".*\? "draft"/);
   assert.match(continuation, /applyWritingTab\(continuationTab/);
   assert.doesNotMatch(continuation, /openWritingDraftNoteById\(/);
 });

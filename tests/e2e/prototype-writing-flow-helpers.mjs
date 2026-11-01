@@ -21,20 +21,17 @@ export async function addWritingSupportNotes(apiBase, source) {
 }
 
 export async function createManualWritingTheme(stack, notes, { title, centralQuestion = "怎样结合材料核对与适用边界检验理解？" }) {
-  const { page, webBase } = stack;
+  // Outline regression tests start from an existing material-backed theme.
+  // The one-input manual writing entry is covered separately.
+  const { page, webBase, apiBase } = stack;
+  const theme = await postJson(apiBase, "/api/v1/index-cards", {
+    directoryId: "dir_original_default", indexType: "topic", title, centralQuestion,
+    noteIds: notes.map(note => note.id)
+  });
+  assert.equal(theme.status, 201, JSON.stringify(theme.json));
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('[data-writing-sidebar-action="related"]').click();
-  await page.locator('#writingCandidateDetails > summary').click();
-  for (const note of notes) {
-    await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${note.id}"]`).click();
-  }
-  await page.locator('#writingRelatedNotesPanel [data-writing-related-close]').click();
-  await page.locator('#btnWritingSaveThemeIndex').click();
-  for (const value of [title, centralQuestion]) {
-    await page.locator('[data-text-input-field]:visible').fill(value);
-    await page.locator('[data-text-input-confirm]:visible').click();
-  }
+  await page.locator(`#writingThemeIndexList [data-writing-index-card-id="${theme.json.item.id}"]`).getByRole("button", { name: "开始写", exact: true }).click();
   await page.locator('#writingTitle:visible').waitFor();
   assert.equal(await page.locator('#writingTitle').inputValue(), title);
 }

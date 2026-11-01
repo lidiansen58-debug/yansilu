@@ -1238,7 +1238,7 @@ export async function createWritingProject(payload) {
 }
 
 export async function listWritingProjects(options = {}) {
-  const size = Math.max(1, Math.min(50, Number(options?.limit || 8) || 8));
+  const size = options.all ? 50 : Math.max(1, Math.min(50, Number(options?.limit || 8) || 8));
   const params = new URLSearchParams({ limit: String(size) });
   const query = String(options?.q || "").trim();
   const status = String(options?.status || "").trim();
@@ -1246,8 +1246,18 @@ export async function listWritingProjects(options = {}) {
   if (query) params.set("q", query);
   if (status && status !== "all") params.set("status", status);
   if (hasDraft && hasDraft !== "all") params.set("hasDraft", hasDraft);
-  const json = await request(`/api/v1/writing-projects?${params.toString()}`);
-  return Array.isArray(json.items) ? json.items : [];
+  const items = new Map();
+  let offset = Math.max(0, Math.floor(Number(options.offset) || 0));
+  do {
+    if (offset) params.set("offset", String(offset));
+    const json = await request(`/api/v1/writing-projects?${params.toString()}`);
+    const page = Array.isArray(json.items) ? json.items : [];
+    const previousSize = items.size;
+    page.forEach(item => items.set(item.id, item));
+    if (!options.all || page.length < size || items.size === previousSize) break;
+    offset += size;
+  } while (true);
+  return [...items.values()];
 }
 
 export async function fetchWritingProject(writingProjectId) {

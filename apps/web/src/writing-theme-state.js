@@ -32,6 +32,7 @@ export function selectedWritingThemeIndexForRuntime(writingState = {}, deps = {}
 
 export function setSelectedWritingThemeIndexForRuntime(writingState = {}, indexId = "") {
   writingState.selectedThemeIndexId = String(indexId || "").trim();
+  if (writingState.selectedThemeIndexId) writingState.manualThemeEntry = false;
   return writingState.selectedThemeIndexId;
 }
 

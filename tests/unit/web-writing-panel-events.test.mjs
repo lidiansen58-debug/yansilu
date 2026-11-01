@@ -562,7 +562,7 @@ test("writing theme index installer wires refresh save and list clicks through l
     depsProvider: () => ({
       loadWritingThemeIndexes: async () => calls.push(["refresh", version]),
       refreshWritableThemeDiscoverySuggestions: async () => calls.push(["discover", version]),
-      saveWritingBasketAsThemeIndex: async () => {
+      beginWritingManualTheme: async () => {
         calls.push(["save", version]);
         return { title: "Theme" };
       },
@@ -1099,6 +1099,7 @@ test("writing draft action installer wires primary draft buttons through latest 
   const elements = new Map([
     ["btnWritingCreateProject", {}],
     ["btnWritingCreateScaffold", { textContent: "" }],
+    ["btnWritingStartManualDraft", { textContent: "" }],
     ["btnWritingCopyScaffold", {}],
     ["btnWritingExportScaffold", {}],
     ["btnWritingReloadScaffold", {}],
@@ -1154,7 +1155,7 @@ test("writing draft action installer wires primary draft buttons through latest 
     })
   });
 
-  assert.equal(registrations.length, 23);
+  assert.equal(registrations.length, 25);
   assert.equal(typeof handlers.get("moduleSidebar:click"), "function");
   assert.equal(typeof handlers.get("btnWritingHistory:click"), "function");
   assert.equal(registrations.every((item) => item.installed), true);

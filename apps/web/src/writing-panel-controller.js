@@ -1,4 +1,5 @@
 import { renderWritingEntryPreparation } from "./writing-entry-preparation.js";
+import { isManualWritingTheme, syncWritingManualThemeView } from "./writing-manual-theme-view.js";
 import { renderWritingBookChapterSelector, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
 import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
 import { syncWritingDocumentEditor } from "./writing-document-editor.js";
@@ -338,6 +339,7 @@ export function renderWritingPanelDom(deps = {}) {
     createScaffoldButton.disabled = Boolean(writingState.scaffoldGenerationPending) || (!hasProject && !basketEntries.length && !explicitSelectedTheme);
     createScaffoldButton.textContent = writingState.scaffoldGenerationPending ? "正在生成..." : "生成提纲";
   }
+  syncWritingManualThemeView(deps);
   if (copyScaffoldButton) {
     copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
     copyScaffoldButton.hidden = !hasScaffold;
@@ -375,7 +377,7 @@ export function renderWritingPanelDom(deps = {}) {
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;
   let draftUnavailableReason = "";
   if (saveDraftButton) {
-    const canSaveDraft = Boolean(bookChapter || writingState.scaffold?.id);
+    const canSaveDraft = Boolean(bookChapter || writingState.scaffold?.id || (hasProject && isManualWritingTheme(writingState)));
     const draftSaveState = String(bookChapter?.saveState || writingState.draftSaveState || "idle");
     saveDraftButton.disabled = directoryPending || !canSaveDraft || draftSaveState === "saving";
     if (!canSaveDraft) draftUnavailableReason = !writingState.project?.id
@@ -396,7 +398,7 @@ export function renderWritingPanelDom(deps = {}) {
     uncertain: bookChapter?.saveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN" || writingState.draftSaveErrorCode === "NOTE_SAVE_RESULT_UNCERTAIN"
   });
   if (startDraftButton) startDraftButton.disabled = !hasScaffold || Boolean(bookChapter);
-  if (draftEditor) draftEditor.disabled = directoryPending || (!hasScaffold && !bookChapter);
+  if (draftEditor) draftEditor.disabled = directoryPending || (!hasScaffold && !bookChapter && !(hasProject && isManualWritingTheme(writingState)));
   if (draftEditor && (typeof document === "undefined" || document.activeElement !== draftEditor)) {
     const draftBody = String(writingDraftContent({ writingState, title: $("writingTitle")?.value, notes: basketEntries }));
     draftEditor.value = draftBody;
