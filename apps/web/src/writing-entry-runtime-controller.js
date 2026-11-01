@@ -2,7 +2,7 @@ import { writingBasketContinuationPlan } from "./writing-entry-route-model.js";
 import { uniqueStrings } from "./prototype-thinking-status.js";
 import { beginWritingEntryContext } from "./writing-entry-context.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
-import { retainWritingDraftBaseline } from "./writing-project-form-sync.js";
+import { loadWritingEntryMaterials, refreshWritingEntryProject } from "./writing-entry-refresh.js";
 import { beginWritingThemeIndexRequest, fetchWritingThemeIndexesForScope } from "./writing-theme-index-loader.js";
 import {
   clearWritingEntryContextForRuntime,
@@ -116,15 +116,13 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
           counts: writingState.relationCounts,
           errors: writingState.relationCountErrors
         })),
-        loadWritingMaterials().catch(() => {
-          if (isCurrent()) writingState.materialsError = "笔记暂未读取成功，请重新打开写作重试。";
-        })
+        loadWritingEntryMaterials({ state, writingState, loadWritingMaterials }, isCurrent)
       ]);
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
       if (themeRequest.isCurrent() && Array.isArray(themeIndexes)) writingState.themeIndexes = themeIndexes;
       if (project && writingState.project === projectAtRequest) {
-        writingState.project = retainWritingDraftBaseline(project, writingState.project);
+        refreshWritingEntryProject({ writingState, setStatus }, project);
       }
       writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
       writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;

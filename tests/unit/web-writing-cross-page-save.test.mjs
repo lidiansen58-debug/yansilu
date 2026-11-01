@@ -28,3 +28,23 @@ for (const externalEdit of [false, true]) test(`returning to writing ${externalE
   assert.equal(writingState.draftSaveState, externalEdit ? "error" : "saved");
   assert.match(writingState.draftMarkdown, /My next paragraph/);
 });
+
+for (const remoteBinding of ["another-draft", null]) test(`returning to writing refuses a changed remote binding: ${remoteBinding}`, async () => {
+  const note = { id: "old-article", body: "Keep my text", fileRevision: "old" };
+  const writingState = { project: { id: "p", entry_mode: "manual", draft_note_id: note.id, draft_note: note },
+    projectFilters: {}, draftMarkdown: note.body, draftSaveState: "saved" };
+  let writes = 0;
+  const messages = [], deps = { writingState, state: { notes: [] },
+    fetchWritingProject: async () => ({ id: "p", entry_mode: "manual", draft_note_id: remoteBinding }),
+    writingDraftTitle: () => "Article", writingDraftBody: () => writingState.draftMarkdown,
+    updateNote: async () => { writes++; }, createNote: async () => { writes++; },
+    setStatus: message => messages.push(message)
+  };
+  await createWritingEntryRuntimeController(() => deps).openWritingModule({ statusMessage: "" });
+  assert.equal(writingState.draftSaveState, "error");
+  assert.match(messages.at(-1), /其他地方切换.*输入仍保留/);
+  assert.equal(writingState.draftMarkdown, note.body);
+  await handleWritingSaveDraftClick(deps);
+  assert.equal(writes, 0);
+  assert.equal(writingState.draftSaveState, "error");
+});

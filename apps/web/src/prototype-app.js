@@ -2607,7 +2607,7 @@ const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   listProjectDraftVersions,
   listProjectScaffolds,
   listWritingProjects,
-  loadWritingMaterials: async () => { await syncNotesForDirectoryTree("dir_original_default"); renderWritingPanel(); },
+  loadWritingMaterials: ({ isCurrent }) => syncNotesForDirectoryTree("dir_original_default", { isCurrent }),
   parseWritingBasketIds,
   refreshWritingRelationCounts,
   renderWritingPanel,
