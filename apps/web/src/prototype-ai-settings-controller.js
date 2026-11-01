@@ -1,6 +1,7 @@
 import {
   isLocalProviderId,
-  normalizeAiRuntimeMode
+  normalizeAiRuntimeMode,
+  providerPresetForModelPack
 } from "./ai-settings-state.js";
 
 export const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
@@ -53,6 +54,11 @@ export function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = 
 export function isRemoteConfigurableProviderId(providerId = "") {
   const id = String(providerId || "").trim();
   return Boolean(id && id !== "platform_managed_openai" && !isLocalProviderId(id));
+}
+
+export function shouldPersistRemoteRuntimeModel(aiState = {}) {
+  return !["off", "local_only"].includes(normalizeAiRuntimeMode(aiState.runtimeMode))
+    && isRemoteConfigurableProviderId(providerPresetForModelPack(aiState.modelPack));
 }
 
 export function runtimeModelMapForRemoteModel(providerId = "", modelName = "") {

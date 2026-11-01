@@ -14,7 +14,8 @@ import {
   ollamaModelRecommendationProfiles,
   preferredLocalModelName,
   runtimeModelMapForRemoteModel,
-  selectedLocalModelNameForInstalledModels
+  selectedLocalModelNameForInstalledModels,
+  shouldPersistRemoteRuntimeModel
 } from "../../apps/web/src/prototype-ai-settings-controller.js";
 
 test("prototype AI settings helpers keep provider defaults and runtime policies pure", () => {
@@ -48,6 +49,17 @@ test("prototype AI settings helpers select only built-in Ollama catalog models",
   assert.equal(selectedLocalModelNameForInstalledModels("llama3.2:3b", [{ name: "llama3.2:3b" }]), "");
   assert.equal(isBuiltInOllamaModel("qwen3:8b"), true);
   assert.equal(isBuiltInOllamaModel("llama3.2:3b"), false);
+});
+
+test("remote model storage follows the selected mode and provider rather than an earlier route preview", () => {
+  for (const runtimeMode of ["local_only", "off", "auto"]) {
+    assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode, modelPack: "Privacy First" }), false);
+  }
+  assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode: "off", modelPack: "Global Optimized" }), false);
+  assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode: "local_only", modelPack: "Global Optimized" }), false);
+  assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode: "auto", modelPack: "Starter Auto" }), false);
+  assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode: "cloud_only", modelPack: "Global Optimized", routePreview: { provider: { providerId: "ollama_local_gateway" } } }), true);
+  assert.equal(shouldPersistRemoteRuntimeModel({ runtimeMode: "cloud_only", modelPack: "China Optimized" }), true);
 });
 
 test("prototype AI settings helpers accept runtime Ollama tiers without app state", () => {
