@@ -2,6 +2,7 @@ import { writingBasketContinuationPlan } from "./writing-entry-route-model.js";
 import { uniqueStrings } from "./prototype-thinking-status.js";
 import { beginWritingEntryContext } from "./writing-entry-context.js";
 import { assertWritingDraftCanLeave } from "./writing-draft-save-controller.js";
+import { retainWritingDraftBaseline } from "./writing-project-form-sync.js";
 import { beginWritingThemeIndexRequest, fetchWritingThemeIndexesForScope } from "./writing-theme-index-loader.js";
 import {
   clearWritingEntryContextForRuntime,
@@ -117,7 +118,9 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
       if (themeRequest.isCurrent() && Array.isArray(themeIndexes)) writingState.themeIndexes = themeIndexes;
-      if (project && writingState.project === projectAtRequest) writingState.project = project;
+      if (project && writingState.project === projectAtRequest) {
+        writingState.project = retainWritingDraftBaseline(project, writingState.project);
+      }
       writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
       writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
       if (relationPayload && typeof relationPayload === "object") {
