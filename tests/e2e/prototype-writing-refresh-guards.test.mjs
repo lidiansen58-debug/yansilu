@@ -77,7 +77,7 @@ for (const scenario of ["module return", "chapter directory", "chapter binding"]
   assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${project.id}`)).json.item.draft_note_id, alternate.json.item.id);
 });
 
-test("materials still arrive when a manual draft is started before their read finishes", { timeout: 45000 }, async t => {
+for (const save of [false, true]) test(`materials arrive when a manual draft is ${save ? "saved" : "started"} before their read finishes`, { timeout: 45000 }, async t => {
   if (process.env.RUN_BROWSER_E2E !== "1") { t.skip("Set RUN_BROWSER_E2E=1"); return; }
   const pw = await optionalPlaywright(t); if (!pw) return;
   const h = await startPrototypeStack(t, pw); if (!h) return;
@@ -91,6 +91,11 @@ test("materials still arrive when a manual draft is started before their read fi
     await page.locator('.rail-btn[data-module="writing"]').click(); await ready;
     await page.locator("#btnWritingSaveThemeIndex").click(); await page.locator("#writingTitle").fill("先写一个问题");
     await page.locator("#btnWritingStartManualDraft").click(); await page.locator("#writingDraftPanel:visible").waitFor();
+    if (save) {
+      await useWritingMarkdown(page); await page.locator("#writingDraftEditor").fill("# 先写一个问题\n\n在材料读完之前先把正文保存。");
+      await page.locator("#btnWritingSaveDraft").click();
+      await waitFor(async () => assert.equal(await page.locator("#writingDraftSaveFeedback").innerText(), "已保存"));
+    }
     release(); await page.waitForLoadState("networkidle");
     await page.locator('.writing-head-actions [data-writing-related-open]').click(); await page.locator("#writingCandidateDetails > summary").click();
     await page.locator(`#writingCandidateList article[data-writing-note-id="${note.json.item.id}"]`).waitFor();

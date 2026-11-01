@@ -5,12 +5,27 @@ export async function loadWritingEntryMaterials({ state = {}, writingState, load
   // note objects in place, so compare content as well as the request context.
   const module = state.module, scope = state.noteMoveVaultScope, vault = getVaultPath();
   const snapshot = () => JSON.stringify(state.notes || []);
-  const before = snapshot();
   const inView = () => state.module === module && state.noteMoveVaultScope === scope && getVaultPath() === vault
     && !state.noteMoveVaultSwitching && !state.noteMoveVaultUncertain && !state.unresolvedNoteMove;
-  const current = () => inView() && snapshot() === before;
-  try { await loadWritingMaterials({ isCurrent: current }); }
-  catch { if (current()) writingState.materialsError = "笔记暂未读取成功，请重新打开写作重试。"; }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const before = snapshot();
+    let stale = false;
+    const current = () => {
+      if (!inView()) return false;
+      if (snapshot() !== before) stale = true;
+      return !stale;
+    };
+    try { await loadWritingMaterials({ isCurrent: current }); }
+    catch {
+      if (!inView()) return;
+      if (!stale) { writingState.materialsError = "笔记暂未读取成功，请重新打开写作重试。"; break; }
+    }
+    if (!inView()) return;
+    if (!stale) break;
+    // A save invalidated this read; fetch a new snapshot instead of dropping
+    // unopened materials for the rest of the writing session.
+    if (attempt === 2) writingState.materialsError = "笔记仍在更新，请重新打开写作读取。";
+  }
   if (inView()) renderWritingPanel?.();
 }
 
