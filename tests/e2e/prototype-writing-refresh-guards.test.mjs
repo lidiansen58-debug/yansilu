@@ -27,6 +27,7 @@ test("a delayed materials response cannot undo an in-place confirmation", { time
     await page.locator(`#writingCandidateList [data-writing-action="prepare"][data-writing-note-id="${id}"]`).click();
     await page.locator(`#writingBasketList article[data-writing-note-id="${id}"]`).waitFor();
     release(); await page.waitForLoadState("networkidle");
+    assert.doesNotMatch(await page.locator("#writingCandidateSummary").innerText(), /正在读取笔记/);
     const cached = await page.evaluate(id => window.__prototypeState.notes.find(note => note.id === id), id);
     assert.equal(cached.status, "active"); assert.equal(cached.authorship.user_confirmed, true);
     assert.equal((await fetchJson(apiBase, `/api/v1/notes/${id}`)).json.item.status, "active");

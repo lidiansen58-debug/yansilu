@@ -99,6 +99,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     renderWritingPanel();
     if (activeTab) applyWritingTab(activeTab);
     const projectAtRequest = writingState.project;
+    void loadWritingEntryMaterials({ state, writingState, loadWritingMaterials, renderWritingPanel }, isCurrent);
     try {
       const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
         listWritingProjects({
@@ -115,8 +116,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
         refreshWritingRelationCounts(basketIds, { render: false }).catch(() => ({
           counts: writingState.relationCounts,
           errors: writingState.relationCountErrors
-        })),
-        loadWritingEntryMaterials({ state, writingState, loadWritingMaterials }, isCurrent)
+        }))
       ]);
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;

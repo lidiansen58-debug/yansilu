@@ -1,12 +1,13 @@
 import { retainWritingDraftBaseline } from "./writing-project-form-sync.js";
 
-export async function loadWritingEntryMaterials({ state = {}, writingState, loadWritingMaterials }, isCurrent) {
+export async function loadWritingEntryMaterials({ state = {}, writingState, loadWritingMaterials, renderWritingPanel }, isCurrent) {
   // Note saves and preparation publish a new cache array. A read begun earlier
   // must not replace those newer bodies or confirmation results.
   const notes = state.notes;
   const current = () => isCurrent() && state.notes === notes;
   try { await loadWritingMaterials({ isCurrent: current }); }
   catch { if (current()) writingState.materialsError = "笔记暂未读取成功，请重新打开写作重试。"; }
+  if (isCurrent()) renderWritingPanel?.();
 }
 
 export function refreshWritingEntryProject({ writingState, setStatus }, project) {
