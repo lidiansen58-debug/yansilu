@@ -3,20 +3,14 @@ import {
 } from "./writing-workspace-view.js";
 
 export function renderWritingNoteCardDom(deps = {}, note, { selected = false, action = "add", actionLabel = "加入相关笔记", usageText = "" } = {}) {
-  const { escapeHtml, renderThinkingStatusBadge, writingNoteMeta, writingNoteExcerpt } = deps;
-  const thinkingStatus = selected && note?.thinkingStatus?.status === "ready_for_index"
-    ? { status: "selected_for_writing", label: "已选材料", nextAction: "整理提纲", severity: "ready" }
-    : note?.thinkingStatus;
-  const thinkingBadge = renderThinkingStatusBadge(thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const { escapeHtml, writingNoteExcerpt } = deps;
   const excerpt = String(writingNoteExcerpt(note) || "").trim();
   return `
     <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">
       <div class="writing-note-card-head">
         <div>
-          <div class="writing-note-title">${escapeHtml(note.title || note.id)}</div>
-          <div class="writing-note-meta">${escapeHtml(writingNoteMeta(note))}</div>
+          <div class="writing-note-title">${escapeHtml(note.title && note.title !== note.id ? note.title : "未命名笔记")}</div>
         </div>
-        ${thinkingBadge}
       </div>
       ${excerpt ? `<div class="writing-note-meta">${escapeHtml(excerpt)}</div>` : ""}
       ${usageText ? `<div class="writing-note-meta">${escapeHtml(usageText)}</div>` : ""}

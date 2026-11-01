@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
+import { openWritingChapterActions, optionalPlaywright, startPrototypeStack, fetchJson, waitFor, useWritingMarkdown } from "./prototype-copy-test-helpers.mjs";
 import { createManualWritingTheme } from "./prototype-writing-flow-helpers.mjs";
 
 async function answerInput(page, value) {
@@ -192,6 +192,9 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
       await openNote(page, note.id, note.title);
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator('.writing-head-actions [data-writing-related-open]').click();
+      if (!await page.locator("#writingCandidateDetails").evaluate(el => el.open)) {
+        await page.locator("#writingCandidateDetails > summary").click();
+      }
       const currentNote = await readNote(note.id);
       if (currentNote.authorship.user_confirmed && currentNote.status === "active") {
         if (!await page.locator("#writingCandidateDetails").evaluate(el => el.open)) {
@@ -283,7 +286,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
     assert.match(await page.locator("#writingDraftEditor").inputValue(), /当前修改也要进入/);
     assert.equal((await fetchJson(apiBase, "/api/v1/writing-projects?limit=20")).json.items.length, 1, "Continue must reuse the saved project");
     for (const title of ["第一章 解释", "第二章 核对"]) {
-      await page.locator("#writingChapterMenu > summary").click();
+      await openWritingChapterActions(page);
       await page.locator("#btnWritingChapterAdd").click();
       await answerInput(page, title);
       await page.waitForFunction(title => document.querySelector("#writingDraftTarget")?.selectedOptions[0]?.textContent.includes(title), title);
@@ -297,7 +300,7 @@ test(`ordinary UI task closes material, judgment history, relations, graph, them
       }, 15000);
       await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /章节已保存/));
     }
-    await page.locator("#writingChapterMenu > summary").click();
+    await openWritingChapterActions(page);
     await page.locator("#btnWritingChapterUp").click();
     await waitFor(async () => assert.match(await page.locator("#statusText").textContent(), /章节顺序已保存/));
     await page.locator("#writingDraftEditor").fill("# 第二章 核对\n\n当前未保存的章节修改。");

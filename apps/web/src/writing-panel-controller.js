@@ -1,4 +1,4 @@
-import { renderWritingEntryPreparation } from "./writing-entry-preparation.js";
+import { renderWritingMaterials } from "./writing-materials-panel.js";
 import { isManualWritingTheme, syncWritingManualThemeView } from "./writing-manual-theme-view.js";
 import { renderWritingBookChapterSelector, selectedWritingBookChapter } from "./writing-book-chapter-controller.js";
 import { renderWritingDraftFeedback } from "./writing-draft-feedback.js";
@@ -26,7 +26,6 @@ import {
   renderWritingStrongModelRequestDetailDom
 } from "./writing-strong-model-request-panel.js";
 import {
-  renderWritingNoteCardDom,
   renderWritingProjectCardDom
 } from "./writing-note-card-panel.js";
 import {
@@ -135,7 +134,6 @@ export function renderWritingPanelDom(deps = {}) {
     writingThemeIndexNoteIds = () => [],
     escapeHtml
   } = deps;
-  const renderWritingNoteCard = (note, options) => renderWritingNoteCardDom(deps, note, options);
   const renderWritingProjectCard = (project) => renderWritingProjectCardDom(deps, project);
 
   const current = $("writingCurrentNote");
@@ -145,10 +143,6 @@ export function renderWritingPanelDom(deps = {}) {
   const themeDetail = $("writingThemeDetail");
   const themeDetailHint = $("writingThemeDetailHint");
   const basketSummary = $("writingBasketSummary");
-  const basketList = $("writingBasketList");
-  const candidateSummary = $("writingCandidateSummary");
-  const candidateList = $("writingCandidateList");
-  const candidateDetails = $("writingCandidateDetails");
   const toplineMetrics = $("writingToplineMetrics");
   const mainlineGuide = $("writingBeginnerMainline");
   const createProjectButton = $("btnWritingCreateProject");
@@ -279,52 +273,7 @@ export function renderWritingPanelDom(deps = {}) {
       ? `已选 ${relatedEntries.length} 条。保留真正会用到的笔记即可。`
       : "还没有相关笔记。";
   }
-  const basketIdSet = new Set(parseWritingBasketIds());
-  const outlineUsageFor = (noteId) => {
-    const headings = (writingState.scaffold?.sections || [])
-      .filter((section) => Array.isArray(section?.evidence_note_ids) && section.evidence_note_ids.includes(noteId))
-      .map((section) => String(section.heading || "").trim())
-      .filter(Boolean);
-    return headings.length ? `用于：${headings.join("、")}` : "尚未用于章节";
-  };
-  if (basketList) {
-    const preparation = renderWritingEntryPreparation(note, { escapeHtml, isWritingEligibleNote });
-    basketList.innerHTML = preparation + (relatedEntries.length
-      ? relatedEntries.map((entry) => renderWritingNoteCard(entry, {
-          selected: true,
-          action: basketIdSet.has(entry.id) ? "remove" : "open",
-          actionLabel: "移出相关笔记",
-          usageText: outlineUsageFor(entry.id)
-        })).join("")
-      : preparation ? "" : `<div class="writing-empty">从下面添加已确认的永久笔记。要使用其他笔记，先在永久笔记盒打开它，再回到这里。</div>`);
-  }
-  if (candidateSummary) {
-    candidateSummary.textContent = candidates.length
-      ? `可添加 ${candidates.length} 条笔记。`
-      : "当前目录没有可添加的笔记。";
-  }
-  if (candidateList) {
-    const candidateListExpanded = Boolean(candidateDetails?.open);
-    const candidateLimit = candidateListExpanded ? candidates.length : Math.min(candidates.length, 12);
-    const visibleCandidates = candidates.slice(0, candidateLimit);
-    const hiddenCandidateCount = Math.max(0, candidates.length - visibleCandidates.length);
-    candidateList.innerHTML = candidates.length
-      ? `${visibleCandidates
-          .map((entry) =>
-            renderWritingNoteCard(entry, {
-              selected: basketIdSet.has(entry.id),
-              action: basketIdSet.has(entry.id) ? "remove" : "add",
-              actionLabel: basketIdSet.has(entry.id) ? "移出相关笔记" : "加入相关笔记"
-            })
-          )
-          .join("")}${hiddenCandidateCount ? `<div class="writing-empty">还有 ${hiddenCandidateCount} 条笔记。展开后可继续添加。</div>` : ""}`
-      : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记。` : "当前目录还没有可用的永久笔记。"}</div>`;
-  }
-  if ($("btnWritingAddVisible")) {
-    const candidateListExpanded = Boolean(candidateDetails?.open);
-    $("btnWritingAddVisible").textContent = candidateListExpanded ? candidateFocusPlan.addActionLabel : "加入已显示笔记";
-    $("btnWritingAddVisible").disabled = candidates.length === 0;
-  }
+  renderWritingMaterials(deps, { selectedNote: note, candidates, relatedEntries, candidateFocusPlan });
 
   if (openDraftButton) {
     openDraftButton.disabled = panelState.openDraftButtonState.disabled;
@@ -357,6 +306,8 @@ export function renderWritingPanelDom(deps = {}) {
   const directoryPending = writingBookDirectoryPending(writingState);
   const bookExportButton = $("btnWritingExportBook");
   const hasBookChapters = (writingState.project?.book_structure?.parts || []).some(part => part.chapters?.length);
+  const targetRow = $("writingDraftTarget")?.closest?.(".writing-draft-target-row");
+  if (targetRow) targetRow.hidden = !hasBookChapters;
   if (bookExportButton) {
     bookExportButton.hidden = !hasBookChapters;
     bookExportButton.disabled = directoryPending || writingState.bookExportPending?.projectId === writingState.project?.id || writingState.draftSaveState === "saving" || bookChapter?.saveState === "saving";
@@ -371,7 +322,7 @@ export function renderWritingPanelDom(deps = {}) {
     }
   }
   if (moreMenu) {
-    moreMenu.hidden = !hasScaffold && !hasDraft && !hasBookChapters;
+    moreMenu.hidden = !hasProject && !hasScaffold && !hasDraft && !hasBookChapters;
     if (moreMenu.hidden) moreMenu.open = false;
   }
   if (outputActionsDetails && (hasScaffold || hasDraft)) outputActionsDetails.open = true;

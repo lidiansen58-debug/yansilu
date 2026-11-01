@@ -570,12 +570,12 @@ test("writing panel controller renders writing note card actions", () => {
   assert.match(html, /writing-note-card selected/);
   assert.match(html, /data-writing-note-id="note-1"/);
   assert.match(html, /Note &lt;one&gt;/);
-  assert.match(html, /note-1 · Permanent/);
+  assert.doesNotMatch(html, /note-1 · Permanent/);
   assert.match(html, /Excerpt &lt;line&gt;/);
   assert.match(html, /data-writing-action="remove"/);
   assert.match(html, /Remove &lt;basket&gt;/);
   assert.match(html, /data-writing-action="open"/);
-  assert.match(html, /<b>status<\/b>/);
+  assert.doesNotMatch(html, /<b>status<\/b>/);
 });
 
 test("a saved draft without an outline promises viewing rather than editing", () => {
@@ -601,18 +601,18 @@ test("writing note card omits an empty summary", () => {
     title: "只有标题的笔记"
   });
 
-  assert.equal((html.match(/writing-note-meta/g) || []).length, 1);
+  assert.equal((html.match(/writing-note-meta/g) || []).length, 0);
   assert.doesNotMatch(html, /还没有正文摘要/);
 });
 
-test("selected writing material does not ask to join a theme again, while real confirmation warnings remain", () => {
+test("writing material cards omit workflow badges and use their explicit action for confirmation", () => {
   const deps = { escapeHtml, writingNoteMeta: () => "", writingNoteExcerpt: () => "",
     renderThinkingStatusBadge: status => status?.label || "" };
   const ready = { id: "a", title: "A", thinkingStatus: { status: "ready_for_index", label: "待加入主题" } };
-  assert.match(renderWritingNoteCardDom(deps, ready, { selected: true }), /已选材料/);
+  assert.doesNotMatch(renderWritingNoteCardDom(deps, ready, { selected: true }), /已选材料/);
   assert.doesNotMatch(renderWritingNoteCardDom(deps, ready, { selected: true }), /待加入主题/);
-  assert.match(renderWritingNoteCardDom(deps, ready), /待加入主题/);
-  assert.match(renderWritingNoteCardDom(deps, { ...ready, thinkingStatus: { status: "needs_confirmation", label: "待确认" } }, { selected: true }), /待确认/);
+  assert.doesNotMatch(renderWritingNoteCardDom(deps, ready), /待加入主题/);
+  assert.match(renderWritingNoteCardDom(deps, ready, { action: "prepare", actionLabel: "确认并加入相关笔记" }), /确认并加入相关笔记/);
 });
 
 test("writing panel controller renders writing project card through workspace view deps", () => {

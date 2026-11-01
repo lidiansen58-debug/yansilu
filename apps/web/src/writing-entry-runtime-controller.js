@@ -50,6 +50,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
       listProjectDraftVersions = async () => [],
       listProjectScaffolds = async () => [],
       listWritingProjects = async () => [],
+      loadWritingMaterials = async () => {},
       parseWritingBasketIds = () => [],
       refreshWritingRelationCounts = async () => null,
       renderWritingPanel = () => {},
@@ -90,6 +91,7 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
     await ensureNotesLoaded(basketIds);
     if (!isCurrent()) return;
     writingState.loadingProjects = true;
+    writingState.materialsError = "";
     if (themeRequest.ownsRequest()) writingState.loadingThemeIndexes = true;
     writingState.loadingScaffoldVersions = Boolean(writingProjectId);
     writingState.loadingDraftVersions = Boolean(writingProjectId);
@@ -113,7 +115,10 @@ export function createWritingEntryRuntimeController(depsProvider = () => ({})) {
         refreshWritingRelationCounts(basketIds, { render: false }).catch(() => ({
           counts: writingState.relationCounts,
           errors: writingState.relationCountErrors
-        }))
+        })),
+        loadWritingMaterials().catch(() => {
+          if (isCurrent()) writingState.materialsError = "笔记暂未读取成功，请重新打开写作重试。";
+        })
       ]);
       if (!isCurrent()) return;
       writingState.projects = Array.isArray(projects) ? projects : writingState.projects;

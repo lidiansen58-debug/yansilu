@@ -3,8 +3,21 @@ import assert from "node:assert/strict";
 
 import {
   writingCandidateNotesForRuntime,
+  writingMaterialNotesForRuntime,
   writingScopeDirectoryIdsForRuntime
 } from "../../apps/web/src/writing-candidate-state.js";
+
+test("the material picker includes permanent notes from unopened directories without broadening eligible theme candidates", () => {
+  const state = { notes: [
+    { id: "draft", noteType: "permanent", folderId: "scope" },
+    { id: "ready", noteType: "permanent", folderId: "scope", eligible: true },
+    { id: "literature", noteType: "literature", folderId: "scope" },
+    { id: "outside", noteType: "permanent", folderId: "other" }
+  ] };
+  const deps = { writingScopeDirectoryIds: () => ["scope"], isWritingEligibleNote: note => note.eligible };
+  assert.deepEqual(writingMaterialNotesForRuntime(state).map(note => note.id), ["draft", "outside", "ready"]);
+  assert.deepEqual(writingCandidateNotesForRuntime(state, deps).map(note => note.id), ["ready"]);
+});
 
 test("writing candidate state resolves scope from selected folder or root fallback", () => {
   const calls = [];

@@ -10,6 +10,35 @@ function fieldValues(values = {}) {
   return (id) => ({ value: values[id] || "" });
 }
 
+test("optional materials failing to load leaves writing usable and a later entry clears the error", async () => {
+  const writingState = { projectFilters: {} };
+  let failed = true;
+  const controller = createWritingEntryRuntimeController(() => ({ writingState,
+    loadWritingMaterials: async () => { if (failed) throw new Error("Offline"); }
+  }));
+  await controller.openWritingModule({ statusMessage: "" });
+  assert.match(writingState.materialsError, /笔记暂未读取成功/);
+  assert.equal(writingState.loadingProjects, false);
+  failed = false;
+  await controller.openWritingModule({ statusMessage: "" });
+  assert.equal(writingState.materialsError, "");
+});
+
+test("an old material load failure cannot replace the current vault's feedback", async () => {
+  const state = { module: "writing", noteMoveVaultScope: {} }, writingState = { projectFilters: {} };
+  let rejectLoad;
+  const controller = createWritingEntryRuntimeController(() => ({ state, writingState,
+    loadWritingMaterials: () => new Promise((_resolve, reject) => { rejectLoad = reject; })
+  }));
+  const entry = controller.openWritingModule({ statusMessage: "" });
+  await new Promise(resolve => setImmediate(resolve));
+  state.noteMoveVaultScope = {};
+  writingState.materialsError = "New vault feedback";
+  rejectLoad(new Error("Old request failed"));
+  await entry;
+  assert.equal(writingState.materialsError, "New vault feedback");
+});
+
 test("plain writing entry uses the same empty-folder Vault fallback as a theme refresh", async () => {
   const queries = [], writingState = { projectFilters: {} };
   const controller = createWritingEntryRuntimeController(() => ({ writingState,

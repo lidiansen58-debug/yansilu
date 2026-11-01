@@ -17,3 +17,10 @@ export function writingCandidateNotesForRuntime(state = {}, deps = {}) {
       return String(a.title || a.id).localeCompare(String(b.title || b.id), "zh-CN");
     });
 }
+
+export function writingMaterialNotesForRuntime(state = {}) {
+  return writingCandidateNotesForRuntime(state, {
+    writingScopeDirectoryIds: () => (state.notes || []).map(note => note.folderId),
+    isWritingEligibleNote: note => note.noteType === "permanent"
+  });
+}

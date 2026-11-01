@@ -33,7 +33,7 @@ test("prototype empty writing entry accepts one thought without creating a proje
       await page.locator("#writingCandidateDetails > summary").click();
     }
     assert.equal(await page.locator('#writingCandidateList [data-writing-action="add"]').count(), 0);
-    assert.match(await page.locator("#writingCandidateList").innerText(), /没有可用的永久笔记/);
+    assert.match(await page.locator("#writingCandidateSummary").innerText(), /还没有可添加的笔记/);
     await page.locator('#writingRelatedNotesPanel [data-writing-related-close]').click();
     assert.equal(await page.locator("#writingRelatedNotesPanel").isVisible(), false);
     const size = await page.evaluate(() => ({ viewport: document.documentElement.clientWidth, content: document.documentElement.scrollWidth }));

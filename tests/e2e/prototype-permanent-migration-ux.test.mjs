@@ -176,6 +176,9 @@ for (const width of [1366, 390, 320]) {
       await open(note);
       await page.locator('.rail-btn[data-module="writing"]').click();
       await page.locator('.writing-head-actions [data-writing-related-open]').click();
+      if (!await page.locator("#writingCandidateDetails").evaluate(el => el.open)) {
+        await page.locator("#writingCandidateDetails > summary").click();
+      }
       const prepare = page.locator(`[data-writing-action="prepare"][data-writing-note-id="${note.id}"]`);
       await prepare.waitFor();
       if (note.id === claim.id) {

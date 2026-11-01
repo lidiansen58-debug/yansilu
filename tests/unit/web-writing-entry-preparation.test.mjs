@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prepareWritingEntryNote, renderWritingEntryPreparation } from "../../apps/web/src/writing-entry-preparation.js";
+import { prepareWritingEntryNote } from "../../apps/web/src/writing-entry-preparation.js";
 
 function fixture(overrides = {}) {
   const note = { id: "n", noteType: "permanent", title: "My view", body: "# My view\nA clear judgment.", fileRevision: "a".repeat(64), updatedAt: "1", status: "draft", authorship: { user_confirmed: false, ai_assisted: true } };
@@ -78,14 +78,6 @@ test("writing preparation propagates a guarded write conflict without confirming
   await assert.rejects(prepareWritingEntryNote("n", deps), /本次未覆盖/);
   assert.equal(state.notes[0].authorship.user_confirmed, false);
   assert.equal(state.notes[0].status, "draft");
-});
-
-test("preparation is only shown for an ineligible permanent note", () => {
-  const { note } = fixture();
-  const deps = { escapeHtml: String, isWritingEligibleNote: () => false };
-  assert.match(renderWritingEntryPreparation(note, deps), /确认并加入相关笔记/);
-  assert.equal(renderWritingEntryPreparation({ ...note, noteType: "fleeting" }, deps), "");
-  assert.equal(renderWritingEntryPreparation(note, { ...deps, isWritingEligibleNote: () => true }), "");
 });
 
 function deferred() {

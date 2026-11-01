@@ -34,10 +34,10 @@ test("a draft permanent note explains originality eligibility and only joins wri
   await waitFor(async () => assert.match(await page.locator("#wysiwygHost:visible").innerText(), /解释与核对材料/));
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('[data-writing-sidebar-action="related"]').click();
-  const card = page.locator(`#writingBasketList article[data-writing-note-id="${note.id}"]`);
-  assert.match(await card.innerText(), /未通过原创性检查.*检查通过后即可加入写作/);
-  assert.doesNotMatch(await card.innerText(), /仍是 draft|写作篮只接受|scaffold/);
   await page.locator("#writingCandidateDetails > summary").click();
+  const card = page.locator(`#writingCandidateList article[data-writing-note-id="${note.id}"]`);
+  assert.match(await card.innerText(), /确认并加入相关笔记/);
+  assert.doesNotMatch(await card.innerText(), /仍是 draft|写作篮只接受|scaffold|pn_/);
   assert.equal(await page.locator(`#writingCandidateList [data-writing-action="add"][data-writing-note-id="${note.id}"]`).count(), 0);
   let confirmations = 0;
   page.once("dialog", dialog => { confirmations++; return dialog.dismiss(); });

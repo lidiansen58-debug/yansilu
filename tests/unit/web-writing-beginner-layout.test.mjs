@@ -50,15 +50,12 @@ test("writing center keeps adding material behind one clear action", () => {
   const hostDeps = fs.readFileSync("apps/web/src/writing-panel-host-deps.js", "utf8");
   const prototypeApp = fs.readFileSync("apps/web/src/prototype-app.js", "utf8");
 
-  assert.match(controller, /const candidateDetails = \$\("writingCandidateDetails"\)/);
-  assert.match(controller, /可添加 \$\{candidates\.length\} 条笔记/);
+  assert.match(controller, /renderWritingMaterials\(deps,/);
   assert.match(controller, /classList\.toggle\("hidden", !hasScaffold\)/);
   assert.match(controller, /createScaffoldButton\.disabled = Boolean\(writingState\.scaffoldGenerationPending\) \|\| \(!hasProject && !basketEntries\.length && !explicitSelectedTheme\)/);
   assert.doesNotMatch(controller, /createScaffoldButton\.disabled = hasProject/);
   assert.match(prototypeApp, /if \(themeId\) return relatedIndexIds\.includes\(themeId\);/);
   assert.match(prototypeApp, /if \(normalizedThemeId\) return relatedIndexIds\.includes\(normalizedThemeId\);/);
-  assert.match(controller, /candidateDetails\?\.open/);
-  assert.match(controller, /Math\.min\(candidates\.length, 12\)/);
   assert.match(html, /<details class="writing-advanced-details" id="writingCandidateDetails">/);
   assert.match(events, /add\("writingCandidateDetails", "toggle"/);
   assert.match(events, /isWritingCandidateDetailsExpanded/);

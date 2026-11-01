@@ -174,7 +174,8 @@ import { exportWritingArticle } from "./prototype-api.js";
 import { installWritingRelatedPanelEvents } from "./writing-related-notes-panel.js";
 import { installWritingSidebarActionEvents } from "./writing-sidebar-actions.js";
 import { handleWritingCreateScaffoldClick, installWritingPanelBasketEventHandlers, installWritingThemeIndexEventHandlers, installWritingThemeDetailEventHandlers, installWritingProjectListEventHandlers, installWritingProjectHistoryEventHandlers, installWritingDraftActionEventHandlers } from "./writing-panel-events.js";
-import { writingCandidateNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
+import { writingCandidateNotesForRuntime, writingMaterialNotesForRuntime, writingScopeDirectoryIdsForRuntime } from "./writing-candidate-state.js";
+import { writingNoteExcerpt } from "./writing-note-summary.js";
 import { addWritingBasketIdsForRuntime, clearWritingBasketForRuntime, removeWritingBasketIdForRuntime } from "./writing-basket-state.js";
 import { createWritingBasketSession } from "./writing-basket-session.js";
 import { writingBasketContinuationPlan, writingProjectContinuationRoute } from "./writing-entry-route-model.js";
@@ -2606,6 +2607,7 @@ const writingEntryRuntime = createWritingEntryRuntimeHost(() => ({
   listProjectDraftVersions,
   listProjectScaffolds,
   listWritingProjects,
+  loadWritingMaterials: async () => { await syncNotesForDirectoryTree("dir_original_default"); renderWritingPanel(); },
   parseWritingBasketIds,
   refreshWritingRelationCounts,
   renderWritingPanel,
@@ -3873,6 +3875,8 @@ function writingCandidateNotes() {
   });
 }
 
+function writingMaterialNotes() { return writingMaterialNotesForRuntime(state); }
+
 function writingThemeLabels(notes) { return computeWritingThemeLabels(notes, { parseTags }); }
 
 function writingThemeSummary(notes) { return computeWritingThemeSummary(notes, { parseTags }); }
@@ -4438,24 +4442,6 @@ function downloadTextFile(fileName, text) {
   return blob.size;
 }
 
-function writingNoteExcerpt(note) {
-  const text = String(note?.body || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/^#.*$/m, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return "";
-  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
-}
-
-function writingNoteMeta(note) {
-  const folder = folderById(state, note?.folderId);
-  return uniqueStrings([
-    note?.id,
-    folder?.name,
-    note?.noteType === "permanent" || rootBoxIdFromFolder(state, note?.folderId) === "dir_original_default" ? "永久笔记" : note?.noteType
-  ]).join(" · ");
-}
 function writingThemeIndexScopeDirectoryId() {
   return writingThemeIndexScopeDirectoryIdForRuntime(state, {
     isDirectoryUnderOriginalRoot,
@@ -4711,8 +4697,8 @@ const writingPanelController = createWritingPanelShellController({
     writingThemeIndexNoteIds,
     findExistingWritingProjectForTheme,
     renderThinkingStatusBadge,
-    writingNoteMeta,
     writingNoteExcerpt,
+    writingMaterialNotes,
     writingProjectStatusLabel,
     writingThemeProjectEntry,
     shouldHydrateWritingThemeNotes,

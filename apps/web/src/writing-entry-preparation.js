@@ -4,22 +4,6 @@ import { applyLoadedNoteToClientState } from "./loaded-note-client-state.js";
 
 const pendingPreparations = new WeakMap();
 
-export function renderWritingEntryPreparation(note, { escapeHtml, isWritingEligibleNote }) {
-  if (!note || !["permanent", "original"].includes(note.noteType) || isWritingEligibleNote(note)) return "";
-  const reason = note.authorship?.user_confirmed
-    ? "这条笔记还未通过原创性检查。检查通过后即可加入写作。"
-    : "这条笔记还需要你确认是自己的判断，并完成原创性检查。";
-  return `<article class="writing-note-card" data-writing-note-id="${escapeHtml(note.id)}">
-    <strong class="writing-note-title">${escapeHtml(note.title || "未命名笔记")}</strong>
-    <p class="writing-note-meta">${reason}</p>
-    <div class="writing-note-actions">
-      <button class="mini-btn" type="button" data-writing-action="prepare" data-writing-note-id="${escapeHtml(note.id)}">确认并加入相关笔记</button>
-      <button class="mini-btn" type="button" data-writing-action="open" data-writing-note-id="${escapeHtml(note.id)}">打开笔记</button>
-    </div>
-    <p class="writing-note-meta" role="status" data-writing-preparation-status></p>
-  </article>`;
-}
-
 export async function prepareWritingEntryNote(noteId, deps) {
   let pending = pendingPreparations.get(deps.state);
   if (!pending) pendingPreparations.set(deps.state, pending = new Set());
