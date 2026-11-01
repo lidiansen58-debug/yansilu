@@ -22,6 +22,18 @@ test("viewing local or disabled AI settings preserves the stored remote model ac
     await page.locator('[data-settings-item="ai-settings"]').click();
     await refreshed;
   };
+  await page.evaluate(({ key, storedModel }) => {
+    localStorage.setItem(key, storedModel);
+    localStorage.setItem("yansilu:ai:runtime-mode", "cloud_only");
+    localStorage.setItem("yansilu:ai:model-pack", "Global Optimized");
+    localStorage.setItem("yansilu:ai:user-mode", "Balanced");
+  }, { key, storedModel });
+  await page.reload({ waitUntil: "networkidle" });
+  await openSettings();
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), storedModel, "a remote selection with no saved provider keeps its model while routing is unavailable");
+  await page.reload({ waitUntil: "networkidle" });
+  await openSettings();
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), storedModel);
   for (const selection of [{ runtimeMode: "local_only" }, { runtimeMode: "off" }, { runtimeMode: "off", modelPack: "Global Optimized" }]) {
     const { runtimeMode } = selection;
     const defaults = { ...aiDefaultsForRuntimeMode(runtimeMode), ...selection };

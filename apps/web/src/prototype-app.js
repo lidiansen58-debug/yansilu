@@ -1436,10 +1436,10 @@ function featureAiRequestOptions() {
 
 const settingsAiStateRuntime = createSettingsAiStateRuntime({
   applyAiPreferencesToSettingsState,
-  activeAiProviderConfig,
+  activeAiProviderConfig: () => activeAiProviderConfig(providerPresetForModelPack(settingsState.ai.modelPack)),
   applyOllamaLocalModelDefaults,
   clearLocalOllamaSelectionState,
-  currentAiProviderId,
+  currentAiProviderId: () => providerPresetForModelPack(settingsState.ai.modelPack),
   currentOllamaModelTiers,
   defaultProviderEndpointUrl,
   defaultProviderHealthEndpointUrl,
@@ -1454,8 +1454,7 @@ const settingsAiStateRuntime = createSettingsAiStateRuntime({
   upsertAiProviderConfig
 });
 
-function activeAiProviderConfig() {
-  const providerId = currentAiProviderId();
+function activeAiProviderConfig(providerId = currentAiProviderId()) {
   return settingsState.ai.providerConfigs.find((config) => String(config?.providerId || config?.provider_id || "").trim() === providerId) || null;
 }
 
