@@ -161,7 +161,7 @@ export function graphBuildReadingLensStateForRuntime(
     lens: meta.key,
     priorityEdgeKeys,
     priorityNodeIds,
-    active: priorityEdgeKeys.size > 0 || priorityNodeIds.size > 0
+    active: (nodes.length > 48 || meta.key !== "insight") && (priorityEdgeKeys.size > 0 || priorityNodeIds.size > 0)
   };
 }
 

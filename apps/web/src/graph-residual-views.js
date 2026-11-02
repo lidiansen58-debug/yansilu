@@ -438,19 +438,19 @@ function renderGraphReadingLensControls() {
 const GRAPH_WORKBENCH_TAB_META = {
   clues: {
     key: "clues",
-    label: "补全关系",
+    label: "补充关联",
     emptyLabel: "暂无需要补的关系",
-    panelTitle: "补全关系",
-    statusLabel: "补全关系",
+    panelTitle: "补充关联",
+    statusLabel: "补充关联",
     note: "找出还没连上、关系不清或需要补说明的笔记。"
   },
   questions: {
     key: "questions",
-    label: "找主题",
-    emptyLabel: "暂无可找主题的线索",
-    panelTitle: "找主题",
-    statusLabel: "找主题",
-    note: "看哪些笔记已经聚成一个可继续写作的问题。"
+    label: "整理主题",
+    emptyLabel: "暂无可整理主题的线索",
+    panelTitle: "整理主题",
+    statusLabel: "整理主题",
+    note: "选一组已关联的笔记，确认问题后开始写作。"
   }
 };
 function graphWorkbenchTabMeta(value = "clues") {

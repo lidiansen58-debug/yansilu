@@ -4,6 +4,7 @@
   border-radius: var(--ui-control-radius);
 }
 #moduleWorkspace.graph-mode .graph-map-viewport { border: 1px solid var(--ui-border); }
+#moduleWorkspace.graph-mode .graph-map-stage { --graph-map-height: clamp(460px, calc(100dvh - 164px), 900px); }
 #moduleWorkspace.graph-mode .graph-map-backdrop { fill: var(--ui-surface-muted); }
 #moduleWorkspace.graph-mode :is(.graph-map-node-aura, .graph-map-node-glint, .graph-map-edge-underlay, .graph-map-empty-orbit) { display: none; }
 #moduleWorkspace.graph-mode :is(.graph-map-node circle, .graph-map-edge, .graph-theme-boundary-line, .graph-map-cluster-glow) {
@@ -22,6 +23,9 @@
   font-family: var(--ui-font);
   font-weight: 600;
 }
+#moduleWorkspace.graph-mode .graph-map-node.is-readable-graph-node .graph-map-node-label { font-size: 13px; font-weight: 500; }
+#moduleWorkspace.graph-mode .graph-map-node.is-readable-graph-node .graph-map-node-core { opacity: 1; }
+#moduleWorkspace.graph-mode .graph-workbench-task-action { color: var(--ui-brand); font-weight: 600; }
 #moduleWorkspace.graph-mode :is(.graph-map-node-meta, .graph-map-edge-label, .graph-theme-boundary-label) {
   fill: var(--ui-text-muted);
   stroke: var(--ui-surface-muted);

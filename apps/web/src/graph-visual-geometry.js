@@ -132,7 +132,7 @@ export function graphEdgePath(edge = {}, nodeMap = new Map(), deps = {}) {
         : relationGroup === "boundary"
           ? 1.12
           : 1;
-  const curveMagnitude = Math.min(78, Math.max(18, length * 0.12 * curveBoost));
+  const curveMagnitude = Math.min(32, Math.max(8, length * 0.055 * curveBoost));
   const curve = signedSeed === 0 ? curveMagnitude * 0.35 : signedSeed * curveMagnitude;
   const midX = (startX + endX) / 2;
   const midY = (startY + endY) / 2;

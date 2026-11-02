@@ -37,7 +37,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
   const metaByKey = {
     structure: {
       key: "structure",
-      label: "看结构",
+      label: "查看关联",
       relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "insight",
       workbenchPanelOpen: false,
@@ -47,7 +47,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     },
     relations: {
       key: "relations",
-      label: "找缺口",
+      label: "补充关联",
       relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "bridge",
       workbenchPanelOpen: true,
@@ -57,7 +57,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     },
     themes: {
       key: "themes",
-      label: "找主题",
+      label: "整理主题",
       relationType: "index",
       lens: "insight",
       workbenchPanelOpen: true,

@@ -57,7 +57,8 @@ test("small maps give real low-degree endpoints a visible radius without enlargi
   assert.equal(small.nodes.length, nodes.length);
   const larger = graphBuildVisualLayout([...nodes, { id: "n12" }], edges, {}, deps);
   assert.equal(larger.smallGraph, false);
-  assert.equal(larger.nodeMap.get("n1").radius, graphNodeRadiusByTier("dust", 1));
+  assert.equal(larger.readableGraph, true);
+  assert.ok(larger.nodes.every(node => node.radius >= 5.5));
   const dense = graphBuildVisualLayout(nodes, Array.from({ length: 140 }, () => edges[0]), {}, deps);
   assert.equal(dense.smallGraph, false);
   assert.equal(dense.nodeMap.get("n11").radius, graphNodeRadiusByTier("dust", 0));

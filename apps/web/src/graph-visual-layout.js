@@ -4,6 +4,7 @@ import {
 import { buildGraphLayoutClusters } from "./graph-layout-clusters.js";
 import { separateSmallGraphNodes } from "./graph-small-node-spacing.js";
 import { spaceReadableGraphNodes } from "./graph-readable-node-spacing.js";
+import { spaceMediumGraphNodes } from "./graph-medium-node-layout.js";
 
 export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, deps = {}) {
   const {
@@ -72,6 +73,7 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
 
   const nodeTotal = nodeMap.size;
   const smallGraph = nodeTotal <= 12 && edges.length < 140;
+  const readableGraph = nodeTotal > 12 && nodeTotal <= 48 && edges.length < 140;
   let width = nodeTotal > 48 ? 1560 : nodeTotal > 28 ? 1320 : 1080;
   let height = nodeTotal > 48 ? 820 : nodeTotal > 28 ? 700 : 560;
   const centerX = width / 2;
@@ -133,7 +135,7 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
     node.isAnchor = isAnchor;
     node.isGraphIsolatedCandidate = isVisualIsolated;
     node.starTier = graphNodeStarTier(node);
-    node.radius = Math.max(smallGraph ? 8 : 0, graphNodeRadiusByTier(node.starTier, node.degree));
+    node.radius = Math.max(smallGraph ? 8 : readableGraph ? 5.5 : 0, graphNodeRadiusByTier(node.starTier, node.degree));
     node.clusterArmDepth = 0;
     node.clusterIndex = !focusedNoteId && !isVisualIsolated ? clusterAssignments.get(node.id) ?? (node.isAnchor ? anchorOrder.indexOf(node.id) : -1) : -1;
     node.auraRadius =
@@ -247,8 +249,10 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
   });
 
   if (smallGraph) separateSmallGraphNodes(layoutNodes, { width, height, fixedNoteId: focusedNoteId });
-  const readableLayout = (nodeTotal > 48 || edges.length >= 140) && ["read", "detail"].includes(options.zoomKey);
-  if (readableLayout) ({ width, height } = spaceReadableGraphNodes(layoutNodes, { width, height }));
+  if (readableGraph) ({ width, height } = spaceMediumGraphNodes(layoutNodes, { width, height, fixedNoteId: focusedNoteId }));
+  const denseReadableLayout = (nodeTotal > 48 || edges.length >= 140) && ["read", "detail"].includes(options.zoomKey);
+  if (denseReadableLayout) ({ width, height } = spaceReadableGraphNodes(layoutNodes, { width, height }));
+  const readableLayout = readableGraph || denseReadableLayout;
 
   const clusterMeta = !focusedNoteId
     ? clusterMembers
@@ -308,5 +312,5 @@ export function graphBuildVisualLayout(nodes = [], edges = [], options = {}, dep
         .filter(Boolean)
     : [];
 
-  return { width, height, nodes: layoutNodes, nodeMap, clusterMeta, smallGraph };
+  return { width, height, nodes: layoutNodes, nodeMap, clusterMeta, smallGraph, readableGraph };
 }

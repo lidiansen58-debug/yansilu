@@ -16,19 +16,19 @@ function defaultWorkbenchTabMeta(value = "") {
   const meta = {
     clues: {
       key: "clues",
-      label: "补全关系",
+      label: "补充关联",
       emptyLabel: "暂无需要补的关系",
-      panelTitle: "补全关系",
-      statusLabel: "补全关系",
+      panelTitle: "补充关联",
+      statusLabel: "补充关联",
       note: "找出还没连上、关系不清或需要补说明的笔记。"
     },
     questions: {
       key: "questions",
-      label: "找主题",
-      emptyLabel: "暂无可找主题的线索",
-      panelTitle: "找主题",
-      statusLabel: "找主题",
-      note: "看哪些笔记已经聚成一个可继续写作的问题。"
+      label: "整理主题",
+      emptyLabel: "暂无可整理主题的线索",
+      panelTitle: "整理主题",
+      statusLabel: "整理主题",
+      note: "选一组已关联的笔记，确认问题后开始写作。"
     }
   };
   return meta[key] || meta.clues;
@@ -38,8 +38,8 @@ function defaultThinkingFilterMeta(value = "") {
   const key = String(value || "all").trim().toLowerCase();
   const meta = {
     all: { key: "all", label: "全部", note: "查看全部建议。" },
-    theme: { key: "theme", label: "找主题", note: "只看可能聚成主题的笔记。" },
-    organize: { key: "organize", label: "补全关系", note: "只看需要补关系的笔记。" }
+    theme: { key: "theme", label: "整理主题", note: "只看可能聚成主题的笔记。" },
+    organize: { key: "organize", label: "补充关联", note: "只看需要补关系的笔记。" }
   };
   return meta[key] || meta.all;
 }
@@ -107,8 +107,8 @@ export function renderGraphThinkingItemsView(items = [], filter = "all", deps = 
   if (!filtered.length) {
     return `
       <div class="graph-thinking-empty">
-        <strong>${escapeHtml(meta.key === "theme" ? "还没有可找主题的线索" : meta.key === "organize" ? "还没有需要补的关系" : "当前没有明显建议")}</strong>
-        <span>${escapeHtml(meta.key === "theme" ? "先补几条有理由的关系，再回来找主题。" : "继续写笔记或补关系后，这里会出现更具体的建议。")}</span>
+        <strong>${escapeHtml(meta.key === "theme" ? "还没有可整理主题的线索" : meta.key === "organize" ? "还没有需要补的关系" : "当前没有明显建议")}</strong>
+        <span>${escapeHtml(meta.key === "theme" ? "可以直接到写作中心，从一个问题开始。" : "继续写笔记或补关系后，这里会出现更具体的建议。")}</span>
         <button class="mini-btn" type="button" data-run-graph-ai-analysis ${graphState.aiAnalysisLoading ? "disabled" : ""}>${graphState.aiAnalysisLoading ? "扫描中..." : "重新检查"}</button>
       </div>
     `;
@@ -222,7 +222,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
   if (graphState.workbenchPanelOpen !== true) return "";
   const activeTab = graphWorkbenchTabMeta(graphState.workbenchPanelTab);
   const isRelation = activeTab.key === "clues";
-  const title = isRelation ? "补全关系" : "找主题";
+  const title = isRelation ? "补充关联" : "整理主题";
   const taskItems = graphTaskItems(thinkingItems, activeTab.key);
   const total = taskItems.length;
   const lead = isRelation
@@ -231,7 +231,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
       : "当前没有待检查的关系；未关联也可以保持独立。"
     : total
       ? `${total} 组相关材料，先确认它们是否在回答同一个问题。`
-      : "当前没有三条以上的相关材料组；可以先阅读笔记并建立有意义的关联。";
+      : "还没有可整理的材料组。也可以直接到写作中心，从一个问题开始。";
   return `
     <aside class="graph-workbench-panel" aria-label="${escapeHtml(title)}">
       <div class="graph-workbench-panel-head">
@@ -256,7 +256,7 @@ export function renderGraphWorkbenchPanelView({ clueSummary = {}, questionSummar
     const detail = String(item.detail || item.question || "").trim();
     const content = `<strong>${escapeHtml(item.title || "待检查笔记")}</strong>${item.meta ? `<small>${escapeHtml(item.meta)}</small>` : ""}${detail ? `<span>${escapeHtml(detail)}</span>` : ""}`;
     return `<article${highlightAttrs ? ` ${highlightAttrs}` : ""}>${item.actionAttrs
-      ? `<button class="graph-workbench-theme-overview-item" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${item.actionLabel || "查看"}：${item.title || "待检查笔记"}`)}">${content}</button>`
+      ? `<button class="graph-workbench-theme-overview-item" type="button" ${item.actionAttrs} aria-label="${escapeHtml(`${item.actionLabel || "查看"}：${item.title || "待检查笔记"}`)}">${content}<span class="graph-workbench-task-action">${escapeHtml(item.actionLabel || "查看")} →</span></button>`
       : `<div class="graph-workbench-theme-overview-item">${content}</div>`}</article>`;
   }
 }

@@ -27,6 +27,6 @@ export function buildGraphVisualMapBackdropMarkup({
     // Keep the layer contract without generating decorative background objects.
     starfieldMarkup: "",
     nebulaMarkup: "",
-    clusterGlowMarkup: renderGraphClusterGlow(layout.clusterMeta)
+    clusterGlowMarkup: layout.readableGraph ? "" : renderGraphClusterGlow(layout.clusterMeta)
   };
 }

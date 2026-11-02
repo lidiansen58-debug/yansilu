@@ -65,7 +65,7 @@ export function currentModuleSidebarUi({
       sidebarSubtitle: "查看永久笔记之间的关联",
       sidebarFoot: "",
       title: "关系图谱",
-      summary: "选择笔记查看关联，或切换到找缺口、找主题。",
+      summary: "点笔记或连线查看关联，也可以补充关联、选材料写作。",
       sidebarHtml: ""
     },
     writing: {

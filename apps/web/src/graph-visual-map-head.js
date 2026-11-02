@@ -3,19 +3,19 @@ function graphMapModeHint(relationType = "meaningful", readingLensKey = "insight
   const lensKey = String(readingLensKey || "insight").trim().toLowerCase();
   if (relationKey === "index") {
     return {
-      label: "找主题",
+      label: "整理主题",
       text: "从已有关系找材料，由你确认它们是否在回答同一个问题。"
     };
   }
   if (lensKey === "bridge") {
     return {
-      label: "找缺口",
+      label: "补充关联",
       text: "检查未关联笔记和已有关系；只保留有意义的关联。"
     };
   }
   return {
-    label: "看结构",
-    text: "同一块里的笔记更相关，先看最大的块和中心笔记。"
+    label: "查看关联",
+    text: "点笔记看相邻笔记，点连线看关联理由；位置仅用于排布。"
   };
 }
 

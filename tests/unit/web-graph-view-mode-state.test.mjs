@@ -59,11 +59,11 @@ test("graph view mode state normalizes relation filters and modes", () => {
 });
 
 test("graph view mode state exposes direct reading mode copy", () => {
-  assert.equal(graphReadingModeMeta("structure").label, "找主题");
+  assert.equal(graphReadingModeMeta("structure").label, "整理主题");
   assert.match(graphReadingModeMeta("structure").mapNote, /继续写作/);
   assert.equal(graphReadingModeMeta("bad").key, "argument");
-  assert.match(graphReadingModeMeta("argument").purpose, /中心笔记/);
-  assert.equal(graphReadingModeMeta("argument").label, "看结构");
+  assert.match(graphReadingModeMeta("argument").purpose, /相邻笔记/);
+  assert.equal(graphReadingModeMeta("argument").label, "查看关联");
 });
 
 test("graph relation type setter updates graph state and persists when allowed", () => {
