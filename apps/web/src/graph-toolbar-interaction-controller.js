@@ -4,6 +4,7 @@ export function applyGraphZoomOptionInteraction(graphState = {}, zoomValue = "",
   const graphZoomOption = deps.graphZoomOption || ((value) => ({ key: String(value || "fit").trim() || "fit", label: String(value || "fit").trim() || "fit" }));
   const nextZoom = graphZoomOption(zoomValue);
   graphState.zoom = nextZoom.key;
+  graphState.zoomUserSelected = true;
   return { zoom: nextZoom.key, meta: nextZoom, changed: true };
 }
 
@@ -16,6 +17,7 @@ export function applyGraphZoomStepInteraction(graphState = {}, direction = 0, de
     return { zoom: currentZoom.key, meta: currentZoom, changed: false };
   }
   graphState.zoom = nextZoom.key;
+  graphState.zoomUserSelected = true;
   return { zoom: nextZoom.key, meta: nextZoom, changed: true };
 }
 

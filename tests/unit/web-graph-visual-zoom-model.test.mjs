@@ -2,9 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GRAPH_VISUAL_ZOOM_OPTIONS,
+  graphInitialZoomForViewport,
   graphZoomOption,
   graphZoomStep
 } from "../../apps/web/src/graph-visual-zoom-model.js";
+
+test("narrow medium maps start at a readable scale and respect explicit zoom choices", () => {
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 24, viewportWidth: 390 }), "read");
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 24, viewportWidth: 320 }), "read");
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 24, viewportWidth: 390, userSelected: true }), "fit");
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 24, viewportWidth: 390, zoom: "detail" }), "detail");
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 24, viewportWidth: 1366 }), "fit");
+  assert.equal(graphInitialZoomForViewport({ nodeCount: 132, viewportWidth: 390 }), "fit");
+});
 
 test("graph visual zoom model normalizes options and clamps step navigation", () => {
   assert.equal(graphZoomOption("READ").key, "read");
