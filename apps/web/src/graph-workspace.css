@@ -5,6 +5,7 @@
 }
 #moduleWorkspace.graph-mode .graph-map-viewport { border: 1px solid var(--ui-border); }
 #moduleWorkspace.graph-mode .graph-map-stage { --graph-map-height: clamp(460px, calc(100dvh - 164px), 900px); }
+#moduleWorkspace.graph-mode .graph-map-svg[data-graph-zoom="fit"] { width: 100%; height: var(--graph-map-height); }
 #moduleWorkspace.graph-mode .graph-map-backdrop { fill: var(--ui-surface-muted); }
 #moduleWorkspace.graph-mode :is(.graph-map-node-aura, .graph-map-node-glint, .graph-map-edge-underlay, .graph-map-empty-orbit) { display: none; }
 #moduleWorkspace.graph-mode :is(.graph-map-node circle, .graph-map-edge, .graph-theme-boundary-line, .graph-map-cluster-glow) {

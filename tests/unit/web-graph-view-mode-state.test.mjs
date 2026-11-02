@@ -76,6 +76,9 @@ test("filter changes keep the active task and its panel consistent", () => {
   assert.equal(graphState.filters.relationType, "supports");
   assert.equal(graphState.workbenchPanelOpen, false);
   assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "structure");
+  graphState.selection = { kind: "node", nodeId: "a" };
+  applyGraphRelationTypeFilterInteraction(graphState, "all", deps);
+  assert.deepEqual(graphState.selection, { kind: "node", nodeId: "a" }, 'A subsequent ordinary filter preserves the selected note');
   applyGraphTaskViewInteraction(graphState, "relations", deps);
   applyGraphRelationTypeFilterInteraction(graphState, "index", deps);
   assert.equal(graphState.workbenchPanelOpen, true);

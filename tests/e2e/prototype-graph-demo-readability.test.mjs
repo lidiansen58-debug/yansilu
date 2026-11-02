@@ -61,6 +61,13 @@ test("the real bundled demo is readable and leads from saved relationships to a 
   await page.locator('#graphRelationTypeFilter').selectOption('supports');
   assert.equal(await page.locator('[data-graph-task-view="structure"]').getAttribute('aria-pressed'), 'true');
   assert.equal(await page.locator('.graph-workbench-panel').count(), 0);
+  const selected = page.locator('.graph-map-node').first();
+  const selectedId = await selected.getAttribute('data-node-id');
+  await selected.focus(); await selected.press('Enter');
+  await page.locator('.graph-selection-panel.is-node:visible').waitFor();
+  await page.locator('#graphRelationTypeFilter').selectOption('all');
+  assert.equal(await page.locator('.graph-map-node.is-selected').getAttribute('data-node-id'), selectedId);
+  assert.equal(await page.locator('.graph-selection-panel.is-node:visible').count(), 1);
   await page.locator('[data-graph-task-view="themes"]').click();
   assert.equal(await page.locator('[data-graph-task-view="themes"]').getAttribute('aria-pressed'), 'true');
   const ids = (await materials.first().getAttribute('data-graph-theme-note-ids')).split(',').sort();
@@ -88,6 +95,17 @@ test("the real bundled demo is readable and leads from saved relationships to a 
     assert.equal((await fetchJson(apiBase, `/api/v1/notes/${project.draft_note_id}`)).json.item.body, body);
   });
   assert.deepEqual(await snapshotDemoNoteInventory(apiBase), inventory);
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator('[data-graph-task-view="structure"]').click();
+  await page.locator('[data-graph-zoom-option="fit"]').click();
+  const clipped = await page.locator('.graph-map-viewport').evaluate(frame => {
+    const viewport = frame.getBoundingClientRect();
+    return [...frame.querySelectorAll('.graph-map-node-core, .graph-map-node-label')].filter(el => {
+      const box = el.getBoundingClientRect();
+      return box.left < viewport.left || box.right > viewport.right || box.top < viewport.top || box.bottom > viewport.bottom;
+    }).map(el => el.closest('[data-node-id]').dataset.nodeId);
+  });
+  assert.deepEqual(clipped, [], 'Fit includes every endpoint and title after a saved article adds a note');
   assert.deepEqual(modelCalls, []); assert.deepEqual(errors, []);
 });
 
