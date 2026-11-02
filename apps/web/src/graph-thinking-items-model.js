@@ -1,4 +1,5 @@
 import { graphLocalThemeGroups } from "./graph-local-theme-groups.js";
+import { GRAPH_LINK_CLUE_RELATION_TYPES } from "./graph-view-mode-state.js";
 
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
@@ -262,10 +263,10 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       view: "theme",
       tone: "theme",
       title,
-      meta: `${group.noteIds.length} 条笔记 · ${group.edges.length} 条已保存关系`,
+      meta: `${group.noteIds.length} 条笔记 · ${group.edges.length} 条已保存关系 · ${[...new Set(group.edges.map(edge => graphRelationTypeLabel(edge.relationType)))].join("、")}`,
       detail: group.notes.filter((note) => note.id !== group.anchor.id).map((note) => note.title || note.id).join("、"),
       question: "这些相关笔记，能否围绕一个问题写作？由你确认问题和材料。",
-      actionLabel: "整理材料",
+      actionLabel: "选材料并写作",
       actionAttrs: `data-graph-create-theme-index data-graph-theme-note-ids="${escapeHtml(group.noteIds.join(","))}" data-graph-theme-title="${escapeHtml(title)}"`,
       highlightNodeIds: group.noteIds
     });
@@ -320,7 +321,10 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
     });
   });
 
-  const reviewItems = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
+  const reviewItems = (Array.isArray(reviewQueue?.items) ? reviewQueue.items : []).filter(item => {
+    const bodyReference = item.rationale === "markdown_wikilink" || item.createdBy === "markdown_wikilink";
+    return !(bodyReference && GRAPH_LINK_CLUE_RELATION_TYPES.has(item.relationType || "associated_with"));
+  });
   const missingReasons = (Array.isArray(edges) ? edges : []).filter((edge) =>
     nodeMap.has(String(edge?.fromNoteId || "")) && nodeMap.has(String(edge?.toNoteId || "")) &&
     !String(edge?.rationale || "").trim() &&

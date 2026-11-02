@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { applyGraphRelationTypeFilterInteraction, applyGraphTaskViewInteraction } from "../../apps/web/src/graph-toolbar-interaction-controller.js";
 
 import {
   GRAPH_RELATION_TYPE_FILTER_KEY,
@@ -8,6 +9,7 @@ import {
   graphHasMeaningfulStructureEdges,
   graphReadingModeMeta,
   graphStructureFallbackEdges,
+  graphTaskViewForState,
   graphViewModeForRelationType,
   normalizeGraphRelationTypeFilter,
   renderGraphRelationTypeFilter,
@@ -59,11 +61,47 @@ test("graph view mode state normalizes relation filters and modes", () => {
 });
 
 test("graph view mode state exposes direct reading mode copy", () => {
-  assert.equal(graphReadingModeMeta("structure").label, "找主题");
+  assert.equal(graphReadingModeMeta("structure").label, "整理主题");
   assert.match(graphReadingModeMeta("structure").mapNote, /继续写作/);
   assert.equal(graphReadingModeMeta("bad").key, "argument");
-  assert.match(graphReadingModeMeta("argument").purpose, /中心笔记/);
-  assert.equal(graphReadingModeMeta("argument").label, "看结构");
+  assert.match(graphReadingModeMeta("argument").purpose, /相邻笔记/);
+  assert.equal(graphReadingModeMeta("argument").label, "查看关联");
+});
+
+test("filter changes keep the active task and its panel consistent", () => {
+  const graphState = { filters: {} };
+  const deps = { setGraphRelationTypeFilter: value => (graphState.filters.relationType = value) };
+  applyGraphTaskViewInteraction(graphState, "themes", deps);
+  applyGraphRelationTypeFilterInteraction(graphState, "supports", deps);
+  assert.equal(graphState.filters.relationType, "supports");
+  assert.equal(graphState.workbenchPanelOpen, false);
+  assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "structure");
+  graphState.selection = { kind: "node", nodeId: "a" };
+  applyGraphRelationTypeFilterInteraction(graphState, "all", deps);
+  assert.deepEqual(graphState.selection, { kind: "node", nodeId: "a" }, 'A subsequent ordinary filter preserves the selected note');
+  applyGraphTaskViewInteraction(graphState, "relations", deps);
+  applyGraphRelationTypeFilterInteraction(graphState, "index", deps);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "questions");
+  assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "themes");
+});
+
+test("theme relation filtering retains a selected note or relation for visibility normalization", () => {
+  for (const selection of [{ kind: "node", nodeId: "a" }, { kind: "edge", edgeKey: "id:topic-link" }]) {
+    const graphState = { filters: { relationType: "all" }, selection };
+    applyGraphRelationTypeFilterInteraction(graphState, "index");
+    assert.deepEqual(graphState.selection, selection);
+    assert.equal(graphState.workbenchPanelOpen, true);
+    assert.equal(graphState.workbenchPanelTab, "questions");
+  }
+});
+
+test("reference-only theme maps keep their actual links visible", () => {
+  const edges = [{ fromNoteId: "a", toNoteId: "b", relationType: "associated_with" }];
+  const visible = graphStructureFallbackEdges(edges, { relationType: "index" }, {
+    graphEdgeMatchesFilters: (_edge, filters) => filters.relationType === "all"
+  });
+  assert.deepEqual(visible, edges);
 });
 
 test("graph relation type setter updates graph state and persists when allowed", () => {

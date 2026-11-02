@@ -3,6 +3,8 @@ import {
   renderGraphPanelFocusedToolbar
 } from "./graph-panel-visual-map-props.js";
 import { captureGraphViewport, restoreGraphViewport } from "./graph-viewport-memory.js";
+import { graphInitialZoomForViewport, graphZoomOption } from "./graph-visual-zoom-model.js";
+import { centerGraphViewportIfZoomedForRuntime } from "./graph-viewport-controller.js";
 
 function defaultEscapeHtml(value = "") {
   return String(value ?? "")
@@ -53,6 +55,14 @@ export function renderGraphPanelForRuntime({
   }
 
   graphState.selection = panelState.normalizedSelection;
+  const initialZoom = graphInitialZoomForViewport({
+    zoom: graphState.zoom,
+    userSelected: graphState.zoomUserSelected,
+    nodeCount: panelState.visualNodes?.length || 0,
+    viewportWidth: canvas.ownerDocument?.defaultView?.innerWidth ?? Infinity
+  });
+  const initialZoomChanged = initialZoom === "read" && graphState.zoom !== initialZoom;
+  if (initialZoomChanged) graphState.zoom = initialZoom;
   if (backButton) backButton.classList.toggle("hidden", panelState.backButtonHidden !== false);
 
   const isolatedQueueMarkup = !panelState.showingFocusedNote
@@ -104,6 +114,8 @@ export function renderGraphPanelForRuntime({
   `;
   if (restoreGraphViewport(canvas, viewportSnapshot, { requireSameLayout: !returningViewport })) {
     graphState.readingReturnViewport = null;
+  } else if (initialZoomChanged) {
+    centerGraphViewportIfZoomedForRuntime({ documentRef: canvas, graphState, graphZoomOption });
   }
   return true;
 }

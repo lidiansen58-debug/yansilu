@@ -125,9 +125,9 @@ export function renderGraphMapEmptyStateView({ title = "", message = "" } = {}, 
         <strong>${escapeHtml(title)}</strong>
         <span>${escapeHtml(message)}</span>
         <div class="graph-map-empty-actions">
-          <button class="mini-btn primary" type="button" data-graph-task-view="structure">看结构</button>
-          <button class="mini-btn" type="button" data-graph-task-view="relations">找缺口</button>
-          <button class="mini-btn" type="button" data-graph-task-view="themes">找主题</button>
+          <button class="mini-btn primary" type="button" data-graph-task-view="structure">查看关联</button>
+          <button class="mini-btn" type="button" data-graph-task-view="relations">补充关联</button>
+          <button class="mini-btn" type="button" data-graph-task-view="themes">整理主题</button>
         </div>
       </div>
     </div>

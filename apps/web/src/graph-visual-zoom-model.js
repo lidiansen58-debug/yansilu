@@ -4,6 +4,10 @@ export const GRAPH_VISUAL_ZOOM_OPTIONS = {
   detail: { label: "细节", scale: 1.75, note: "检查关系线", icon: "detail" }
 };
 
+export function graphInitialZoomForViewport({ zoom = "fit", userSelected = false, nodeCount = 0, viewportWidth = Infinity } = {}) {
+  return !userSelected && zoom === "fit" && nodeCount > 12 && nodeCount <= 48 && viewportWidth <= 700 ? "read" : zoom;
+}
+
 export function graphZoomOption(value = "", zoomOptions = GRAPH_VISUAL_ZOOM_OPTIONS) {
   const key = String(value || "fit").trim().toLowerCase();
   return zoomOptions[key] ? { key, ...zoomOptions[key] } : { key: "fit", ...zoomOptions.fit };

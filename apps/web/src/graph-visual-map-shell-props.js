@@ -64,7 +64,7 @@ export function buildGraphVisualMapShellProps({
   const visibleResearchNavigatorMarkup = navigatorOpen ? researchNavigatorMarkup : "";
   const readingLensTrailingMarkup = "";
   const sidePanelParts = [
-    !filterActive ? workbenchPanelMarkup : "",
+    !filterActive && !(runtimeState.modeMeta?.key === "structure" && selectionContextMarkup) ? workbenchPanelMarkup : "",
     sideSelectionContextMarkup || focusContextMarkup || visibleResearchNavigatorMarkup
   ].filter(Boolean);
 

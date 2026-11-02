@@ -62,18 +62,18 @@ export function graphReadingModeMeta(value = "argument") {
   if (key === "structure") {
     return {
       key,
-      label: "找主题",
-      purpose: "看最值得继续整理的一组笔记。",
-      filterHint: "当前优先显示主题关系。要找缺口时切到“找缺口”。",
-      mapNote: "找主题会突出可能已经能继续写作的笔记组。"
+      label: "整理主题",
+      purpose: "从已关联的笔记中选材料，确认一个写作问题。",
+      filterHint: "当前优先显示主题关系。要补充关联时切到“补充关联”。",
+      mapNote: "整理主题会突出可能已经能继续写作的笔记组。"
     };
   }
   return {
     key: "argument",
-    label: "看结构",
-    purpose: "看笔记如何分组，先从中心笔记读起。",
+    label: "查看关联",
+    purpose: "点笔记看相邻笔记，点连线看关联理由。",
     filterHint: "正文链接与外部关联同等展示，可按关系类型筛选。",
-    mapNote: "看结构会突出分组和中心笔记。"
+    mapNote: "点笔记或连线，查看真实保存的关联。"
   };
 }
 export function setGraphRelationTypeFilterForRuntime(graphState = {}, value = "", deps = {}) {
@@ -105,20 +105,20 @@ export function renderGraphViewModeSwitcher(relationType = "meaningful", activeL
   const modes = [
     {
       key: "structure",
-      label: "看结构",
-      title: "看笔记如何分组，先从中心笔记读起。",
+      label: "查看关联",
+      title: "点笔记看相邻笔记，点连线看关联理由。",
       attr: `data-graph-task-view="structure"`
     },
     {
       key: "relations",
-      label: "找缺口",
+      label: "补充关联",
       title: "检查未关联笔记和已有关系。",
       attr: `data-graph-task-view="relations"`
     },
     {
       key: "themes",
-      label: "找主题",
-      title: "看最值得继续整理的一组笔记。",
+      label: "整理主题",
+      title: "从已关联的笔记中选材料，确认一个写作问题。",
       attr: `data-graph-task-view="themes"`
     }
   ];
@@ -161,5 +161,6 @@ export function graphHasMeaningfulStructureEdges(edges = []) {
 export function graphStructureFallbackEdges(edges = [], filters = {}, deps = {}) {
   const graphEdgeMatchesFilters = deps.graphEdgeMatchesFilters || (() => true);
   const baseFilters = { ...filters, relationType: "meaningful" };
-  return (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
+  const specificEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
+  return specificEdges.length ? specificEdges : (Array.isArray(edges) ? edges : []).filter(edge => graphEdgeMatchesFilters(edge, { ...filters, relationType: "all" }));
 }

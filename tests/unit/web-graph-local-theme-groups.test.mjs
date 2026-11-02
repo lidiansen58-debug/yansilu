@@ -26,6 +26,31 @@ test("duplicate pairs and equal member sets do not duplicate materials or groups
   assert.equal(groups[0].noteIds.length, 3);
 });
 
+test("specific relationships supply distinct materials instead of repeated navigation hubs", () => {
+  const allNodes = [...nodes, { id: "guide", noteType: "permanent" }];
+  const edges = [edge("a", "b"), edge("a", "c"), edge("b", "c"),
+    ...nodes.map(note => edge("guide", note.id, { relationType: "associated_with", createdBy: "markdown_wikilink" }))];
+  const groups = graphLocalThemeGroups({ nodes: allNodes, edges });
+  assert.equal(groups.length, 1);
+  assert.deepEqual(new Set(groups[0].noteIds), new Set(["a", "b", "c"]));
+  assert.equal(groups[0].edges.length, 3);
+  assert.equal(edges.length, 7, "Recommendations never alter saved links");
+});
+
+test("a reference-only graph still offers materials without inventing specific relations", () => {
+  const edges = [edge("a", "b", { relationType: "associated_with" }), edge("a", "c", { relationType: "associated_with" })];
+  const groups = graphLocalThemeGroups({ nodes, edges });
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].edges, edges);
+});
+
+test("a single specific edge does not prevent a usable linked material group", () => {
+  const edges = [edge("a", "b"), edge("a", "c", { relationType: "associated_with" })];
+  const groups = graphLocalThemeGroups({ nodes, edges });
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].edges, edges);
+});
+
 test("non-permanent and out-of-scope notes are not carried into local material groups", () => {
   assert.deepEqual(graphLocalThemeGroups({ nodes: [nodes[0], nodes[1], { ...nodes[2], noteType: "index" }], edges: [edge("a", "b"), edge("a", "c"), edge("a", "d")] }), []);
 });

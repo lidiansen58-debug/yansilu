@@ -13,16 +13,16 @@ const tabMeta = (value = "clues") => {
   const items = {
     clues: {
       key: "clues",
-      label: "补全关系",
+      label: "补充关联",
       emptyLabel: "暂无需要补的关系",
-      panelTitle: "补全关系",
+      panelTitle: "补充关联",
       note: "处理关系"
     },
     questions: {
       key: "questions",
-      label: "找主题",
-      emptyLabel: "暂无可找主题的线索",
-      panelTitle: "找主题",
+      label: "整理主题",
+      emptyLabel: "暂无可整理主题的线索",
+      panelTitle: "整理主题",
       note: "处理主题"
     }
   };
@@ -32,8 +32,8 @@ const tabMeta = (value = "clues") => {
 const filterMeta = (value = "all") => {
   const items = {
     all: { key: "all", label: "全部", note: "全部" },
-    theme: { key: "theme", label: "找主题", note: "找主题" },
-    organize: { key: "organize", label: "补全关系", note: "补全关系" }
+    theme: { key: "theme", label: "整理主题", note: "整理主题" },
+    organize: { key: "organize", label: "补充关联", note: "补充关联" }
   };
   return items[value] || items.all;
 };
@@ -58,8 +58,8 @@ test("graph workbench entry pills keep only task labels", () => {
   assert.match(html, /graph-workbench-entry-group/);
   assert.match(html, /data-graph-workbench-entry="clues"/);
   assert.match(html, /data-graph-workbench-entry="questions"/);
-  assert.match(html, /补全关系/);
-  assert.match(html, /找主题/);
+  assert.match(html, /补充关联/);
+  assert.match(html, /整理主题/);
   assert.match(html, /is-active/);
   assert.match(html, /is-empty/);
   assert.match(html, />2<\/strong>/);
@@ -121,7 +121,7 @@ test("graph workbench panel shows concrete actions instead of generic instructio
   );
 
   assert.match(html, /graph-workbench-panel/);
-  assert.match(html, /aria-label="补全关系"/);
+  assert.match(html, /aria-label="补充关联"/);
   assert.match(html, /具体待检查笔记与关系/);
   assert.match(html, /data-graph-workbench-close/);
   assert.doesNotMatch(html, /data-graph-workbench-tab=/);

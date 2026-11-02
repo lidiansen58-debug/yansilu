@@ -18,6 +18,19 @@ test("theme confirmation shows actual notes, editable membership and an empty re
   assert.doesNotMatch(html, /<script>/);
 });
 
+test("the existing material rows explain saved relationships and body sources without inventing reasons", () => {
+  const html = renderGraphThemeConfirmation({ notes: [...notes.values()], edges: [
+    { fromNoteId: "a", toNoteId: "b", relationType: "supports", rationale: "来自实际证据 <A>" },
+    { fromNoteId: "a", toNoteId: "c", relationType: "associated_with", rationale: "markdown_wikilink" },
+    { fromNoteId: "a", toNoteId: "outside", rationale: "范围外" },
+    { fromNoteId: "a", toNoteId: "b", status: "dismissed", rationale: "已拒绝" }
+  ] });
+  assert.match(html, /观点 A → 支持 → 观点 B：来自实际证据 &lt;A&gt;/);
+  assert.match(html, /正文链接，出处在来源笔记中/);
+  assert.equal((html.match(/class="graph-theme-note-evidence"/g) || []).length, 2);
+  assert.doesNotMatch(html, /范围外|已拒绝|markdown_wikilink/);
+});
+
 test("failed theme confirmation restores fields and exact membership with escaped error text", () => {
   const html = renderGraphThemeConfirmation({ notes: [...notes.values()],
     draft: { centralQuestion: '问题 <Q>', title: '名称 "T"', noteIds: ["a", "c"], roles: { a: '用途 <A>', b: "未选笔记的用途" } },

@@ -42,13 +42,11 @@ test("missing explicit reason identifies the actual pair without judging its val
   assert.equal(items[0].actionAttrs, 'data-graph-select-edge="real"');
 });
 
-test("reviewed body links retain their context rather than a weak-link accusation", () => {
+test("ordinary body references do not become work that the user must complete", () => {
   const items = buildGraphThinkingItemsForGraph({ nodes, reviewQueue: { items: [
     { id: "body", fromNoteId: "a", toNoteId: "b", rationale: "markdown_wikilink" }
   ] } }, deps);
-  assert.match(items[0].meta, /正文关联/);
-  assert.doesNotMatch(items[0].detail, /还没有写清|导航链接|markdown_wikilink/);
-  assert.match(items[0].detail, /已有链接无需重复建立/);
+  assert.deepEqual(items, []);
 });
 
 test("bridge clues use actual endpoints and do not present generated diagnosis as proof", () => {

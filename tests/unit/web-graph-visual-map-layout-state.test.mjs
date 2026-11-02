@@ -46,7 +46,7 @@ test("graph visual map layout state derives density and structure fallback stats
   const state = buildGraphVisualMapLayoutState({
     nodes,
     edges,
-    relationFilterEdges: [{ id: "all-1" }, { id: "all-2" }],
+    relationFilterEdges: [{ id: "all-1", relationType: "supports" }, { id: "all-2", relationType: "associated_with" }],
     filterActive: false,
     structureFallback: true
   }, {
@@ -69,6 +69,7 @@ test("graph visual map layout state derives density and structure fallback stats
     structureFallback: true,
     totalCount: 2,
     meaningfulCount: 1,
+    structureFallbackCount: 1,
     indexCount: 0
   });
 });

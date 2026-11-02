@@ -80,6 +80,7 @@ export function graphVisualNodeViewState(
     denseGalaxyMode = false,
     denseDirectoryMode = false,
     smallGraph = false,
+    readableGraph = false,
     zoomKey = "fit"
   } = {},
   deps = {}
@@ -95,7 +96,7 @@ export function graphVisualNodeViewState(
   } = graphVisualNodeDeps(deps);
   const title = node.title || node.id;
   const starRank = graphNodeStarRank(node.starTier);
-  const labelLimit = smallGraph ? 16 : node.isHub
+  const labelLimit = readableGraph ? 24 : smallGraph ? 16 : node.isHub
     ? (zoomKey === "fit" ? 12 : 18)
     : starRank >= 3
       ? (zoomKey === "fit" ? 10 : 15)
@@ -105,10 +106,11 @@ export function graphVisualNodeViewState(
           ? 10
           : 14;
   const label = graphShortTitle(title, labelLimit);
+  const labelLines = readableGraph ? [Array.from(label).slice(0, 12).join(""), Array.from(label).slice(12).join("")].filter(Boolean) : [label];
   const neighbors = [...(adjacencyMap.get(node.id) || [])];
   const labelAbove = smallGraph && neighbors.length === 1 && Number(layoutNodeMap.get(neighbors[0])?.y) > node.y;
   const labelY = labelAbove ? node.y - node.radius - 12 : node.y + node.radius + (smallGraph ? 22 : 12);
-  const metaY = labelY + 11;
+  const metaY = readableGraph ? labelY + (labelLines.length - 1) * 16 + 14 : labelY + 11;
   const labelQuota = denseGalaxyMode
     ? (zoomKey === "detail" ? 3 : zoomKey === "read" ? 1 : 0)
     : denseDirectoryMode
@@ -137,7 +139,7 @@ export function graphVisualNodeViewState(
   const fitLensLabel = lensPriority && starRank >= 3;
   const showLabel = Boolean(zoomKey === "fit"
     ? (
-        smallGraph ||
+        smallGraph || readableGraph ||
         node.isFocused ||
         node.isHub ||
         selected ||
@@ -147,7 +149,7 @@ export function graphVisualNodeViewState(
         fitLensLabel
       )
     : (
-        smallGraph ||
+        smallGraph || readableGraph ||
         node.isFocused ||
         node.isHub ||
         node.isAnchor ||
@@ -216,10 +218,11 @@ export function graphVisualNodeViewState(
   const nodeStyle = `--graph-node-core-alpha:${pointFade.toFixed(2)};--graph-node-glint-alpha:${glintFade.toFixed(2)};`;
   return {
     smallGraph,
-    typeClass: `${graphNodeClass(node.noteType)}${smallGraph ? " is-small-graph-node" : ""}`,
+    typeClass: `${graphNodeClass(node.noteType)}${smallGraph ? " is-small-graph-node" : ""}${readableGraph ? " is-readable-graph-node" : ""}`,
     title,
     starRank,
     label,
+    labelLines,
     labelAbove,
     labelY,
     metaY,
@@ -261,7 +264,7 @@ export function renderGraphVisualNodeView(node = {}, index = 0, context = {}, de
       ${state.haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(state.haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 5.5}"></circle>` : ""}
       <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
       ${state.pointLike ? "" : `<circle class="graph-map-node-glint" cx="${state.glintX}" cy="${state.glintY}" r="${state.glintRadius}"></circle>`}
-      ${(state.showLabel || state.revealOnly) ? `<text class="graph-map-node-label${state.labelAbove ? " is-above" : ""}${state.revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${state.labelY}" text-anchor="middle">${escapeHtml(state.label)}</text>` : ""}
+      ${(state.showLabel || state.revealOnly) ? `<text class="graph-map-node-label${state.labelAbove ? " is-above" : ""}${state.revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${state.labelY}" text-anchor="middle">${state.labelLines.length === 1 ? escapeHtml(state.label) : state.labelLines.map((line, index) => `<tspan x="${node.x}" dy="${index ? 16 : 0}">${escapeHtml(line)}</tspan>`).join("")}</text>` : ""}
       ${state.showMeta ? `<text class="graph-map-node-meta" x="${node.x}" y="${state.metaY}" text-anchor="middle">${escapeHtml(state.metaLabel)}${labels.metaSeparator}${Number(node.degree || 0)}</text>` : ""}
     </g>
   `;

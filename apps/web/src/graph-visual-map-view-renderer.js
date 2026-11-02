@@ -4,7 +4,7 @@ import { renderGraphVisualNodeViews } from "./graph-visual-node-view.js";
 export const GRAPH_VISUAL_NODE_LABELS = {
   isolatedNodeType: "待关联笔记",
   isolatedNodeAction: "整理待关联笔记",
-  nodeRoleAction: "查看笔记角色",
+  nodeRoleAction: "查看笔记关联",
   relationCountPrefix: "连接 ",
   relationCountSuffix: " 条",
   metaSeparator: " · ",
@@ -53,6 +53,7 @@ export function buildGraphVisualNodeViewContext(runtimeState = {}) {
     denseGalaxyMode,
     denseDirectoryMode,
     smallGraph: Boolean(layout.smallGraph && !denseGalaxyMode),
+    readableGraph: Boolean(layout.readableGraph),
     layoutNodeMap: layout.nodeMap,
     zoomKey: zoom.key
   };

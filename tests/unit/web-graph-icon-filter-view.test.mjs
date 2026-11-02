@@ -84,6 +84,6 @@ test("graph filter labels structure fallback without pretending topic relations 
     }
   );
 
-  assert.match(html, /按关系找主题 \(2\)/);
+  assert.match(html, /整理主题的关联 \(2\)/);
   assert.doesNotMatch(html, /主题关系 \(2\)/);
 });

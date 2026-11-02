@@ -4,6 +4,7 @@ export function applyGraphZoomOptionInteraction(graphState = {}, zoomValue = "",
   const graphZoomOption = deps.graphZoomOption || ((value) => ({ key: String(value || "fit").trim() || "fit", label: String(value || "fit").trim() || "fit" }));
   const nextZoom = graphZoomOption(zoomValue);
   graphState.zoom = nextZoom.key;
+  graphState.zoomUserSelected = true;
   return { zoom: nextZoom.key, meta: nextZoom, changed: true };
 }
 
@@ -16,6 +17,7 @@ export function applyGraphZoomStepInteraction(graphState = {}, direction = 0, de
     return { zoom: currentZoom.key, meta: currentZoom, changed: false };
   }
   graphState.zoom = nextZoom.key;
+  graphState.zoomUserSelected = true;
   return { zoom: nextZoom.key, meta: nextZoom, changed: true };
 }
 
@@ -37,7 +39,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
   const metaByKey = {
     structure: {
       key: "structure",
-      label: "看结构",
+      label: "查看关联",
       relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "insight",
       workbenchPanelOpen: false,
@@ -47,7 +49,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     },
     relations: {
       key: "relations",
-      label: "找缺口",
+      label: "补充关联",
       relationType: GRAPH_DEFAULT_RELATION_TYPE_FILTER,
       lens: "bridge",
       workbenchPanelOpen: true,
@@ -57,7 +59,7 @@ export function applyGraphTaskViewInteraction(graphState = {}, viewValue = "", d
     },
     themes: {
       key: "themes",
-      label: "找主题",
+      label: "整理主题",
       relationType: "index",
       lens: "insight",
       workbenchPanelOpen: true,
@@ -108,6 +110,16 @@ export function applyGraphRelationTypeFilterInteraction(graphState = {}, relatio
   });
   const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "all");
   const relationType = setGraphRelationTypeFilter(String(relationTypeValue || "all").trim() || "all");
+  if (relationType === "index") {
+    graphState.readingLens = "insight";
+    graphState.workbenchPanelOpen = true;
+    graphState.workbenchPanelTab = "questions";
+    graphState.thinkingFilter = "theme";
+  } else if (graphState.workbenchPanelTab === "questions") {
+    graphState.workbenchPanelOpen = false;
+    graphState.workbenchPanelTab = "clues";
+    graphState.thinkingFilter = "";
+  }
   return {
     relationType,
     label: relationType === "all" ? "全部关系" : graphRelationTypeLabel(relationType)
