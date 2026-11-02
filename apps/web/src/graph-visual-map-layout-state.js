@@ -1,6 +1,7 @@
 import {
   buildGraphVisualMapAdjacencyMap
 } from "./graph-visual-map-selection-state.js";
+import { GRAPH_MEANINGFUL_RELATION_TYPES } from "./graph-view-mode-state.js";
 
 export function buildGraphVisualMapLayoutState({
   nodes = [],
@@ -54,7 +55,8 @@ export function buildGraphVisualMapLayoutState({
     ? {
         structureFallback: true,
         totalCount: relationFilterEdges.length,
-        meaningfulCount: edges.length,
+        meaningfulCount: relationFilterEdges.filter(edge => GRAPH_MEANINGFUL_RELATION_TYPES.has(edge.relationType)).length,
+        structureFallbackCount: edges.length,
         indexCount: 0
       }
     : null;

@@ -120,6 +120,7 @@ export function createGraphRouteRuntime(deps = {}) {
     const suggestedTitle = String(title || suggestedThemeIndexTitle(eligibleIds)).trim();
     const confirmation = await requestGraphThemeConfirmation({
       notes: eligibleIds.map(id => writingNoteById(id) || writingKnownNoteById(id)), title: suggestedTitle,
+      edges: graphState.item?.edges || [],
       draft: themeConfirmationRecovery?.draft || null,
       saveError: themeConfirmationRecovery?.error || ""
     });

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { applyGraphRelationTypeFilterInteraction, applyGraphTaskViewInteraction } from "../../apps/web/src/graph-toolbar-interaction-controller.js";
 
 import {
   GRAPH_RELATION_TYPE_FILTER_KEY,
@@ -8,6 +9,7 @@ import {
   graphHasMeaningfulStructureEdges,
   graphReadingModeMeta,
   graphStructureFallbackEdges,
+  graphTaskViewForState,
   graphViewModeForRelationType,
   normalizeGraphRelationTypeFilter,
   renderGraphRelationTypeFilter,
@@ -64,6 +66,29 @@ test("graph view mode state exposes direct reading mode copy", () => {
   assert.equal(graphReadingModeMeta("bad").key, "argument");
   assert.match(graphReadingModeMeta("argument").purpose, /相邻笔记/);
   assert.equal(graphReadingModeMeta("argument").label, "查看关联");
+});
+
+test("filter changes keep the active task and its panel consistent", () => {
+  const graphState = { filters: {} };
+  const deps = { setGraphRelationTypeFilter: value => (graphState.filters.relationType = value) };
+  applyGraphTaskViewInteraction(graphState, "themes", deps);
+  applyGraphRelationTypeFilterInteraction(graphState, "supports", deps);
+  assert.equal(graphState.filters.relationType, "supports");
+  assert.equal(graphState.workbenchPanelOpen, false);
+  assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "structure");
+  applyGraphTaskViewInteraction(graphState, "relations", deps);
+  applyGraphRelationTypeFilterInteraction(graphState, "index", deps);
+  assert.equal(graphState.workbenchPanelOpen, true);
+  assert.equal(graphState.workbenchPanelTab, "questions");
+  assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "themes");
+});
+
+test("reference-only theme maps keep their actual links visible", () => {
+  const edges = [{ fromNoteId: "a", toNoteId: "b", relationType: "associated_with" }];
+  const visible = graphStructureFallbackEdges(edges, { relationType: "index" }, {
+    graphEdgeMatchesFilters: (_edge, filters) => filters.relationType === "all"
+  });
+  assert.deepEqual(visible, edges);
 });
 
 test("graph relation type setter updates graph state and persists when allowed", () => {

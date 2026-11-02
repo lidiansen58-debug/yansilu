@@ -108,6 +108,17 @@ export function applyGraphRelationTypeFilterInteraction(graphState = {}, relatio
   });
   const graphRelationTypeLabel = deps.graphRelationTypeLabel || ((value) => String(value || "").trim() || "all");
   const relationType = setGraphRelationTypeFilter(String(relationTypeValue || "all").trim() || "all");
+  if (relationType === "index") {
+    graphState.readingLens = "insight";
+    graphState.workbenchPanelOpen = true;
+    graphState.workbenchPanelTab = "questions";
+    graphState.thinkingFilter = "theme";
+    graphState.selection = null;
+  } else if (graphState.workbenchPanelTab === "questions") {
+    graphState.workbenchPanelOpen = false;
+    graphState.thinkingFilter = "";
+    graphState.selection = null;
+  }
   return {
     relationType,
     label: relationType === "all" ? "全部关系" : graphRelationTypeLabel(relationType)

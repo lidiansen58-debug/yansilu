@@ -1,8 +1,11 @@
 import { escapeHtml } from "./editor-render-utils.js";
 import { graphNotePreviewTextForLocalRelation } from "./graph-local-relations.js";
+import { graphThemeRelationEvidence } from "./graph-theme-confirmed-payload.js";
 
-export function renderGraphThemeConfirmation({ notes = [], draft = null, saveError = "" } = {}) {
+export function renderGraphThemeConfirmation({ notes = [], edges = [], draft = null, saveError = "" } = {}) {
   const selectedIds = draft ? new Set(draft.noteIds || []) : null;
+  const noteMap = new Map(notes.map(note => [note.id, note]));
+  const internalEdges = edges.filter(edge => noteMap.has(edge.fromNoteId) && noteMap.has(edge.toNoteId));
   return `<div class="modal graph-theme-confirmation">
     <h2 id="graphThemeConfirmationTitle">整理成一个主题</h2>
     <form data-graph-theme-confirmation-form>
@@ -11,7 +14,7 @@ export function renderGraphThemeConfirmation({ notes = [], draft = null, saveErr
       <div class="graph-theme-confirmation-notes">
         ${notes.map(note => `<label class="graph-theme-confirmation-note">
           <input type="checkbox" name="noteId" value="${escapeHtml(note.id)}"${!selectedIds || selectedIds.has(note.id) ? " checked" : ""} />
-          <span><strong>${escapeHtml(note.title || note.id)}</strong><small>${escapeHtml(graphNotePreviewTextForLocalRelation(note))}</small></span>
+          <span><strong>${escapeHtml(note.title || note.id)}</strong><small>${escapeHtml(graphNotePreviewTextForLocalRelation(note))}</small>${graphThemeRelationEvidence(note.id, id => noteMap.get(id), internalEdges.filter(edge => edge.fromNoteId === note.id)).map(text => `<small class="graph-theme-note-evidence">${escapeHtml(text)}</small>`).join("")}</span>
         </label>`).join("")}
       </div>
       <details${draft ? " open" : ""}><summary>主题名称与笔记用途</summary>

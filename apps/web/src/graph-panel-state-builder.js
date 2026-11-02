@@ -25,7 +25,6 @@ export function buildGraphPanelState({
     graphConflictItemInNodeScope = () => false,
     graphReviewQueueInNodeScope = (queue) => queue,
     graphBridgeGapInNodeScope = () => false,
-    graphHasMeaningfulStructureEdges = () => false,
     graphStructureFallbackEdges = (edges = []) => edges,
     graphComputedIsolatedNotes = () => [],
     graphMarkIsolatedNodes = (nodes = []) => nodes,
@@ -101,7 +100,7 @@ export function buildGraphPanelState({
   const scopedReviewQueue = graphReviewQueueInNodeScope(graphState.reviewQueue, scopedActionNodeIds);
   const bridgeGaps = (Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : []).filter((gap) => graphBridgeGapInNodeScope(gap, scopedActionNodeIds));
   let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
-  const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges.length && graphHasMeaningfulStructureEdges(focused.edges);
+  const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges.length && focused.edges.length > 0;
   if (structureFallback) {
     filteredEdges = graphStructureFallbackEdges(focused.edges, activeFilters);
   }

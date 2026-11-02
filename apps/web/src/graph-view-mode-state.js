@@ -161,5 +161,6 @@ export function graphHasMeaningfulStructureEdges(edges = []) {
 export function graphStructureFallbackEdges(edges = [], filters = {}, deps = {}) {
   const graphEdgeMatchesFilters = deps.graphEdgeMatchesFilters || (() => true);
   const baseFilters = { ...filters, relationType: "meaningful" };
-  return (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
+  const specificEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
+  return specificEdges.length ? specificEdges : (Array.isArray(edges) ? edges : []).filter(edge => graphEdgeMatchesFilters(edge, { ...filters, relationType: "all" }));
 }

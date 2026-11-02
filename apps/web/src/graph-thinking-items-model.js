@@ -263,7 +263,7 @@ export function buildGraphThinkingItemsForGraph({ nodes = [], edges = [], bridge
       view: "theme",
       tone: "theme",
       title,
-      meta: `${group.noteIds.length} 条笔记 · ${group.edges.length} 条已保存关系`,
+      meta: `${group.noteIds.length} 条笔记 · ${group.edges.length} 条已保存关系 · ${[...new Set(group.edges.map(edge => graphRelationTypeLabel(edge.relationType)))].join("、")}`,
       detail: group.notes.filter((note) => note.id !== group.anchor.id).map((note) => note.title || note.id).join("、"),
       question: "这些相关笔记，能否围绕一个问题写作？由你确认问题和材料。",
       actionLabel: "选材料并写作",

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -718,7 +718,7 @@ test("graph structure view falls back to galaxy clusters instead of an empty map
 
   assert.equal(panelState.structureFallback, true);
   assert.deepEqual(panelState.edges, fallbackEdges);
-  assert.match(panelStateBuilderSource, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && graphHasMeaningfulStructureEdges\(focused\.edges\);/);
+  assert.match(panelStateBuilderSource, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && focused\.edges\.length > 0;/);
   assert.match(panelStateBuilderSource, /filteredEdges = graphStructureFallbackEdges\(focused\.edges, activeFilters\);/);
   assert.match(html, /\.graph-structure-fallback-note \{[\s\S]*background: rgba\(239, 250, 255, 0\.9\);/);
 });

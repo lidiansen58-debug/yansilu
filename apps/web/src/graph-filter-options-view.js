@@ -37,8 +37,8 @@ export function graphFilterOptionsForRuntime(edges, field, selected, allLabel, l
       leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>相关、引用等 (${noisyCount})</option>`);
     }
     if (indexCount > 0 || structureFallback) {
-      const indexDisplayCount = structureFallback && selectedKey === "index" ? meaningfulCount || totalCount : indexCount;
-      const indexLabel = structureFallback && indexCount <= 0 ? "按关系找主题" : "主题关系";
+      const indexDisplayCount = structureFallback && selectedKey === "index" ? statsOverride?.structureFallbackCount ?? (meaningfulCount || totalCount) : indexCount;
+      const indexLabel = structureFallback && indexCount <= 0 ? "整理主题的关联" : "主题关系";
       leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>${escapeHtml(indexLabel)} (${indexDisplayCount})</option>`);
     }
     const selectedTypeHasOption =
