@@ -101,6 +101,18 @@ test("graph visual shell props keep regular selections in side panel", () => {
   assert.equal(props.sidePanelMarkup, '<div class="graph-side-stack"><aside>workbench</aside><section>node selection</section></div>');
 });
 
+test("theme filtering presents a single selected detail or material panel", () => {
+  for (const selection of [{ kind: "node", nodeId: "n1" }, { kind: "edge", edgeKey: "id:e1" }, null]) {
+    const props = buildGraphVisualMapShellProps({
+      runtimeState: runtime({ activeSelection: selection, modeMeta: { key: "structure" } }),
+      selectionContextMarkup: selection ? "<section>selected detail</section>" : "",
+      workbenchPanelMarkup: "<aside>materials</aside>"
+    });
+    assert.equal(props.sidePanelMarkup.includes("materials"), !selection);
+    assert.equal(props.sidePanelMarkup.includes("selected detail"), Boolean(selection));
+  }
+});
+
 test("graph visual shell props keeps task details in the side panel instead of a lower action row", () => {
   const props = buildGraphVisualMapShellProps({
     runtimeState: runtime({ researchNavigatorCanOpen: true }),

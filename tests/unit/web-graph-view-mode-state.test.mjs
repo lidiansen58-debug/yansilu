@@ -86,6 +86,16 @@ test("filter changes keep the active task and its panel consistent", () => {
   assert.equal(graphTaskViewForState(graphState.filters.relationType, graphState.readingLens), "themes");
 });
 
+test("theme relation filtering retains a selected note or relation for visibility normalization", () => {
+  for (const selection of [{ kind: "node", nodeId: "a" }, { kind: "edge", edgeKey: "id:topic-link" }]) {
+    const graphState = { filters: { relationType: "all" }, selection };
+    applyGraphRelationTypeFilterInteraction(graphState, "index");
+    assert.deepEqual(graphState.selection, selection);
+    assert.equal(graphState.workbenchPanelOpen, true);
+    assert.equal(graphState.workbenchPanelTab, "questions");
+  }
+});
+
 test("reference-only theme maps keep their actual links visible", () => {
   const edges = [{ fromNoteId: "a", toNoteId: "b", relationType: "associated_with" }];
   const visible = graphStructureFallbackEdges(edges, { relationType: "index" }, {

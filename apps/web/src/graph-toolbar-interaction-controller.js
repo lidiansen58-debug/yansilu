@@ -115,7 +115,6 @@ export function applyGraphRelationTypeFilterInteraction(graphState = {}, relatio
     graphState.workbenchPanelOpen = true;
     graphState.workbenchPanelTab = "questions";
     graphState.thinkingFilter = "theme";
-    graphState.selection = null;
   } else if (graphState.workbenchPanelTab === "questions") {
     graphState.workbenchPanelOpen = false;
     graphState.workbenchPanelTab = "clues";
