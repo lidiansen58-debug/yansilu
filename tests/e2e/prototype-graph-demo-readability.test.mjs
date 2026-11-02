@@ -14,7 +14,9 @@ test("the real bundled demo is readable and leads from saved relationships to a 
   const modelCalls = [], errors = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("request", request => {
-    if (request.method() === "POST" && /ai-analysis|\/ai\/|\/agent-runs|\/test-chat/.test(new URL(request.url()).pathname)) modelCalls.push(request.url());
+    const route = new URL(request.url()).pathname;
+    // Startup previews route metadata locally; it does not invoke a model.
+    if (request.method() === "POST" && route !== "/api/v1/ai/route-preview" && /ai-analysis|\/ai\/|\/agent-runs|\/test-chat/.test(route)) modelCalls.push(request.url());
   });
   const graph = (await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_original_default&includeDescendants=true")).json.item;
   assert.equal(graph.nodes.length, 24); assert.equal(graph.edges.length, 51);
@@ -106,6 +108,22 @@ test("the real bundled demo is readable and leads from saved relationships to a 
     }).map(el => el.closest('[data-node-id]').dataset.nodeId);
   });
   assert.deepEqual(clipped, [], 'Fit includes every endpoint and title after a saved article adds a note');
+  const saved = (await fetchJson(apiBase, '/api/v1/writing-projects?limit=50')).json.items.find(item => item.title === question);
+  for (const width of [1366, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('.rail-btn[data-module="writing"]').click();
+    await page.getByRole('button', { name: '显示全部 4 个主题', exact: true }).waitFor({ timeout: 8000 });
+    await page.locator('#btnWritingExpandThemes').click();
+    const resume = page.locator(`#writingThemeIndexList [data-writing-project-id="${saved.id}"]`);
+    await resume.getByText('继续草稿', { exact: true }).waitFor();
+    await resume.click();
+    await page.locator('#writingDraftPanel:visible').waitFor();
+    await useWritingMarkdown(page);
+    assert.equal(await page.locator('#writingDraftEditor').inputValue(), body, `${width}px: Reopening finds the graph-created theme and its saved body`);
+    assert.equal((await fetchJson(apiBase, `/api/v1/writing-projects/${saved.id}`)).json.item.draft_note_id, saved.draft_note_id);
+  }
+  assert.deepEqual(await snapshotDemoNoteInventory(apiBase), inventory);
   assert.deepEqual(modelCalls, []); assert.deepEqual(errors, []);
 });
 

@@ -39,14 +39,14 @@ test("an old material load failure cannot replace the current vault's feedback",
   assert.equal(writingState.materialsError, "New vault feedback");
 });
 
-test("plain writing entry uses the same empty-folder Vault fallback as a theme refresh", async () => {
+test("plain writing entry uses the Vault library regardless of the materials folder", async () => {
   const queries = [], writingState = { projectFilters: {} };
   const controller = createWritingEntryRuntimeController(() => ({ writingState,
     writingThemeIndexScopeDirectoryId: () => "usage-notes",
     listIndexCards: async query => { queries.push(query); return query.directoryId ? [] : [{ id: "vault-theme" }]; }
   }));
   await controller.openWritingModule({ statusMessage: "" });
-  assert.deepEqual(queries.map(query => query.directoryId), ["usage-notes", undefined]);
+  assert.deepEqual(queries.map(query => query.directoryId), [undefined]);
   assert.deepEqual(writingState.themeIndexes, [{ id: "vault-theme" }]);
   assert.equal(writingState.loadingThemeIndexes, false);
 });

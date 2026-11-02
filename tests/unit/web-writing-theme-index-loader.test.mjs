@@ -2,20 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loadWritingThemeIndexesForRuntime } from "../../apps/web/src/writing-theme-index-loader.js";
 
-test("a folder without themes offers the current Vault themes without changing the folder", async () => {
+test("the theme library includes saved themes outside the materials folder even when that folder has themes", async () => {
   const queries = [], writingState = {};
-  const result = await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "usage-notes",
-    listIndexCards: async query => { queries.push(query); return query.directoryId ? [] : [{ id: "existing-theme" }]; },
+  const items = [{ id: "saved-graph-theme" }, { id: "folder-theme" }];
+  const result = await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "materials-folder",
+    listIndexCards: async query => { queries.push(query); return query.directoryId ? [items[1]] : items; },
     renderWritingPanel: () => {} });
-  assert.deepEqual(result, [{ id: "existing-theme" }]);
+  assert.deepEqual(result, items);
   assert.deepEqual(queries, [
-    { directoryId: "usage-notes", includeDescendants: true, indexType: "topic", limit: 50 },
     { includeDescendants: true, indexType: "topic", limit: 50 }
   ]);
   assert.deepEqual(writingState.themeIndexes, result);
 });
 
-test("an existing folder theme keeps the picker scoped", async () => {
+test("the Vault library does not need a second query for an empty selected folder", async () => {
   let calls = 0;
   const items = [{ id: "local-theme" }];
   assert.deepEqual(await loadWritingThemeIndexesForRuntime({ writingState: {}, directoryId: "has-themes",
@@ -23,7 +23,7 @@ test("an existing folder theme keeps the picker scoped", async () => {
   assert.equal(calls, 1);
 });
 
-test("a changed Vault stops the empty-folder fallback before a second query", async () => {
+test("a changed Vault stops a library request before publishing its result", async () => {
   let current = true, calls = 0;
   const writingState = { themeIndexes: ["keep"] };
   assert.deepEqual(await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "empty-folder",
@@ -33,7 +33,7 @@ test("a changed Vault stops the empty-folder fallback before a second query", as
   assert.deepEqual(writingState.themeIndexes, ["keep"]);
 });
 
-test("a late Vault-wide fallback cannot replace a newer picker", async () => {
+test("a late Vault-wide load cannot replace a newer picker", async () => {
   let release, current = true, renders = 0;
   const writingState = { themeIndexes: ["keep"] };
   const work = loadWritingThemeIndexesForRuntime({ writingState, directoryId: "empty-folder",
@@ -71,7 +71,7 @@ test("newer themes own loading and results even when an old request completes fi
   assert.equal(writingState.loadingThemeIndexes, false);
 });
 
-test("theme loading reads past fifty within the same scope and deduplicates moving rows", async () => {
+test("the Vault library reads past fifty and deduplicates moving rows", async () => {
   const items = Array.from({ length: 53 }, (_, i) => ({ id: `theme-${i}` }));
   const queries = [], writingState = {};
   const loaded = await loadWritingThemeIndexesForRuntime({ writingState, directoryId: "current-folder",
@@ -79,7 +79,7 @@ test("theme loading reads past fifty within the same scope and deduplicates movi
     renderWritingPanel: () => {} });
   assert.deepEqual(loaded, items);
   assert.equal(queries.length, 2);
-  assert.deepEqual(queries[1], { directoryId: "current-folder", includeDescendants: true, indexType: "topic", limit: 50, offset: 50 });
+  assert.deepEqual(queries[1], { includeDescendants: true, indexType: "topic", limit: 50, offset: 50 });
 });
 
 test("a changed Vault during a later page cannot publish partial old themes or continue paging", async () => {
