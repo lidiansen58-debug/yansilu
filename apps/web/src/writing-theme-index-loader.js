@@ -5,41 +5,33 @@ export function beginWritingThemeIndexRequest(writingState, isCurrent = () => tr
   return { ownsRequest, isCurrent: () => ownsRequest() && isCurrent() };
 }
 
-export async function fetchWritingThemeIndexesForScope({ directoryId, listIndexCards, isCurrent = () => true }) {
+export async function fetchWritingThemeIndexesForScope({ listIndexCards, isCurrent = () => true }) {
   if (!isCurrent()) return [];
+  // The library belongs to the current Vault. Material folders only determine
+  // where new themes and drafts are saved, not which saved work can be reopened.
   const query = { includeDescendants: true, indexType: "topic", limit: 50 };
-  const readScope = async scope => {
-    const items = new Map();
-    for (let offset = 0; isCurrent(); offset += query.limit) {
-      const page = await listIndexCards({ ...scope, ...query, ...(offset ? { offset } : {}) });
-      if (!isCurrent()) return [];
-      const previousSize = items.size;
-      for (const item of page) items.set(item?.id ?? item, item);
-      if (page.length < query.limit) return [...items.values()];
-      // An older server ignoring pagination must not turn into an endless load.
-      if (items.size === previousSize) throw new Error("主题列表未能完整读取，请重试。");
-    }
-    return [];
-  };
-  let items = await readScope({ directoryId });
-  if (!isCurrent()) return [];
-  // A note folder without themes should not strand the writer. This changes
-  // only the picker, not the directory used to create a new theme.
-  if (!items.length && String(directoryId || "").trim()) {
-    items = await readScope({});
+  const items = new Map();
+  for (let offset = 0; isCurrent(); offset += query.limit) {
+    const page = await listIndexCards({ ...query, ...(offset ? { offset } : {}) });
+    if (!isCurrent()) return [];
+    const previousSize = items.size;
+    for (const item of page) items.set(item?.id ?? item, item);
+    if (page.length < query.limit) return [...items.values()];
+    // An older server ignoring pagination must not turn into an endless load.
+    if (items.size === previousSize) throw new Error("主题列表未能完整读取，请重试。");
   }
-  return isCurrent() ? items : [];
+  return [];
 }
 
 export async function loadWritingThemeIndexesForRuntime({
-  writingState, directoryId, listIndexCards, renderWritingPanel, isCurrent = () => true
+  writingState, listIndexCards, renderWritingPanel, isCurrent = () => true
 }) {
   if (!isCurrent()) return [];
   const request = beginWritingThemeIndexRequest(writingState, isCurrent);
   writingState.loadingThemeIndexes = true;
   renderWritingPanel();
   try {
-    const items = await fetchWritingThemeIndexesForScope({ directoryId, listIndexCards,
+    const items = await fetchWritingThemeIndexesForScope({ listIndexCards,
       isCurrent: request.isCurrent });
     if (!request.isCurrent()) return [];
     writingState.themeIndexes = items;
