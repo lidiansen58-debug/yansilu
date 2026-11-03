@@ -6,11 +6,63 @@ on:
         description: Successful desktop-release build run for the fixed beta.4 source
         required: true
         default: "41560992567"
+      smoke_only:
+        description: Run installation and launch checks without preparing another release
+        type: boolean
+        default: false
 permissions:
   actions: read
   contents: write
 jobs:
+  install-smoke:
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact: yansilu-linux-bundles
+          - os: macos-latest
+            artifact: yansilu-macos-universal-bundles
+    runs-on: ${{ matrix.os }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Validate fixed build provenance
+        run: node scripts/prepare-beta4-platform-release.mjs provenance
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.artifact }}
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: platform-smoke-bundles
+      - name: Install Linux display and package dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth x11-utils dbus-x11 imagemagick libfuse2t64
+      - name: Install and launch Linux packages
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1366x900x24" dbus-run-session -- node scripts/smoke-platform-install.mjs
+      - name: Install and launch macOS package
+        if: runner.os == 'macOS'
+        run: node scripts/smoke-platform-install.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ runner.os }}-install-smoke-receipt
+          path: platform-install-smoke/
+          if-no-files-found: warn
   prepare-draft:
+    needs: install-smoke
+    if: ${{ !inputs.smoke_only }}
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ github.token }}
