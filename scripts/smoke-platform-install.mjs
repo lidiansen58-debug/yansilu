@@ -81,11 +81,22 @@ async function launch(executable, args, home, directory) {
   };
   delete env.GH_TOKEN;
   delete env.GITHUB_TOKEN;
+  if (process.platform === 'linux') {
+    env.LIBGL_ALWAYS_SOFTWARE = '1';
+    env.WEBKIT_DISABLE_DMABUF_RENDERER = '1';
+  }
   const child = spawn(executable, args, { detached: true, stdio: ['ignore', log.fd, log.fd], env });
   child.on('error', error => { receipt.launchError = error.message; });
   await log.close();
   let health;
+  const collectApiLog = async () => {
+    const data = process.platform === 'darwin'
+      ? path.join(home, 'Library/Application Support/com.notesprout.yansilu')
+      : path.join(home, '.local/share/com.notesprout.yansilu');
+    await fs.copyFile(path.join(data, 'api.log'), path.join(directory, 'api.log')).catch(() => {});
+  };
   const stop = async () => {
+    try {
     try { process.kill(-child.pid, 'SIGTERM'); } catch {}
     for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) await sleep(100);
     if (child.exitCode === null && child.signalCode === null) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
@@ -93,6 +104,7 @@ async function launch(executable, args, home, directory) {
       for (let i = 0; i < 50; i++) { try { process.kill(health.pid, 0); } catch { return; } await sleep(100); }
       throw new Error('Packaged backend did not stop with its native parent');
     }
+    } finally { await collectApiLog(); }
   };
   try {
     health = await waitForHealth(child, home);
@@ -106,7 +118,7 @@ async function exercise(kind, pkg, executable, args = []) {
   const home = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), `yansilu-${kind}-home-`)));
   const first = await launch(executable, args, home, path.join(directory, 'first'));
   let note;
-  const body = '# 安装启动验收\n\n保留原生安装包中的本地记录。';
+  const body = '# 安装启动验收\n\n保留原生安装包中的本地记录。\n';
   try {
     const created = await fetch(first.health.base + '/api/v1/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ directoryId: 'dir_fleeting_default', title: '安装启动验收', body }) });
     assert.equal(created.status, 201);
@@ -126,8 +138,7 @@ try {
   if (process.platform === 'darwin') {
     const pkg = await packageFile('.dmg');
     const mount = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-dmg-mount-'));
-    const installed = path.join(output, 'Applications');
-    await fs.mkdir(installed);
+    const installed = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-installed-applications-'));
     let app;
     run('hdiutil', ['attach', pkg.filename, '-readonly', '-nobrowse', '-mountpoint', mount]);
     try {
