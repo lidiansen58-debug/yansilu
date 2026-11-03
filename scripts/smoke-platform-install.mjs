@@ -4,6 +4,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
+import { captureNativeSmokeWindow } from './platform-install-smoke-window.mjs';
 
 assert.ok(['darwin', 'linux'].includes(process.platform), 'Run on a target macOS/Linux runner');
 assert.equal(process.env.GITHUB_ACTIONS, 'true', 'Installation smoke requires an isolated GitHub runner');
@@ -48,30 +49,6 @@ async function waitForHealth(child, home) {
   }
   throw new Error('Packaged API did not become ready');
 }
-async function nativeWindow(child, directory) {
-  await sleep(1500);
-  if (process.platform === 'linux') {
-    const tree = run('xwininfo', ['-root', '-tree']);
-    await fs.writeFile(path.join(directory, 'windows.txt'), tree, 'utf8');
-    assert.match(tree, /研思录/, 'Native X11 window must exist');
-    run('import', ['-window', 'root', path.join(directory, 'window.png')]);
-    return { windowTitle: '研思录', screenshot: 'window.png' };
-  }
-  const swift = path.join(directory, 'windows.swift');
-  await fs.writeFile(swift, `import Foundation
-import CoreGraphics
-let pid = Int(CommandLine.arguments[1])!
-let all = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-let windows = all.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid && ($0[kCGWindowLayer as String] as? Int) == 0 }
-print(String(data: try JSONSerialization.data(withJSONObject: windows), encoding: .utf8)!)
-`, 'utf8');
-  const windows = JSON.parse(run('swift', [swift, String(child.pid)]));
-  await fs.writeFile(path.join(directory, 'windows.json'), JSON.stringify(windows, null, 2), 'utf8');
-  assert.ok(windows.length, 'Installed macOS application must show a native window');
-  let screenshot = false;
-  try { run('screencapture', ['-x', path.join(directory, 'window.png')]); screenshot = true; } catch {}
-  return { nativeWindowCount: windows.length, screenshotCaptured: screenshot };
-}
 async function launch(executable, args, home, directory) {
   await fs.mkdir(directory, { recursive: true });
   const log = await fs.open(path.join(directory, 'native.log'), 'a');
@@ -97,18 +74,18 @@ async function launch(executable, args, home, directory) {
   };
   const stop = async () => {
     try {
-    try { process.kill(-child.pid, 'SIGTERM'); } catch {}
-    for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) await sleep(100);
-    if (child.exitCode === null && child.signalCode === null) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
-    if (health?.pid) {
-      for (let i = 0; i < 50; i++) { try { process.kill(health.pid, 0); } catch { return; } await sleep(100); }
-      throw new Error('Packaged backend did not stop with its native parent');
-    }
+      try { process.kill(-child.pid, 'SIGTERM'); } catch {}
+      for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) await sleep(100);
+      if (child.exitCode === null && child.signalCode === null) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
+      if (health?.pid) {
+        for (let i = 0; i < 50; i++) { try { process.kill(health.pid, 0); } catch { return; } await sleep(100); }
+        throw new Error('Packaged process group was not cleaned up');
+      }
     } finally { await collectApiLog(); }
   };
   try {
     health = await waitForHealth(child, home);
-    const window = await nativeWindow(child, directory);
+    const window = await captureNativeSmokeWindow(child.pid, directory, run);
     return { health, window, stop };
   } catch (error) { await stop(); throw error; }
 }
@@ -131,7 +108,7 @@ async function exercise(kind, pkg, executable, args = []) {
     const response = await fetch(reopened.health.base + '/api/v1/notes/' + note.id);
     assert.equal(response.status, 200);
     assert.equal((await response.json()).item.body, body);
-    receipt.checks.push({ kind, ...pkg, installedExecutable: executable, nativeWindow: reopened.window, backendVersion: reopened.health.version, freshVault: true, savedNoteReopened: true, status: 'passed' });
+    receipt.checks.push({ kind, ...pkg, installedExecutable: executable, nativeWindow: reopened.window, backendVersion: reopened.health.version, freshVault: true, stopMethod: 'SIGTERM process group', savedNoteReopened: true, status: 'passed' });
   } finally { await reopened.stop(); }
 }
 try {
