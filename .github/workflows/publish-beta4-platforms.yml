@@ -5,7 +5,7 @@ on:
       run_id:
         description: Successful desktop-release build run for the fixed beta.4 source
         required: true
-        default: "41560992567"
+        default: "41567359043"
       smoke_only:
         description: Run installation and launch checks without preparing another release
         type: boolean

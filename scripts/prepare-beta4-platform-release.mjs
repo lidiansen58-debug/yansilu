@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 
 const repo = 'lidiansen58-debug/yansilu';
-const source = '0b80e713a63c9b0bc9aeb5fb439c37de89f38917';
+const source = '59da1e2d893c63b55da5a8c42eac126d907be018';
 const version = '0.1.1-beta.4';
-const tag = 'beta4-mac-linux-ci-0b80e713-20261103';
+const tag = 'beta4-mac-linux-ci-59da1e2d-20261103';
 const runId = process.env.BUILD_RUN_ID;
 assert(/^\d+$/.test(runId || ''), 'Numeric build run required');
 const api = route => JSON.parse(execFileSync('gh', ['api', `repos/${repo}/${route}`], { encoding: 'utf8' }));
