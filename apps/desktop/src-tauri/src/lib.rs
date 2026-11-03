@@ -456,6 +456,10 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
     let metadata = fs::metadata(path)
         .map_err(|error| format!("Cannot inspect executable {}: {error}", path.display()))?;
     let mut permissions = metadata.permissions();
+    // Installed runtimes may be root-owned or mounted read-only (AppImage).
+    if permissions.mode() & 0o111 != 0 {
+        return Ok(());
+    }
     permissions.set_mode(permissions.mode() | 0o755);
     fs::set_permissions(path, permissions)
         .map_err(|error| format!("Cannot mark executable {}: {error}", path.display()))
@@ -464,6 +468,39 @@ fn ensure_executable(path: &Path) -> Result<(), String> {
 #[cfg(not(unix))]
 fn ensure_executable(_path: &Path) -> Result<(), String> {
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod executable_runtime_permission_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn runtime_file(mode: u32) -> PathBuf {
+        let folder = std::env::temp_dir().join(format!("yansilu-runtime-permissions-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir(&folder).unwrap();
+        let file = folder.join("node");
+        fs::write(&file, b"runtime fixture").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(mode)).unwrap();
+        file
+    }
+
+    #[test]
+    fn existing_executable_runtime_permissions_are_preserved() {
+        let file = runtime_file(0o555);
+        ensure_executable(&file).unwrap();
+        assert_eq!(fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o555);
+        fs::remove_file(&file).unwrap();
+        fs::remove_dir(file.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn owned_runtime_without_execute_permission_is_repaired() {
+        let file = runtime_file(0o644);
+        ensure_executable(&file).unwrap();
+        assert_eq!(fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o755);
+        fs::remove_file(&file).unwrap();
+        fs::remove_dir(file.parent().unwrap()).unwrap();
+    }
 }
 
 #[derive(Clone)]

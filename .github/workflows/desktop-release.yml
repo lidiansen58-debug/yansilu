@@ -162,6 +162,10 @@ jobs:
       - name: Desktop preflight
         run: npm run build:desktop:check
 
+      - name: Test executable runtime permissions
+        if: runner.os != 'Windows'
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib executable_runtime_permission_tests
+
       - name: Build desktop bundles
         if: runner.os != 'macOS'
         run: npm run build:desktop

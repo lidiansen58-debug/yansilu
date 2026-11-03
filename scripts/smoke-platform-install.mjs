@@ -138,7 +138,7 @@ try {
   if (process.platform === 'darwin') {
     const pkg = await packageFile('.dmg');
     const mount = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-dmg-mount-'));
-    const installed = await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-installed-applications-'));
+    const installed = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'yansilu-installed-applications-')));
     let app;
     run('hdiutil', ['attach', pkg.filename, '-readonly', '-nobrowse', '-mountpoint', mount]);
     try {
