@@ -8,10 +8,10 @@
     "notice": "Beta 测试版，需手动安装。安装前建议备份现有笔记库。",
     "platformNotices": {
       "windows": "Beta 测试版。首次使用需手动安装；已有 Windows 版可在设置中检查更新。安装包未进行代码签名，可能显示 SmartScreen 提示。",
-      "macos": "Beta 测试版，2026-11-02 重打包，需手动安装。Universal 包支持 Intel 和 M 系列，已完成 Apple 签名与公证；本轮尚未进行 Mac 实机安装验收。",
-      "linux": "Beta 测试版，2026-11-02 重打包，需手动安装。基于 Ubuntu 24.04 x64 构建，CI 打包检查已通过；本轮尚未进行 Linux 实机安装验收。"
+      "macos": "Beta 测试版，2026-11-03 更新，需手动安装。Universal 包支持 Intel 和 M 系列，已完成 Apple 签名与公证。",
+      "linux": "Beta 测试版，2026-11-03 更新，需手动安装。适用于 Ubuntu 24.04 及兼容的 x64 系统，提供 AppImage 和 DEB。"
     },
-    "generatedAt": "2026-11-01T16:22:54.453Z",
+    "generatedAt": "2026-11-03T03:01:46.494Z",
     "totalFiles": 4,
     "items": [
       {
@@ -25,26 +25,26 @@
       {
         "file": "yansilu_0.1.1-beta.4_universal.dmg",
         "version": "0.1.1-beta.4",
-        "releaseTag": "beta4-mac-linux-ci-109af856-20261102",
-        "bytes": 186626189,
-        "sha256": "149d7934aeb0158567afcacea0b062a55cf27c515c240845e24a97baa71646aa",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-109af856-20261102/yansilu_0.1.1-beta.4_universal.dmg"
+        "releaseTag": "beta4-mac-linux-ci-59da1e2d-20261103",
+        "bytes": 156317861,
+        "sha256": "f49807d600f14251ee187560fe1764993ff91a09cfa9808a512182a3a47cb4eb",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-59da1e2d-20261103/yansilu_0.1.1-beta.4_universal.dmg"
       },
       {
         "file": "yansilu_0.1.1-beta.4_amd64.AppImage",
         "version": "0.1.1-beta.4",
-        "releaseTag": "beta4-mac-linux-ci-109af856-20261102",
-        "bytes": 136829432,
-        "sha256": "498e92a35cf1f15f7051509b0f360b7da0297a44e8fcfbc752be9bf7235719ac",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-109af856-20261102/yansilu_0.1.1-beta.4_amd64.AppImage"
+        "releaseTag": "beta4-mac-linux-ci-59da1e2d-20261103",
+        "bytes": 136837624,
+        "sha256": "f5d1314278fac4142ed461f578c7e325ec48756bf146af2af555fc9dcf3370ed",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-59da1e2d-20261103/yansilu_0.1.1-beta.4_amd64.AppImage"
       },
       {
         "file": "yansilu_0.1.1-beta.4_amd64.deb",
         "version": "0.1.1-beta.4",
-        "releaseTag": "beta4-mac-linux-ci-109af856-20261102",
-        "bytes": 65470708,
-        "sha256": "85329ca755dca1133176fa730582e9aa5ab05e72a144db8130132053d38c06e8",
-        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-109af856-20261102/yansilu_0.1.1-beta.4_amd64.deb"
+        "releaseTag": "beta4-mac-linux-ci-59da1e2d-20261103",
+        "bytes": 65472604,
+        "sha256": "04ec926bfcb1aa52b958c252767d9796abf70c45beb43452eed9e8fa39c9e65b",
+        "downloadUrl": "https://github.com/lidiansen58-debug/yansilu/releases/download/beta4-mac-linux-ci-59da1e2d-20261103/yansilu_0.1.1-beta.4_amd64.deb"
       }
     ]
   }
