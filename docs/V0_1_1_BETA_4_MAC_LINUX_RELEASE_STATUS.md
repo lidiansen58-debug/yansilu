@@ -9,7 +9,7 @@
 - 固定产品源码 `59da1e2d893c63b55da5a8c42eac126d907be018`；官网和发布辅助脚本的后续改动不改变安装包源码。
 - [正式构建 41567359043](https://github.com/lidiansen58-debug/yansilu/actions/runs/41567359043) 成功，macOS、Linux 打包回归、可执行文件权限单元测试及构建均通过。
 - macOS Universal 同时包含 Intel 与 Apple Silicon 架构；应用、内置 Node.js、DMG 签名检查通过，Node.js JIT 权限验证通过，应用和 DMG 完成 Apple 公证与票据装订。
-- [安装与发布准备 41568640075](https://github.com/lidiansen58-debug/yansilu/actions/runs/41568640075)：托管 Apple Silicon macOS 从 DMG 复制应用、卸载镜像后启动；Ubuntu 24.04 安装 DEB 后以普通用户启动，并运行 AppImage。三个包均验证原生窗口、内置 API、独立笔记库、保存测试笔记及终止进程组后重新打开读取。这里的停止方式为进程组 SIGTERM，不代指人工正常关闭窗口流程。
+- [安装与发布准备 41569885299](https://github.com/lidiansen58-debug/yansilu/actions/runs/41569885299)：托管 Apple Silicon macOS 从 DMG 复制应用、卸载镜像后启动；Ubuntu 24.04 安装 DEB 后以普通用户启动，并运行 AppImage。三个包均验证原生窗口、内置 API、独立笔记库、保存测试笔记及终止进程组后重新打开读取。这里的停止方式为进程组 SIGTERM，不代指人工正常关闭窗口流程。
 - 发布准备还校验全部文件库存、路径、大小和 SHA-256，使用固定产品源码的更新公钥验证四个安装/更新文件的签名，并确认篡改字节会被拒绝；DEB 也包含独立更新签名。发布前逐项对比 GitHub 资产摘要和 CI 清单。
 
 ## 官网安装包
@@ -28,4 +28,4 @@
 
 [11 月 2 日的 beta.4](https://github.com/lidiansen58-debug/yansilu/releases/tag/beta4-mac-linux-ci-109af856-20261102)、[10 月 23 日的 beta.4](https://github.com/lidiansen58-debug/yansilu/releases/tag/beta4-mac-linux-ci-4e9e2db4-20261023) 和更早版本继续保留。需要回退时可从[历史版本](https://github.com/lidiansen58-debug/yansilu/releases)手动下载安装；官网配置可回退到本次改动之前的清单，Windows 更新通道无需改变。未通过 Linux 安装启动检查的 `0b80e713` 候选保持草稿，不用于官网。
 
-官网使用既有 Cloudflare Pages `yansilu` 项目的 `main` 生产分支手动部署，合并源码不会自动部署。部署时使用验收过的同一份静态产物，再核对线上下载页、下载清单及三个新安装包的公开地址。发布工作流不能自行创建涉及工作流修改提交的新标签；操作员应先推送指向固定产品源码的发布标签，再运行发布准备。
+官网使用既有 Cloudflare Pages `yansilu` 项目的 `main` 生产分支手动部署，合并源码不会自动部署。部署时使用验收过的同一份静态产物，再核对线上下载页、下载清单及三个新安装包的公开地址。若 GitHub Actions 在创建草稿时返回 403，可使用具备发布权限的账号为固定源码预建空的 Beta 草稿，再运行发布准备。脚本仅接收源码匹配、尚无资产的未发布预发布草稿，拒绝替换已有资产。
