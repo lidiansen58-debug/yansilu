@@ -83,9 +83,16 @@ assert.equal(records.filter(record => record.file.endsWith('.deb')).length, 1);
 const receipt = { ...provenance, verifiedAt: new Date().toISOString(), records, nativeMachineAcceptanceClaimed: false, updaterChannelsChanged: false, publicReleaseChanged: false };
 await fs.writeFile(path.join(output, 'platform-bundle-manifest.json'), JSON.stringify(receipt, null, 2));
 await fs.writeFile(path.join(output, 'SHA256SUMS.txt'), [...records.map(record => `${record.sha256}  ${record.file}`), `${hash(await fs.readFile(path.join(output, 'platform-bundle-manifest.json')))}  platform-bundle-manifest.json`].join('\n') + '\n');
-const notes = `研思录 macOS / Linux ${version} · 2026-11-03 重打包。\n\n本次包含图谱阅读、关联与主题写作优化，以及退出重开后找回原主题、继续原草稿的修复；写作无需模型 Key，已有笔记和正文不迁移。\n\nmacOS 为 Intel 与 Apple Silicon 共用的 Universal 包，已通过 Apple 签名、公证和装订检查；Linux 提供 x64 AppImage 与 DEB，CI 打包回归通过。\n\n这是同版本重打包，已有 beta.4 用户需手动下载安装。本轮尚未完成 Mac/Linux 实机安装与主流程验收；保留 Beta 预发布及手动安装。Windows 包和既有自动更新入口保持原样。\n\n来源：${source}，构建：${run.html_url}。提供更新公钥签名及 SHA-256；DEB 提供 SHA-256。\n`;
+const notes = `研思录 macOS / Linux ${version} · 2026-11-03 重打包。\n\n本次包含图谱阅读、关联与主题写作优化，以及退出重开后找回原主题、继续原草稿的修复；同时修复 Unix 安装后内置运行时权限导致无法启动的问题；写作无需模型 Key，已有笔记和正文不迁移。\n\nmacOS 为 Intel 与 Apple Silicon 共用的 Universal 包，已通过 Apple 签名、公证和装订检查；Linux 提供 x64 AppImage 与 DEB，CI 打包回归通过。\n\n这是同版本重打包，已有 beta.4 用户需手动下载安装。托管 macOS（Apple Silicon）与 Ubuntu 24.04 已通过安装、窗口启动、测试笔记保存及终止进程后重开读取检查。尚未覆盖 Intel Mac、用户实体设备、输入法及完整人工主流程；保留 Beta 预发布及手动安装。Windows 包和既有自动更新入口保持原样。\n\n来源：${source}，构建：${run.html_url}。提供更新公钥签名及 SHA-256；DEB 提供 SHA-256。\n`;
 await fs.writeFile(path.join(receiptDir, 'release-notes.md'), notes);
 await fs.writeFile(path.join(receiptDir, 'verification.json'), JSON.stringify(receipt, null, 2));
-execFileSync('gh', ['release', 'create', tag, '--repo', repo, '--target', source, '--draft', '--prerelease', '--latest=false', '--title', `macOS / Linux ${version}`, '--notes-file', path.join(receiptDir, 'release-notes.md')], { stdio: 'inherit' });
+const existing = api('releases?per_page=100').find(release => release.tag_name === tag);
+if (existing) {
+  assert(existing.draft && existing.prerelease, 'Only an unpublished prerelease may receive assets');
+  assert.equal(existing.target_commitish, source, 'Draft must use the fixed product source');
+  assert.equal(existing.assets.length, 0, 'Never replace existing release assets');
+} else {
+  execFileSync('gh', ['release', 'create', tag, '--repo', repo, '--target', source, '--draft', '--prerelease', '--latest=false', '--title', `macOS / Linux ${version}`, '--notes-file', path.join(receiptDir, 'release-notes.md')], { stdio: 'inherit' });
+}
 execFileSync('gh', ['release', 'upload', tag, '--repo', repo, ...(await fs.readdir(output)).map(file => path.join(output, file))], { stdio: 'inherit' });
 console.log(JSON.stringify({ draftPrepared: true, tag, ...provenance }));
