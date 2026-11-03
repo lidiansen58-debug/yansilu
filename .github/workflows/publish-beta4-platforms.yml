@@ -5,7 +5,7 @@ on:
       run_id:
         description: Successful desktop-release build run for the fixed beta.4 source
         required: true
-        default: "41324166633"
+        default: "41560992567"
 permissions:
   actions: read
   contents: write
